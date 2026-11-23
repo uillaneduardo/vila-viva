@@ -2,8 +2,8 @@ import {views} from "./features/navigation/views.js";
 import {renderPage} from "./features/navigation/pages.js";
 import {renderInspector} from "./features/inspector/render.js";
 import {renderActivityMarkup} from "./features/activity/render.js";
-import {worlds,createDemoState} from "./mock.js";
-import {createMap} from "./map.js";
+import {worlds,createDemoState} from "../../../packages/demo-world/src/fixtures.js";
+import {createMap} from "../../../packages/renderer/src/map.js";
 const $=id=>document.getElementById(id);
 let state=createDemoState(),view="world";
 
