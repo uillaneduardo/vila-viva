@@ -90,7 +90,7 @@ jobs:
           image-tag: ${{ needs.publish.outputs.image_tag }}
           registry-user: ${{ github.actor }}
           registry-token: ${{ secrets.GITHUB_TOKEN }}
-          health-url: http://127.0.0.1:8480/healthz
+          health-url: http://127.0.0.1:8481/healthz
           env-file: ''
           services: web
           release-file: .release.svr2.env
