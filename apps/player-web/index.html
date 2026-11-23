@@ -1,7 +1,46 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vila Viva · Jogador</title><link rel="stylesheet" href="/apps/shared-ui/style.css"></head><body data-role="player">
-<header><span class="brand">✳ Vila Viva</span><span class="mode" data-i18n="mode.player">JOGADOR · MUNDO</span><nav class="links"><a href="/" data-i18n="navigation.player">Jogador</a><a href="/admin" data-i18n="navigation.admin">Admin</a></nav></header>
-<main><section class="panel"><div class="map-head"><div><strong id="world-name" data-i18n="world.default">Mundo</strong><p><span data-i18n="world.mapStatus">Mapa real alimentado pelo motor · tick</span> <span id="tick">0</span></p></div><button class="topbtn" id="refresh" data-i18n="world.refresh">Atualizar</button></div><div class="map-container"><canvas id="map" width="672" height="448" tabindex="0" data-i18n-aria="world.mapAria" aria-label="Mapa; clique em uma célula para selecionar"></canvas></div></section>
-<aside class="panel"><div class="details"><h2 data-i18n="inspector.player">Seleção e ação</h2><p><span data-i18n="inspector.coordinate">Célula:</span> <strong id="selected-position">5, 5</strong></p><div id="selection" class="part" data-i18n="inspector.selectEntity">Selecione uma entidade.</div>
-<input type="hidden" id="entity-name"><input type="hidden" id="resource-type"><input type="hidden" id="quantity">
-<div class="part"><strong data-i18n="actions.title">Ações disponíveis para a seleção</strong><div id="actions" class="actions"></div></div><div class="part"><p id="feedback" role="status" aria-live="polite" data-i18n="feedback.selectTile">Selecione um tile para iniciar.</p></div><p class="warn" data-i18n="notice.unsafe">Prévia local sem autenticação/persistência. Não publicar na internet.</p></div></aside></main>
-<footer><span data-i18n="footer.prototype">G1 · Motor e contratos novos · Sem código legado</span> · <span class="tag" data-i18n="footer.local">LOOPBACK / DEV</span></footer><script type="module" src="/apps/shared-ui/app.js"></script></body></html>
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vila Viva · Jogador</title>
+<link rel="stylesheet" href="/apps/shared-ui/style.css"></head>
+<body data-role="player">
+<canvas id="game" tabindex="0" aria-label="Mapa interativo da simulação"></canvas>
+<div id="interface">
+ <header class="brand glass"><span class="logo">✳</span><span><strong id="worldName">Vila Viva</strong><small>JOGADOR · MUNDO</small></span></header>
+ <div class="top-center">
+  <div class="top-group glass"><div class="time"><strong id="day">Dia —</strong><small id="clockTime">—:—</small></div><span class="divider"></span>
+   <button id="speed0" class="time-btn" title="Pausar/retomar (&#39;)" aria-label="Pausar ou retomar">⏸</button>
+   <button id="speed1" class="time-btn" title="Velocidade 1× (1)">1×</button>
+   <button id="speed2" class="time-btn" title="Velocidade 2× (2)">2×</button>
+   <button id="speed4" class="time-btn" title="Velocidade 4× (3)">4×</button>
+  </div>
+  <div class="top-group glass resources"><span class="upper-label">DEPÓSITO</span>
+   <span class="resource"><b class="resource-icon wood">♣</b><strong id="woodCount">—</strong></span>
+   <span class="resource"><b class="resource-icon food">●</b><strong id="foodCount">—</strong></span>
+   <span class="resource"><b class="resource-icon stone">◆</b><strong id="stoneCount">—</strong></span>
+  </div>
+ </div>
+ <div class="top-right"><span class="glass badge"><i class="status-dot"></i><span id="connection">Conectando…</span></span><span class="glass badge" id="population">— habitantes</span></div>
+ <span class="glass tool-badge" id="toolBadge">Modo observar</span>
+ <nav id="dock" class="dock glass" aria-label="Ferramentas do Modo Deus"></nav>
+ <div id="brushPanel" class="brush glass" hidden>
+  <strong id="brushName">Pincel</strong><span class="sep"></span><span>Tamanho</span>
+  <button id="brushMinus" title="Diminuir pincel">−</button><output id="brushValue">1 × 1</output><button id="brushPlus" title="Aumentar pincel">+</button>
+  <input id="brushSize" type="range" min="1" max="15" value="1" step="1" aria-label="Tamanho do pincel">
+  <span id="brushCount">1 célula</span>
+ </div>
+ <section id="panel" class="context glass" hidden aria-label="Inspetor contextual">
+  <header class="context-head"><div class="portrait" id="portrait">A</div><div class="head-label"><strong id="panelName">Entidade</strong><small id="panelDesc"></small></div>
+   <button id="follow" title="Seguir entidade"></button><button id="collapse" title="Recolher painel" aria-label="Recolher painel"></button>
+  </header>
+  <div class="context-main"><nav id="panelNav" class="context-nav" aria-label="Seções da entidade"></nav><div id="panelScroll" class="context-scroll"><div id="panelBody" class="context-body"></div></div></div>
+ </section>
+ <button id="expand" class="expand glass" hidden aria-label="Expandir painel contextual" title="Expandir painel"></button>
+ <div id="tooltip" class="tooltip glass" hidden><strong id="tooltipName"></strong><small id="tooltipHealth"></small><small id="tooltipActivity"></small><small id="tooltipRoute"></small></div>
+ <div class="glass bottom-note" id="introHint"></div>
+ <div class="glass bottom-left"><b>Mouse</b> selecionar / arrastar　<b>WASD</b> câmera　<b>Roda</b> zoom</div>
+ <div class="glass bottom-right">Zoom <span id="zoom">100%</span> · <span id="coordinates">x: — · y: —</span></div>
+ <div class="status glass" role="status" aria-live="polite" id="statusMessage"></div>
+ <div class="world-tick glass" id="worldTick">Tick —</div>
+</div>
+<script type="module" src="/apps/shared-ui/app.js"></script>
+</body></html>

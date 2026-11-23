@@ -20,6 +20,7 @@ export function applyCommand(world: World, command: Command): Result {
  if (command.action==="npc.spawn" || command.action==="resource.spawn"){
   if (!admin) return reject(command,"UNAUTHORIZED");
   if (!command.position || !inBounds(world,command.position)) return reject(command,"OUT_OF_BOUNDS");
+  if(world.entities.some(e=>e.position.x===command.position!.x&&e.position.y===command.position!.y))return reject(command,"BLOCKED");
   const id = command.action==="npc.spawn"?"npc-"+command.commandId:"resource-"+command.commandId;
   if (command.action==="npc.spawn"){
    const name = command.parameters?.name;
@@ -55,4 +56,10 @@ export function applyCommand(world: World, command: Command): Result {
  const expired=world.entities.filter(e=>e.kind==="character").flatMap(e=>expireEffects(e,e.id,world.tick));
  // Effect expiry emits event *intents*. The reproduction subsystem must validate and consume birth_due.
  return {ok:true,status:"completed",commandId:command.commandId,tick:world.tick,events:[{type:command.action,entityId:command.targetId??world.entities.at(-1)?.id},...expired.map(e=>({type:e.type,entityId:e.targetId}))]};
+}
+
+/** Explicit logical clock progression; presentation never invokes this directly. */
+export function advanceTick(world:World){
+ world.tick+=1;
+ return world.entities.filter(e=>e.kind==="character").flatMap(e=>expireEffects(e,e.id,world.tick));
 }

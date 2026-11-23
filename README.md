@@ -40,3 +40,6 @@ Toda a implementação antiga está em [`.old/`](.old/). A cópia preserva inclu
 
 ## Roadmap
 Issues #15 (arquitetura), #17 (ações e fluxos), #19 (Casa Comunitária e família). O próximo marco é o primeiro ciclo jogável real com operações físicas e inspectores, seguido por ambientes de homologação isolados.
+
+## Nova interface modular (UI-V1)
+A shell sandbox desktop da interface aprovada foi implementada com HUD central superior, dock inferior, inspetor contextual proporcional com navegação vertical, câmera WASD/pan/zoom e pincéis administrativos. O renderer consome entidades reais, sem simular depósitos, IA ou construções. Execute `npm run dev` e abra `http://127.0.0.1:8086/admin` **localmente**. Consulte `docs/ui/UI_V1_INTEGRATION.md`. Nenhum deploy ou exposição pública automática é permitido.

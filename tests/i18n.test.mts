@@ -21,11 +21,13 @@ test("every data-i18n key referenced in UI has a translation",async()=>{
  }
 });
 
-test("form control labels remain separate from localized text nodes",async()=>{
+test("approved UI preserves functional brush controls without localization mutating children",async()=>{
  const {readFile}=await import("node:fs/promises");
  const html=await readFile(new URL("../apps/admin-web/index.html",import.meta.url),"utf8");
  assert.doesNotMatch(html,/<label\s+data-i18n=/);
- assert.match(html,/<label><span data-i18n="form.npcName">/);
- assert.match(html,/<label><span data-i18n="form.resourceType">/);
- assert.match(html,/<label><span data-i18n="form.quantity">/);
+ for(const id of ["brushSize","brushMinus","brushPlus","brushValue","brushPanel","dock","panelNav"]){
+  assert.match(html,new RegExp('id="'+id+'"'));
+ }
+ // UI messages remain in the i18n catalog; entity titles are localized by /api/catalog.
+ assert.equal(typeof UI_MESSAGES["pt-BR"]["resource.wood"],"string");
 });
