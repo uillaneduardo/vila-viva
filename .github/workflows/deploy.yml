@@ -35,7 +35,7 @@ jobs:
           node --check lab.js
           node --test tests/lab.test.cjs
       - name: Verify Docker build
-        run: docker build -t vila-viva:test .
+        run: docker build --build-arg SOURCE_SHA="${GITHUB_SHA}" -t vila-viva:test .
       - name: Verify files inside deployment image
         run: |
           docker run -d --name vila-viva-ci -p 127.0.0.1:18761:80 vila-viva:test
@@ -43,6 +43,7 @@ jobs:
           docker exec vila-viva-ci test -s /usr/share/nginx/html/index.html
           docker exec vila-viva-ci test -s /usr/share/nginx/html/app.js
           docker exec vila-viva-ci test -s /usr/share/nginx/html/lab.js
+          docker exec vila-viva-ci sh -c 'test "$(cat /usr/share/nginx/html/version.txt)" = "$1"' -- "$GITHUB_SHA"
           docker exec vila-viva-ci mkdir -p /usr/share/nginx/html/tests
           docker cp tests/browser-smoke.html vila-viva-ci:/usr/share/nginx/html/tests/browser-smoke.html
           for i in 1 2 3 4 5; do
@@ -55,6 +56,7 @@ jobs:
             tail -20 /tmp/vila-viva-image-chrome.log || true
             exit 1
           fi
+          test "$(curl -fsS http://127.0.0.1:18761/version.txt | tr -d '\r\n')" = "$GITHUB_SHA"
           echo "Production image browser smoke passed"
   publish:
     needs: verify
@@ -81,6 +83,8 @@ jobs:
         with:
           context: .
           push: true
+          build-args: |
+            SOURCE_SHA=${{ github.sha }}
           tags: |
             ghcr.io/uillaneduardo/vila-viva:${{ steps.meta.outputs.tag }}
             ghcr.io/uillaneduardo/vila-viva:main
@@ -124,3 +128,21 @@ jobs:
           env-file: ''
           services: web
           release-file: .release.svr2.env
+      - name: Verify public domain serves the deployed revision
+        if: steps.latest.outputs.current == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="${GITHUB_SHA}"
+          url="https://vila-viva-svr2.ulln.com.br/version.txt?revision=${expected}"
+          for attempt in 1 2 3 4 5 6; do
+            actual="$(curl -fsS --max-time 12 -H 'Cache-Control: no-cache' "$url" 2>/dev/null | tr -d '\r\n' || true)"
+            if [[ "$actual" == "$expected" ]]; then
+              echo "Public domain is serving ${expected}"
+              exit 0
+            fi
+            echo "Public check ${attempt}/6: expected ${expected}, received '${actual:0:100}'"
+            sleep 5
+          done
+          echo "::error::Public domain is not serving validated deployment revision"
+          exit 1
