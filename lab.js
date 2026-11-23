@@ -56,6 +56,9 @@ window.VilaLab = (() => {
    }
    if(n.phase==="toSleep"){if(approachFn(n,{x:14,y:9})){n.phase="sleep";record(w,n,"Iniciou sono","Chegou ao abrigo da vila");}return true;}
    if(n.energy<=0&&n.phase!=="rest"&&n.phase!=="toRest"){n.phase="rest";n.site=null;n.workLeft=0;n.cargo&&record(w,n,"Interrompeu atividade","Exaustão; carga mantida");return true;}
+   if(n.phase==="waitStorage"){if(n.cargo && free(w)>=wt(n.cargo.key,n.cargo.qty)){n.phase="toDepot";record(w,n,"Retomar entrega","Espaço no depósito voltou a ficar disponível");}else{n.energy=Math.min(100,n.energy+.1);}return true;}
+   if(n.phase==="toDepot"&&n.cargo&&free(w)<wt(n.cargo.key,n.cargo.qty)){n.phase="waitStorage";n.site=null;record(w,n,"Entrega suspensa","Depósito sem capacidade suficiente; carga preservada");return true;}
+   if(n.phase==="idle"&&n.cargo){n.phase="toDepot";return true;}
    if(n.phase==="toDepot"&&n.hunger<12){n.phase="toFood";record(w,n,"Interrompeu transporte","Fome crítica; carga preservada");return true;}
    if(n.phase==="idle"||n.phase==="social"||n.phase==="rest"){
      if(n.hunger<34&&w.stock.food>0){n.phase="toFood";n.site=null;record(w,n,"Procurar comida","Saciedade "+Math.round(n.hunger)+"%; depósito possui alimento");return true;}
@@ -105,7 +108,7 @@ window.VilaLab = (() => {
    if(target){selected=target;refresh(w,target,sites);return true;}return false;
  }
  function refresh(w,current,sites){
-   if(!panel||!w)return;ensure(w,sites);selected=current||selected;
+   if(!panel||!w)return;ensure(w,sites);if(current&&current.kind!=="lab")selected=current;
    const ins=panel.querySelector("#lab-inspection");let out="";
    if(selected.kind==="npc"||selected.kind==="player"){
      const n=selected.kind==="player"?w.player:w.npcs.find(z=>z.id===selected.id);
