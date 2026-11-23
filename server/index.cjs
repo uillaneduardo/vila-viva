@@ -46,6 +46,22 @@ function command(e,data){
   const id=data.preset+"-"+crypto.randomUUID().slice(0,8),s={id,name:p[0],x,y,resource:p[1],qty:p[2],work:p[3],icon:p[4],cap:p[7]};
   w.extraSites.push(s);api.sites.push(s);w.lab.resources[id]={amount:p[5],max:p[5],regen:p[6]};break;
  }
+ case "npc":{
+  if(w.npcs.length>=24)throw Error("Limite de 24 moradores atingido");
+  const names={collector:"Coletor",farmer:"Fazendeiro",mason:"Pedreiro",builder:"Construtor",merchant:"Mercador",leader:"Líder"};
+  const role=String(data.role||"collector");
+  if(!Object.hasOwn(names,role))throw Error("Profissão inválida");
+  const name=String(data.name||"").trim().slice(0,32);
+  if(!name)throw Error("Nome obrigatório");
+  const colors={collector:"#9fd083",farmer:"#dcae64",mason:"#94c5cb",builder:"#d9a279",merchant:"#b5a4e8",leader:"#f1d18b"};
+  const n={id:"npc-"+crypto.randomUUID().slice(0,12),job:role,name,role:names[role],color:colors[role],x:14,y:9,
+   energy:85,mood:75,phase:"idle",site:null,cargo:null,workLeft:0,restReason:null,
+   hunger:72,sleepNeed:15,health:100,carryCapacity:20};
+  w.npcs.push(n);api.lab.ensure(w,api.sites);
+  w.logs.unshift({day:w.day,minute:Math.floor(w.minute),text:"✨ "+name+" chegou à vila."});
+  w.logs=w.logs.slice(0,80);
+  break;
+ }
  case "nextday":for(let i=0;i<1440;i++)api.tick(w);break;
  default:throw Error("Comando desconhecido");
  }
