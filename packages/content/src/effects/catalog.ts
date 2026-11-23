@@ -1,0 +1,29 @@
+import type {EffectDefinition} from "../../../domain/src/effects.ts";
+export const EFFECTS:Readonly<Record<string,Readonly<EffectDefinition>>>=Object.freeze({
+ sad:{
+  id:"sad",tags:["emotion","negative"],lifetime:{kind:"timed",durationTicks:12},
+  stacking:"refresh",modifiers:[{attribute:"moodMax",operation:"add",value:-20}]
+ },
+ happy:{
+  id:"happy",tags:["emotion","positive"],lifetime:{kind:"timed",durationTicks:10},
+  stacking:"refresh",modifiers:[{attribute:"mood",operation:"add",value:15}]
+ },
+ well_sheltered:{
+  id:"well_sheltered",tags:["housing","positive"],lifetime:{kind:"conditional"},
+  stacking:"unique",modifiers:[{attribute:"mood",operation:"add",value:10}]
+ },
+ gestation:{
+  id:"gestation",tags:["pregnancy","lifecycle"],lifetime:{kind:"timed",durationTicks:40},
+  stacking:"unique",
+  modifiers:[{attribute:"movementSpeed",operation:"multiply",value:.85},{attribute:"workRate",operation:"multiply",value:.8},{attribute:"carryCapacity",operation:"multiply",value:.75}],
+  onExpire:{eventType:"reproduction.birth_due"}
+ },
+ postpartum_recovery:{
+  id:"postpartum_recovery",tags:["lifecycle","recovery"],lifetime:{kind:"timed",durationTicks:12},
+  stacking:"unique",modifiers:[{attribute:"movementSpeed",operation:"multiply",value:.9},{attribute:"workRate",operation:"multiply",value:.7},{attribute:"carryCapacity",operation:"multiply",value:.5}]
+ },
+ injured:{
+  id:"injured",tags:["health","negative"],lifetime:{kind:"timed",durationTicks:8},
+  stacking:"refresh",modifiers:[{attribute:"movementSpeed",operation:"multiply",value:.65},{attribute:"workRate",operation:"multiply",value:.7}]
+ }
+});

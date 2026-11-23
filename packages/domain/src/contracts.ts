@@ -3,7 +3,8 @@ export type EntityKind = "character" | "resource";
 export type ActionId = "entity.inspect" | "movement.move" | "npc.spawn" | "resource.spawn";
 export type FailureCode = "UNAUTHORIZED" | "NOT_FOUND" | "INVALID_TARGET" | "INVALID_PAYLOAD" | "OUT_OF_BOUNDS" | "BLOCKED" | "DUPLICATE_COMMAND";
 export interface Position { x: number; y: number }
-export interface Character { id: string; kind: "character"; name: string; position: Position; health: number; energy: number; ownerId?: string }
+import type {ActiveEffect,AttributeId} from "./effects.ts";
+export interface Character { id: string; kind: "character"; name: string; position: Position; health: number; energy: number; ownerId?: string; attributes?: Partial<Record<AttributeId,number>>; effects?: ActiveEffect[] }
 export interface Resource { id: string; kind: "resource"; resourceType: string; position: Position; quantity: number; maximum: number }
 export type Entity = Character | Resource;
 export interface World { id: string; tick: number; width: number; height: number; entities: Entity[]; appliedCommands: string[] }

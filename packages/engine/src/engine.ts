@@ -1,3 +1,5 @@
+import {expireEffects} from "../../systems/effects/src/manager.ts";
+import {resolveAttributes} from "../../systems/effects/src/resolver.ts";
 import {baseRegistry,resourcePreset} from "../../content/src/catalog.ts";
 import {inBounds} from "../../domain/src/contracts.ts";
 import type {Command, World, Result, Character, Resource, Position} from "../../domain/src/contracts.ts";
@@ -39,7 +41,7 @@ export function applyCommand(world: World, command: Command): Result {
   if(character.kind!=="character")return reject(command,"INVALID_TARGET");
   if(!command.actorId || (command.actorRole==="npc" ? command.actorId!==character.id : !character.ownerId || character.ownerId!==command.actorId))return reject(command,"UNAUTHORIZED");
   if(!command.position || !inBounds(world,command.position))return reject(command,"OUT_OF_BOUNDS");
-  if(character.energy<=0 || Math.abs(character.position.x-command.position.x)+Math.abs(character.position.y-command.position.y)!==1)return reject(command,"BLOCKED");
+  if(resolveAttributes({...character,attributes:{...character.attributes,energy:character.energy,health:character.health}},world.tick).values.energy<=0 || Math.abs(character.position.x-command.position.x)+Math.abs(character.position.y-command.position.y)!==1)return reject(command,"BLOCKED");
   // Single orthogonal tile per command. No pathfinding or timed movement in this foundational slice.
   character.position={...command.position};
   character.energy=Math.max(0,character.energy-1);
@@ -50,5 +52,7 @@ export function applyCommand(world: World, command: Command): Result {
  } else return reject(command,"INVALID_PAYLOAD");
  world.appliedCommands.push(command.commandId);
  world.tick+=1;
- return {ok:true,status:"completed",commandId:command.commandId,tick:world.tick,events:[{type:command.action,entityId:command.targetId??world.entities.at(-1)?.id}]};
+ const expired=world.entities.filter(e=>e.kind==="character").flatMap(e=>expireEffects(e,e.id,world.tick));
+ // Effect expiry emits event *intents*. The reproduction subsystem must validate and consume birth_due.
+ return {ok:true,status:"completed",commandId:command.commandId,tick:world.tick,events:[{type:command.action,entityId:command.targetId??world.entities.at(-1)?.id},...expired.map(e=>({type:e.type,entityId:e.targetId}))]};
 }
