@@ -78,10 +78,12 @@ retries="${DEPLOY_HEALTH_RETRIES:-20}"
 for ((attempt=1; attempt<=retries; attempt++)); do
   if curl -fsS --max-time 3 "$DEPLOY_HEALTH_URL" >/dev/null; then
     runtime_base="${DEPLOY_HEALTH_URL%/healthz}"
-    actual_sha="$(curl -fsS --max-time 4 -H 'Cache-Control: no-cache' "$runtime_base/version.txt" | tr -d '\\r\\n')" || fail "Runtime release marker not reachable"
+    actual_sha="$(curl -fsS --max-time 4 -H 'Cache-Control: no-cache' "$runtime_base/version.txt" | tr -d '\r\n')" || fail "Runtime release marker not reachable"
     [[ "$actual_sha" == "$DEPLOY_VALIDATED_SHA" ]] || fail "Running container is stale: expected $DEPLOY_VALIDATED_SHA but received $actual_sha"
-    curl -fsS --max-time 4 "$runtime_base/lab.js" | grep -q 'window.VilaLab' || fail "Running container does not serve lab.js"
-    curl -fsS --max-time 4 "$runtime_base/app.js" | grep -q 'function setup' || fail "Running container does not serve app.js"
+    curl -fsS --max-time 4 "$runtime_base/lab.js" > /tmp/vila-deployed-lab.js || fail "Running container does not serve lab.js"
+    grep -q 'window.VilaLab' /tmp/vila-deployed-lab.js || fail "lab.js does not contain VilaLab"
+    curl -fsS --max-time 4 "$runtime_base/app.js" > /tmp/vila-deployed-app.js || fail "Running container does not serve app.js"
+    grep -q 'function setup' /tmp/vila-deployed-app.js || fail "app.js does not contain setup"
     umask 077
     marker="$DEPLOY_APP_DIR/$DEPLOY_RELEASE_FILE"
     mkdir -p "$(dirname "$marker")"
