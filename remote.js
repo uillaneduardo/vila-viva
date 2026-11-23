@@ -5,7 +5,7 @@
  let pending=false,selectedSource=null,updating=false;
  const notify=message=>{let target=el("server-state");if(target)target.textContent=message;};
  async function request(url,method="GET",data){
-  const resp=await fetch(url,{method,headers:{"Content-Type":"application/json"},body:data?JSON.stringify(data):undefined,cache:"no-store"});
+  const resp=await fetch(url,{method,headers:{"Content-Type":"application/json"},body:data?JSON.stringify(data):undefined,cache:"no-store",signal:AbortSignal.timeout(4000)});
   const result=await resp.json();if(!resp.ok)throw Error(result.error||"Falha na API");return result;
  }
  async function syncList(){
