@@ -47,8 +47,8 @@ function updateHover(point){
  el('tooltipRoute').textContent=view?.route?.length?'Rota calculada: '+view.route.length+' pontos':'Rota ainda não disponível (pathfinder pendente)';
  scene.setRoute(view?.route??null);
  const tip=el('tooltip');
- tip.style.left=Math.min(scene.camera.width-248,point.x+16)+'px';
- tip.style.top=Math.min(scene.camera.height-128,point.y+12)+'px';
+ tip.style.left=Math.max(8,Math.min(scene.camera.width-248,point.x+16))+'px';
+ tip.style.top=Math.max(8,Math.min(scene.camera.height-128,point.y+12))+'px';
  tip.hidden=false;
 }
 function addBrushAt(point){
@@ -108,7 +108,17 @@ scene.canvas.addEventListener('pointermove',e=>{
  const point=eventCoordinates(e);scene.pointer=point;
  const tile=scene.camera.tileAt(point.x,point.y);el('coordinates').textContent='x: '+tile.x+' · y: '+tile.y;
  if(pan&&pan.id===e.pointerId){
-  if(pan.brush){addBrushAt(point);pan.last=point;return;}
+  if(pan.brush){
+   // Sample between pointer events so quick strokes do not skip cells.
+   const distance=Math.hypot(point.x-pan.last.x,point.y-pan.last.y);
+   const step=scene.camera.tile*scene.camera.zoom*.5;
+   const samples=Math.min(80,Math.max(1,Math.ceil(distance/Math.max(4,step))));
+   for(let i=1;i<=samples;i++){
+    const mix=i/samples;
+    addBrushAt({x:pan.last.x+(point.x-pan.last.x)*mix,y:pan.last.y+(point.y-pan.last.y)*mix});
+   }
+   pan.last=point;return;
+  }
   const diff=Math.hypot(point.x-pan.start.x,point.y-pan.start.y);
   if(diff>5&&(pan.button===1||!pan.entity))pan.drag=true;
   if(pan.drag){scene.camera.pan(point.x-pan.last.x,point.y-pan.last.y);scene.canvas.classList.add('dragging');}
