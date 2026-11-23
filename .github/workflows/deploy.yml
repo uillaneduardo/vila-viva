@@ -81,7 +81,7 @@ jobs:
             core.setOutput('current', String(branch.data.commit.sha === context.sha));
       - name: Deploy using engineering standard
         if: steps.latest.outputs.current == 'true'
-        uses: uillaneduardo/engineering/.github/actions/ghcr-compose-deploy@965309726fb9a773b74c099de8d4f7ca4f69c0c3
+        uses: ./.github/actions/ghcr-compose-deploy
         with:
           app-dir: /home/uillan/homelab2/apps/vila-viva
           compose-source: compose.yml
