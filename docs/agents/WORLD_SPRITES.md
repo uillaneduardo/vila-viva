@@ -10,3 +10,7 @@
 - Esta integração não altera os assets de UI `packages/ui/assets`; os dois domínios são independentes.
 - Validação: `npm test`; conferir visualmente no navegador zoom, pivô e sobreposição. Aprovação visual final de `leafless` e equivalência de copa segue pendente.
 - Entrega/infraestrutura: somente código e assets para a vNext. **Nenhum deploy público**: a raiz vNext deliberadamente não publica no homelab2. Não ativar proxy/tunnel para o backend sem autenticação, isolamento e persistência.
+
+
+## Atualização — espécie de macieira e ciclo de vida
+A fonte `resource.food` **não é mais um tipo visual genérico**: instâncias com `sourceId=apple_tree` são macieiras; a quantidade deriva de produção por tick em `packages/systems/nature`. Estados `leafless / foliage / fruit_sparse / fruit_ripe` são projeções do ciclo de vida e do recurso disponível. Mudas/jovens usam escala menor do mesmo atlas; envelhecidas e mortas podem usar `leafless` sem adicionar novo sprite. Os obstáculos `boulder / wall / statue` usam fallback geométrico e colisão no motor. Veja `docs/gameplay/NATURAL_SOURCES_AND_COLLISION.md`.
