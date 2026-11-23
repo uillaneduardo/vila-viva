@@ -17,3 +17,13 @@ Abra `apps/admin-web/index.html` no navegador ou sirva `apps/admin-web/` com um 
 A1 — Admin shell, mapa, inspeção, menus e ferramentas em dados mock; A2 — homologação responsiva/touch e design system; A3 — contratos do cliente; E1 — núcleo headless; E2 — persistência; E3 — WebSocket e sincronização; E4 — permissões; E5 — deploy e homologação.
 
 Não fazer merge na main até existir um novo deploy seguro e testes adequados. Issue #15.
+
+## A2 — Modularização da interface
+A composição principal permanece em `apps/admin-web/src/app.js`. As telas, atividade e inspeção foram extraídas para `src/features/`, com escape de dados de exibição em `src/shared/`. Tokens de tema em `src/styles/tokens.css` e breakpoints em `responsive.css`.
+
+### Verificação
+```bash
+cd apps/admin-web
+npm test
+```
+O workflow `Admin UI checks` executa verificação de sintaxe e testes no Ubuntu 24.04 / Node 22. Esta etapa **não inclui backend, WebSocket, persistência nem deploy**.
