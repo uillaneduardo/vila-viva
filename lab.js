@@ -135,7 +135,7 @@ window.VilaLab = (() => {
    ensure(w,sites);
    const targets=[{kind:"depot",x:13,y:8},{kind:"board",x:15,y:7},...w.lab.drops.map((d,i)=>({kind:"drop",id:i,x:d.x,y:d.y}))];
    const target=targets.find(t=>Math.hypot(t.x*TILE+20-x,t.y*TILE+20-y)<29);
-   if(target){selected=target;refresh(w,target,sites);return true;}return false;
+   if(target){selected=target;refresh(w,target,sites);window.VilaGodView?.select(target.kind,target.id);return true;}return false;
  }
  function refresh(w,current,sites){
    if(!panel||!w)return;ensure(w,sites);if(current&&current.kind!=="lab")selected=current;
