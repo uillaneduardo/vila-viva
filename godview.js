@@ -73,8 +73,8 @@
   const w=world();if(!w)return;
   if(worldId!==w.id){worldId=w.id;selection={kind:"overview"};inspectCache=""}
   const html=inspector(w);if(html!==inspectCache){$("god-inspector-content").innerHTML=html;inspectCache=html}
-  $("god-clock").textContent=tm(w);$("god-population").textContent=w.npcs.length;
-  $("god-stock").textContent=used(w).toFixed(1)+" kg";$("god-building").textContent=Math.min(w.project?.stage||0,4)+"/4";
+  $("god-clock").textContent=tm(w);$("god-population").textContent=w.npcs.filter(n=>n.phase!=="dead").length;
+  $("god-stock").textContent=used(w).toFixed(1)+" kg";$("god-food").textContent=(w.stock?.food||0)+" un.";const alive=w.npcs.filter(n=>n.phase!=="dead");$("god-health").textContent=Math.round(alive.reduce((sum,n)=>sum+(n.health??100),0)/Math.max(1,alive.length))+"%";$("god-blocked").textContent=w.npcs.filter(n=>n.phase==="waitStorage"||["idle","social"].includes(n.phase)&&n.lastDecision?.action==="Sem tarefa viável").length;$("god-building").textContent=Math.min(w.project?.stage||0,4)+"/4";
   $("god-live-state").textContent=w.run?.paused?"⏸ Pausada":window.VilaRemote?.connected?"● Ao vivo":"○ Local";
   if(modalOpen)paintWorlds();if(historyOpen)paintHistory(w);
  }
@@ -117,6 +117,9 @@
   const dock=document.createElement("div");dock.id="god-dock";dock.innerHTML='<div class="god-dock-stat"><small>Relógio</small><strong id="god-clock"></strong></div>'+
    '<div class="god-dock-stat"><small>Moradores</small><strong id="god-population"></strong></div>'+
    '<div class="god-dock-stat"><small>Estoque</small><strong id="god-stock"></strong></div>'+
+   '<div class="god-dock-stat"><small>Alimento</small><strong id="god-food"></strong></div>'+
+   '<div class="god-dock-stat"><small>Saúde média</small><strong id="god-health"></strong></div>'+
+   '<div class="god-dock-stat"><small>Bloqueados</small><strong id="god-blocked"></strong></div>'+
    '<div class="god-dock-stat"><small>Obra</small><strong id="god-building"></strong></div>'+
    '<div class="god-dock-stat"><small>Estado</small><strong id="god-live-state"></strong></div><button id="god-history">☷ Histórico</button>';
   document.querySelector(".layout>main").append(dock);
@@ -127,6 +130,17 @@
   camera.innerHTML='<button type="button" id="god-zoom-out" aria-label="Diminuir zoom" title="Diminuir zoom">−</button><span id="god-map-zoom">100%</span><button type="button" id="god-zoom-in" aria-label="Aumentar zoom" title="Aumentar zoom">+</button><button type="button" id="god-map-center" title="Centralizar mapa">Centrar</button>';
   map.append(camera);
   const cv=$("map"),zoomLabel=$("god-map-zoom");
+  const hover=document.createElement("div");hover.id="god-npc-hover";hover.hidden=true;document.body.append(hover);
+  cv.addEventListener("pointermove",e=>{
+   if(e.pointerType==="touch"||e.buttons){hover.hidden=true;return;}
+   const w=world(),r=cv.getBoundingClientRect();if(!w||!r.width)return;
+   const x=(e.clientX-r.left)*cv.width/r.width,y=(e.clientY-r.top)*cv.height/r.height;
+   const n=w.npcs.find(n=>{const p=window.VilaMotion?.(n)||n;return Math.hypot(p.x*40+20-x,p.y*40+23-y)<25});
+   if(!n){hover.hidden=true;return;}
+   hover.innerHTML="<strong>"+esc(n.name)+"</strong><small>"+esc(n.role)+" · "+esc(n.phase)+"</small><span>❤ "+Math.round(n.health??100)+"% &nbsp; 🍎 "+Math.round(n.hunger??100)+"% &nbsp; ⚡ "+Math.round(n.energy)+"%</span><small>"+esc(n.lastDecision?.action||"Sem decisão recente")+"</small>";
+   hover.style.left=Math.min(innerWidth-230,e.clientX+16)+"px";hover.style.top=Math.max(8,Math.min(innerHeight-116,e.clientY+14))+"px";hover.hidden=false;
+  });
+  cv.addEventListener("pointerleave",()=>hover.hidden=true);
   function syncZoom(){zoomLabel.textContent=Math.round(cv.getBoundingClientRect().width/map.clientWidth*100)+"%";}
   $("god-zoom-out").onclick=()=>{$("lab-zoom-out")?.click();syncZoom()};
   $("god-zoom-in").onclick=()=>{$("lab-zoom-in")?.click();syncZoom()};

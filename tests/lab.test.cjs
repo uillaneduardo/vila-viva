@@ -82,3 +82,23 @@ test("builder material transport is chosen when construction needs materials",()
  w.npcs[0].id="merchant";w.npcs[0].name="Nilo";w.stock.food=60;L.ensure(w,sites);
  assert.equal(L.choose(w,w.npcs[0],sites),"supply:wood");
 });
+
+test("storage wait does not suppress urgent hunger",()=>{
+ const L=lab(),w=world(),n=w.npcs[0];L.ensure(w,sites);
+ n.phase="waitStorage";n.cargo={key:"wood",qty:4};n.hunger=18;w.lab.depotCapacity=L.used(w);
+ assert.equal(L.needsAction(w,n,()=>true),true);
+ assert.equal(n.phase,"toFood");
+ assert.equal(n.cargo.qty,4);
+ assert.equal(L.needsAction(w,n,()=>true),true);
+ assert.equal(w.stock.food,4);
+ assert.ok(n.hunger>18);
+});
+test("starvation can reach zero health and ends NPC activity",()=>{
+ const L=lab(),w=world(),n=w.npcs[0];L.ensure(w,sites);
+ n.phase="idle";n.hunger=0;n.health=.05;w.stock.food=0;
+ L.endTick(w,sites);
+ assert.equal(n.health,0);
+ assert.equal(n.phase,"dead");
+ assert.equal(L.needsAction(w,n,()=>true),true);
+ assert.equal(n.phase,"dead");
+});

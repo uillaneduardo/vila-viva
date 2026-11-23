@@ -4,7 +4,8 @@ const ROOT=path.resolve(__dirname,".."),DIR=process.env.DATA_DIR||"/data",PORT=N
 fs.mkdirSync(DIR,{recursive:true});
 const labSource=fs.readFileSync(path.join(ROOT,"lab.js"),"utf8");
 const appSource=fs.readFileSync(path.join(ROOT,"app.js"),"utf8").replace(/\bsetup\(\);\s*$/,"");
-const worlds=new Map();
+const worlds=new Map(),subscribers=new Map();
+function publish(e){const clients=subscribers.get(e.w.id);if(!clients?.size)return;const payload="event: snapshot\ndata: "+JSON.stringify({world:e.w})+"\n\n";for(const res of clients){if(res.destroyed){clients.delete(res);continue;}if(!res.write(payload))res.end();}}
 function engine(data){
  const window={};const sandbox={window,console,Math,Date,JSON,setTimeout,clearTimeout,document:{getElementById:()=>({getContext:()=>({imageSmoothingEnabled:false})})},localStorage:{getItem:()=>null,setItem:()=>{}}};
  vm.createContext(sandbox);vm.runInContext(labSource,sandbox,{timeout:1000});sandbox.VilaLab=window.VilaLab;vm.runInContext(appSource,sandbox,{timeout:1000});
@@ -52,6 +53,7 @@ function command(e,data){
 }
 setInterval(()=>{const now=Date.now();for(const e of worlds.values()){try{const ms=Math.min(500,Math.max(0,now-e.lastTick));e.lastTick=now;if(e.w.run.paused)continue;e.carry+=ms/1000*2*e.w.run.speed;let steps=Math.min(100,Math.floor(e.carry));e.carry-=steps;for(let i=0;i<steps;i++)e.api.tick(e.w);if(steps){e.w.revision++;e.dirty=true}}catch(err){console.error("World tick failed",e.w.id,err);e.w.run.paused=true;e.dirty=true}}},100).unref();
 setInterval(()=>{for(const e of worlds.values())if(e.dirty)try{persist(e)}catch(err){console.error("Save failed",err)}},2000);
+setInterval(()=>{for(const e of worlds.values()){if(e.w.revision!==e.lastPublished){e.lastPublished=e.w.revision;publish(e);}}},300);
 process.on("SIGTERM",()=>{for(const e of worlds.values())if(e.dirty)persist(e);process.exit(0)});
 function respond(res,status,body){const data=JSON.stringify(body);res.writeHead(status,{"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store","Access-Control-Allow-Origin":"same-origin"});res.end(data)}
 async function json(req){let s="";for await(const b of req){s+=b;if(s.length>200000)throw Error("Corpo muito grande")}return s?JSON.parse(s):{}}
@@ -67,9 +69,16 @@ http.createServer(async(req,res)=>{try{
   const e=engine();e.w.id=crypto.randomUUID();e.w.name=name;worlds.set(e.w.id,e);bump(e);return respond(res,201,{world:e.w});
  }
  const e=worlds.get(parts[2]);if(!e)return respond(res,404,{error:"Simulação não encontrada"});
+ if(parts.length===4&&parts[3]==="stream"&&req.method==="GET"){
+  const clients=subscribers.get(e.w.id)||new Set();if(clients.size>=20)return respond(res,429,{error:"Limite de observadores"});subscribers.set(e.w.id,clients);
+  res.writeHead(200,{"Content-Type":"text/event-stream; charset=utf-8","Cache-Control":"no-cache, no-transform","Connection":"keep-alive","X-Accel-Buffering":"no"});
+  clients.add(res);res.write("retry: 1500\n\n");res.write("event: snapshot\ndata: "+JSON.stringify({world:e.w})+"\n\n");
+  const heartbeat=setInterval(()=>{if(!res.destroyed)res.write(": heartbeat\n\n")},15000);
+  res.on("close",()=>{clearInterval(heartbeat);clients.delete(res)});return;
+ }
  if(parts.length===3&&req.method==="GET")return respond(res,200,{world:e.w});
  if(parts.length===3&&req.method==="PATCH"){const data=await json(req);const name=String(data.name||"").trim().slice(0,40);if(!name)throw Error("Nome inválido");e.w.name=name;bump(e);return respond(res,200,{world:e.w})}
- if(parts.length===3&&req.method==="DELETE"){if(worlds.size===1)return respond(res,409,{error:"Mantenha ao menos uma simulação"});worlds.delete(e.w.id);fs.rmSync(file(e.w.id),{force:true});return respond(res,200,{ok:true})}
+ if(parts.length===3&&req.method==="DELETE"){if(worlds.size===1)return respond(res,409,{error:"Mantenha ao menos uma simulação"});for(const client of subscribers.get(e.w.id)||[])client.end();subscribers.delete(e.w.id);worlds.delete(e.w.id);fs.rmSync(file(e.w.id),{force:true});return respond(res,200,{ok:true})}
  if(parts[3]==="commands"&&req.method==="POST"){command(e,await json(req));return respond(res,200,{world:e.w})}
  return respond(res,404,{error:"Not found"});
  }catch(err){respond(res,400,{error:String(err.message||err)})}

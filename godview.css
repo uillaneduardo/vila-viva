@@ -173,3 +173,9 @@ button:focus-visible,select:focus-visible{outline:2px solid #d9eab2;outline-offs
  .mapwrap{height:44dvh;min-height:255px}
  .god-map-controls{gap:2px;padding:3px}
 }
+
+/* Lightweight hover card, independent from simulation state updates. */
+#god-npc-hover{position:fixed;z-index:50;width:210px;pointer-events:none;display:flex;flex-direction:column;gap:5px;background:#10231eee;border:1px solid #69876d;border-radius:10px;padding:10px;box-shadow:0 8px 28px #0008;font-size:12px;color:#eaf3df}
+#god-npc-hover[hidden]{display:none}
+#god-npc-hover small{font-size:11px;color:#b9cabb}
+@media(hover:none){#god-npc-hover{display:none!important}}
