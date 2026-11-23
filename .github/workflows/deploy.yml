@@ -57,6 +57,15 @@ jobs:
             exit 1
           fi
           test "$(curl -fsS http://127.0.0.1:18761/version.txt | tr -d '\r\n')" = "$GITHUB_SHA"
+          for script in app lab; do
+            headers="$(mktemp)"
+            body="$(mktemp)"
+            curl -fsS -D "$headers" -o "$body" "http://127.0.0.1:18761/${script}.js?v=${GITHUB_SHA}"
+            grep -Eiq '^content-type: *(application|text)/javascript' "$headers" || { echo "::error::Invalid MIME for ${script}.js"; cat "$headers"; exit 1; }
+            grep -q 'use strict' "$body" || { echo "::error::Invalid JS payload for ${script}.js"; head -c 250 "$body"; exit 1; }
+            rm -f "$headers" "$body"
+          done
+          curl -fsS http://127.0.0.1:18761/index.html | grep -Fq "lab.js?v=${GITHUB_SHA}"
           echo "Production image browser smoke passed"
   publish:
     needs: verify
@@ -139,6 +148,30 @@ jobs:
             actual="$(curl -fsS --max-time 12 -H 'Cache-Control: no-cache' "$url" 2>/dev/null | tr -d '\r\n' || true)"
             if [[ "$actual" == "$expected" ]]; then
               echo "Public domain is serving ${expected}"
+              for script in lab app; do
+                headers="$(mktemp)"
+                body="$(mktemp)"
+                script_url="https://vila-viva-svr2.ulln.com.br/${script}.js?v=${expected}"
+                curl -fsS --max-time 15 -H 'Cache-Control: no-cache' -D "$headers" -o "$body" "$script_url" || { echo "::error::Public ${script}.js request failed"; exit 1; }
+                if ! grep -Eiq '^content-type: *(application|text)/javascript' "$headers"; then
+                  echo "::error::Public ${script}.js has invalid MIME type"
+                  cat "$headers"
+                  echo "First bytes of payload:"
+                  head -c 220 "$body" || true
+                  exit 1
+                fi
+                if ! grep -q 'use strict' "$body"; then
+                  echo "::error::Public ${script}.js body is not JavaScript"
+                  head -c 220 "$body" || true
+                  exit 1
+                fi
+                rm -f "$headers" "$body"
+              done
+              curl -fsS --max-time 15 "https://vila-viva-svr2.ulln.com.br/?revision=${expected}" | grep -Fq "lab.js?v=${expected}" || {
+                echo "::error::Public index.html does not reference cache-busted lab.js for expected commit"
+                exit 1
+              }
+              echo "Public JavaScript MIME, payload and HTML reference verified"
               exit 0
             fi
             echo "Public check ${attempt}/6: expected ${expected}, received '${actual:0:100}'"
