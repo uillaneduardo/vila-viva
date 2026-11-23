@@ -1,9 +1,10 @@
+import {t,localizeDOM} from "../../packages/i18n/src/index.js";
 const $=id=>document.getElementById(id);
 const isAdmin=document.body.dataset.role==="admin";
 const role=isAdmin?"admin":"player";
 let catalog=null,state=null,selected=null,cursor={x:5,y:5},busy=false;
 const tile=28,canvas=$("map"),ctx=canvas.getContext("2d");
-const reason={BLOCKED:"Não está adjacente ou falta energia",OUT_OF_BOUNDS:"Selecione uma célula válida",UNAUTHORIZED:"Ação não permitida",INVALID_PAYLOAD:"Parâmetros inválidos",DUPLICATE_COMMAND:"Comando já utilizado",NOT_FOUND:"Entidade não encontrada"};
+const reason=code=>{try{return t("error."+code);}catch{return code;}};
 const request=async(path,options)=>{const response=await fetch(path,options);const data=await response.json();if(!response.ok&& !data.result)throw Error(data.error||"Falha de rede");return data;};
 const coordinates=(event)=>{const rect=canvas.getBoundingClientRect(),scale=canvas.width/rect.width;return {x:Math.floor((event.clientX-rect.left)*scale/tile),y:Math.floor((event.clientY-rect.top)*scale/tile)};};
 function paint(){
@@ -26,9 +27,9 @@ function paint(){
 function writeInspector(){
  const e=state.world.entities.find(item=>item.id===selected);
  $("selection").replaceChildren();
- if(!e){$("selection").textContent="Escolha uma célula ou entidade no mapa.";return;}
+ if(!e){$("selection").textContent=t("inspector.empty");return;}
  const title=document.createElement("strong");title.textContent=e.kind==="character"?e.name:(catalog?.resources?.[e.resourceType]??e.resourceType);
- const detail=document.createElement("p");detail.textContent=e.kind==="character"?"Saúde "+e.health+" · Energia "+e.energy:e.quantity+" / "+e.maximum+" unidades";
+ const detail=document.createElement("p");detail.textContent=e.kind==="character"?t("inspector.healthEnergy",{health:e.health,energy:e.energy}):t("inspector.resourceQuantity",{quantity:e.quantity,maximum:e.maximum});
  $("selection").append(title,detail);
 }
 async function refresh(){
@@ -47,20 +48,20 @@ async function updateActions(){
   const button=document.createElement("button");button.type="button";button.disabled=busy||!a.enabled;
   button.className="action";
   const label=document.createElement("span");label.textContent=catalog?.actions?.[a.id]??a.label;
-  const small=document.createElement("small");small.textContent=a.enabled?"Disponível":reason[a.reason]||a.reason||"Indisponível";
+  const small=document.createElement("small");small.textContent=a.enabled?t("actions.available"):a.reason?reason(a.reason):t("actions.unavailable");
   button.append(label,small);
   button.addEventListener("click",()=>send(a.id));
   $("actions").append(button);
  }
 }
 async function send(action){
- if(busy)return;busy=true;$("feedback").textContent="Aplicando comando...";
+ if(busy)return;busy=true;$("feedback").textContent=t("feedback.applying");
  try{
-  const parameters=action==="npc.spawn"?{name:$("entity-name").value.trim()||"Habitante"}:action==="resource.spawn"?{resourceType:$("resource-type").value,quantity:Number($("quantity").value)}:{};
+  const parameters=action==="npc.spawn"?{name:$("entity-name").value.trim()||t("form.npcFallback")}:action==="resource.spawn"?{resourceType:$("resource-type").value,quantity:Number($("quantity").value)}:{};
   const data=await request("/api/commands",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({commandId:crypto.randomUUID(),role,action,position:cursor,parameters,targetId:selected})});
-  $("feedback").textContent=data.result.ok?"Comando aplicado no tick "+data.result.tick:reason[data.result.error]||data.result.error;
+  $("feedback").textContent=data.result.ok?t("feedback.commandApplied",{tick:data.result.tick}):reason(data.result.error);
   state={...state,world:data.world};paint();writeInspector();
- }catch(e){$("feedback").textContent="Falha: "+e.message;}
+ }catch(e){$("feedback").textContent=t("feedback.failure",{message:e.message});}
  finally{busy=false;await updateActions();}
 }
 canvas.addEventListener("click",async e=>{
@@ -71,4 +72,5 @@ canvas.addEventListener("click",async e=>{
  selected=hit?.id||null;paint();writeInspector();await updateActions();
 });
 $("refresh").addEventListener("click",()=>refresh().catch(e=>$("feedback").textContent=e.message));
+localizeDOM();
 refresh().catch(e=>$("feedback").textContent=e.message);

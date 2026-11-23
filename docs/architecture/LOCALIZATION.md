@@ -23,3 +23,10 @@ Exemplo:
 - Textos fornecidos por jogadores devem ser apresentados como dados, com escaping adequado.
 - Não introduzir `displayName` mutável na instância para conteúdo derivado de definição: resolver pelo `definitionId`. Valores customizados (apelidos, nomes próprios) são campos próprios.
 - Traduções futuras poderão suportar descrições, plurais, formatos de data/medidas e variáveis de mensagem, sem afetar contratos do motor.
+
+## Mensagens genéricas de interface
+- `packages/i18n/src/index.js` concentra as mensagens da interface em `UI_MESSAGES['pt-BR']`; `createTranslator(locale)` resolve idioma e faz interpolação explícita de parâmetros com checagem de placeholders.
+- `data-i18n`, `data-i18n-aria`, `data-i18n-placeholder` e `data-i18n-value` localizam o HTML estático ao iniciar, sem injetar HTML arbitrário.
+- `apps/shared-ui/app.js` utiliza `t()` para razões de bloqueio, feedbacks e detalhes dinâmicos; textos de entidades/ações continuam chegando do catálogo de conteúdo pela API.
+- Em novas telas, **não inserir novas strings fixas** em componentes; criar chaves estáveis neste pacote. A UI traduz apresentação, nunca IDs de comando, salvamento ou rede.
+- Sem seletor de idioma neste incremento: `pt-BR` permanece o único locale disponível; fallback está pronto para novos idiomas.
