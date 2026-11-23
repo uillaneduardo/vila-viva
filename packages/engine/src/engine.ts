@@ -1,0 +1,45 @@
+import {inBounds} from "../../domain/src/contracts.ts";
+import type {Command, World, Result, Character, Resource, Position} from "../../domain/src/contracts.ts";
+
+export function createWorld(id: string, width=64, height=48): World {
+ if (!id.trim() || !Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1) throw new Error("Invalid world");
+ return {id, width, height, tick:0, entities:[], appliedCommands:[]};
+}
+const reject = (command: Command, error: Extract<Result,{ok:false}>["error"]): Result =>
+ ({ok:false,status:"rejected",commandId:command.commandId,error});
+export function applyCommand(world: World, command: Command): Result {
+ if (world.id!==command.worldId || !command.commandId.trim()) return reject(command,"INVALID_PAYLOAD");
+ if (world.appliedCommands.includes(command.commandId)) return reject(command,"DUPLICATE_COMMAND");
+ const admin = command.actorRole==="admin";
+ if (command.action==="npc.spawn" || command.action==="resource.spawn"){
+  if (!admin) return reject(command,"UNAUTHORIZED");
+  if (!command.position || !inBounds(world,command.position)) return reject(command,"OUT_OF_BOUNDS");
+  const id = command.action==="npc.spawn"?"npc-"+command.commandId:"resource-"+command.commandId;
+  if (command.action==="npc.spawn"){
+   const name = command.parameters?.name;
+   if (typeof name!=="string" || !name.trim() || name.length>64) return reject(command,"INVALID_PAYLOAD");
+   const character: Character={kind:"character",id,name,position:{...command.position},health:100,energy:100};
+   world.entities.push(character);
+  } else {
+   const type=command.parameters?.resourceType, quantity=command.parameters?.quantity;
+   if(typeof type!=="string" || !type.trim() || typeof quantity!=="number" || !Number.isSafeInteger(quantity) || quantity<0) return reject(command,"INVALID_PAYLOAD");
+   const resource:Resource={kind:"resource",id,resourceType:type,position:{...command.position},quantity,maximum:quantity};
+   world.entities.push(resource);
+  }
+ } else if (command.action==="movement.move"){
+  if(command.actorRole==="admin")return reject(command,"UNAUTHORIZED");
+  const character=world.entities.find(e=>e.id===command.targetId);
+  if(!character)return reject(command,"NOT_FOUND");
+  if(character.kind!=="character")return reject(command,"INVALID_TARGET");
+  if(!command.position || !inBounds(world,command.position))return reject(command,"OUT_OF_BOUNDS");
+  if(character.energy<=0)return reject(command,"BLOCKED");
+  // Prototype discrete relocation; pathfinding and movement duration are NOT implemented.
+  character.position={...command.position};
+  character.energy=Math.max(0,character.energy-1);
+ } else if (command.action==="entity.inspect"){
+  if (!world.entities.some(e=>e.id===command.targetId))return reject(command,"NOT_FOUND");
+ } else return reject(command,"INVALID_PAYLOAD");
+ world.appliedCommands.push(command.commandId);
+ world.tick+=1;
+ return {ok:true,status:"completed",commandId:command.commandId,tick:world.tick,events:[{type:command.action,entityId:command.targetId??world.entities.at(-1)?.id}]};
+}
