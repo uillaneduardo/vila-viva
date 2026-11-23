@@ -14,7 +14,7 @@ window.VilaLab = (() => {
    if(!w.lab)w.lab={schema:1,resources:{},stats:{},history:[],decisions:[],drops:[],depotCapacity:170,seed:w.seed,board:{x:15,y:7}};
    const L=w.lab; L.resources||={};L.stats||={};L.history||=[];L.decisions||=[];L.drops||=[];L.depotCapacity??=170;L.board||={x:15,y:7};
    for(const s of sites){if(!s.resource)continue;const cap=defaultResources[s.id]||50;L.resources[s.id]??={amount:cap,max:cap,regen:regeneration[s.id]||.015};}
-   for(const n of w.npcs){n.hunger??=72;n.sleepNeed??=15;n.health??=100;n.traits??={initiative:55,prudence:55,sociability:55};n.skills??={};n.known??={};const st=L.stats[n.id]||={tasks:0,deliveries:0,failures:0,interruptions:0,minutes:{},produced:0};L.stats[n.id]=st;st.minutes||={};if(n.lastDecision===undefined)n.lastDecision=null;}
+   for(const n of w.npcs){n.hunger??=72;n.sleepNeed??=15;n.health??=100;n.carryCapacity??=20;n.equipment??=({collector:"axe",farmer:"hoe",mason:"pickaxe",builder:"hammer"})[n.id]||null;n.traits??={initiative:55,prudence:55,sociability:55};n.skills??={};n.known??={};const st=L.stats[n.id]||={tasks:0,deliveries:0,failures:0,interruptions:0,minutes:{},produced:0};L.stats[n.id]=st;st.minutes||={};if(n.lastDecision===undefined)n.lastDecision=null;}
    return L;
  }
  function used(w){return Object.entries(w.stock).reduce((sum,[key,qty])=>sum+wt(key,qty),0);}
@@ -28,12 +28,13 @@ window.VilaLab = (() => {
  }
  function choose(w,n,sites){
    ensure(w,sites);
-   if(n.hunger<32&&w.stock.food>0)return null;
+   if(n.hunger<32)return null;
    const roleMap={leader:["forest","orchard"],collector:["forest","orchard"],farmer:["farm","orchard"],mason:["quarry","mine"],builder:["build","forest"],merchant:["orchard","forest"]};
    let options=[];
    for(const s of sites){
-     if(s.id==="build"){if(n.id==="builder" && w.project.stage<4 && typeof window.stageReady==="function" && window.stageReady(w)) options.push({id:s.id,score:120});continue;}
+     if(s.id==="build"){if(n.id==="builder" && w.project.stage<4 && typeof window.VilaStageReady==="function" && window.VilaStageReady(w)) options.push({id:s.id,score:120});continue;}
      if(!eligible(w,n,s))continue;
+     const requiredTool=({forest:"axe",quarry:"pickaxe",mine:"pickaxe",farm:"hoe"})[s.id];if(requiredTool&&n.equipment!==requiredTool)continue;
      const stock=w.stock[s.resource]||0;
      const critical=s.resource==="food"&&stock<20?85:0;
      const base=Math.max(0,70-stock*.8);
@@ -44,26 +45,33 @@ window.VilaLab = (() => {
    }
    options.sort((a,b)=>b.score-a.score||a.id.localeCompare(b.id));
    const best=options[0];
-   if(best){ if(n.lastChosen!==best.id||w.ticks-(n.lastChosenTick||0)>120){record(w,n,"Escolheu "+best.id,"Prioridade "+best.score+"; energia "+Math.round(n.energy)+"; demanda de recursos e capacidade disponível");n.lastChosen=best.id;n.lastChosenTick=w.ticks;}return best.id;}
+   if(best){ if(n.lastChosen!==best.id||w.ticks-(n.lastChosenTick||0)>120){record(w,n,"Escolheu "+best.id,"Pontuação "+best.score+"; energia "+Math.round(n.energy)+"; fonte conhecida e capacidade disponível. Alternativas: "+options.slice(1,4).map(x=>x.id+" ("+x.score+")").join(", "));n.lastChosen=best.id;n.lastChosenTick=w.ticks;}return best.id;}
    if(w.ticks-(n.lastBlockedTick||0)>120){record(w,n,"Sem tarefa viável","Fontes exauridas, baixa energia, obra indisponível ou armazenamento cheio");n.lastBlockedTick=w.ticks;}
    return null;
  }
  function needsAction(w,n,approachFn){
    ensure(w,[]);
    if(n.phase==="sleep"){n.energy=Math.min(100,n.energy+.85);n.sleepNeed=Math.max(0,n.sleepNeed-.32);if(n.sleepNeed<12){n.phase="idle";record(w,n,"Acordou","Necessidade de sono satisfeita");}return true;}
-   if(n.phase==="toFood"){
-     if(approachFn(n,{x:13,y:8})){if(w.stock.food>=1){w.stock.food--;n.hunger=Math.min(100,n.hunger+45);n.phase="idle";record(w,n,"Alimentou-se","Retirou 1 alimento fisicamente do depósito");}else{n.phase="idle";record(w,n,"Não encontrou alimento","Depósito sem alimentos; reavaliará fontes naturais");}}return true;
+   if(n.phase==="toForage"){
+     const known=(window.VilaSites||[]).filter(s=>s.resource==="food"&&source(w,s.id)?.amount>=1).sort((a,b)=>nearby(n,a)-nearby(n,b));
+     const s=known[0];
+     if(!s){n.phase="rest";record(w,n,"Sem alimento","Fontes exauridas; aguardando regeneração");return true;}
+     if(approachFn(n,s)){source(w,s.id).amount-=1;n.hunger=Math.min(100,n.hunger+38);n.phase="idle";record(w,n,"Comeu alimento natural","Retirou fisicamente 1 alimento de "+s.name);}
+     return true;
    }
-   if(n.phase==="toSleep"){if(approachFn(n,{x:14,y:9})){n.phase="sleep";record(w,n,"Iniciou sono","Chegou ao abrigo da vila");}return true;}
+   if(n.phase==="toFood"){
+     if(approachFn(n,{x:13,y:8})){if(w.stock.food>=1){w.stock.food--;n.hunger=Math.min(100,n.hunger+45);n.phase="idle";record(w,n,"Alimentou-se","Retirou 1 alimento fisicamente do depósito");}else{n.phase="toForage";record(w,n,"Depósito vazio","Procurando alimento natural nas fontes disponíveis");}}return true;
+   }
+   if(n.phase==="toSleep"){const shelter={x:14,y:9};if(n.energy<8){n.phase="sleep";record(w,n,"Dormiu ao relento","Energia insuficiente para alcançar abrigo");return true;}if(approachFn(n,shelter)){n.phase="sleep";record(w,n,"Iniciou sono","Chegou ao abrigo da vila");}return true;}
    if(n.energy<=0&&n.phase!=="rest"&&n.phase!=="toRest"){n.phase="rest";n.site=null;n.workLeft=0;n.cargo&&record(w,n,"Interrompeu atividade","Exaustão; carga mantida");return true;}
    if(n.phase==="waitStorage"){if(n.cargo && free(w)>=wt(n.cargo.key,n.cargo.qty)){n.phase="toDepot";record(w,n,"Retomar entrega","Espaço no depósito voltou a ficar disponível");}else{n.energy=Math.min(100,n.energy+.1);}return true;}
    if(n.phase==="toDepot"&&n.cargo&&free(w)<wt(n.cargo.key,n.cargo.qty)){n.phase="waitStorage";n.site=null;record(w,n,"Entrega suspensa","Depósito sem capacidade suficiente; carga preservada");return true;}
    if(n.phase==="idle"&&n.cargo){n.phase="toDepot";return true;}
-   if(n.hunger<12&&n.phase!=="toFood"&&n.phase!=="sleep"){n.phase="toFood";n.site=null;n.workLeft=0;record(w,n,"Interrupção imediata","Fome crítica; atividade incompleta descartada e carga preservada");return true;}
+   if(n.hunger<12&&n.phase!=="toFood"&&n.phase!=="toForage"&&n.phase!=="sleep"){n.phase=w.stock.food>0?"toFood":"toForage";n.site=null;n.workLeft=0;record(w,n,"Interrupção imediata","Fome crítica; atividade incompleta descartada e carga preservada");return true;}
    if(n.sleepNeed>96&&n.phase!=="toSleep"&&n.phase!=="sleep"){n.phase="toSleep";n.site=null;n.workLeft=0;record(w,n,"Interrupção imediata","Privação de sono crítica; progresso parcial descartado");return true;}
    if(n.phase==="toDepot"&&n.hunger<12){n.phase="toFood";record(w,n,"Interrompeu transporte","Fome crítica; carga preservada");return true;}
    if(n.phase==="idle"||n.phase==="social"||n.phase==="rest"){
-     if(n.hunger<34&&w.stock.food>0){n.phase="toFood";n.site=null;record(w,n,"Procurar comida","Saciedade "+Math.round(n.hunger)+"%; depósito possui alimento");return true;}
+     if(n.hunger<34){n.phase=w.stock.food>0?"toFood":"toForage";n.site=null;record(w,n,"Procurar comida","Saciedade "+Math.round(n.hunger)+"%; alimento "+(w.stock.food>0?"no depósito":"natural"));return true;}
      if(n.sleepNeed>86&&n.energy>14){n.phase="toSleep";n.site=null;record(w,n,"Procurar abrigo","Necessidade diária de sono");return true;}
    }
    return false;
@@ -74,7 +82,7 @@ window.VilaLab = (() => {
    for(const s of sites){const r=L.resources[s.id];if(!r)continue;r.amount=Math.min(r.max,r.amount+r.regen);}
    for(const n of w.npcs){
      n.hunger=Math.max(0,n.hunger-(n.phase==="work"?.024:.009));
-     if(n.phase!=="sleep")n.sleepNeed=Math.min(100,n.sleepNeed+.018);
+     if(n.phase!=="sleep")n.sleepNeed=Math.min(100,n.sleepNeed+.028);
      if(n.hunger===0)n.health=Math.max(1,n.health-.015);
      const st=L.stats[n.id];st.minutes[n.phase]=(st.minutes[n.phase]||0)+1;
      if(n.phase==="toDepot"&&n.cargo && wt(n.cargo.key,n.cargo.qty)>free(w)){ /* Existing cargo remains physical; delivery may wait for storage. */ }
@@ -87,7 +95,7 @@ window.VilaLab = (() => {
      }
    }
  }
- function harvest(w,s,qty){const r=source(w,s.id);if(!r)return qty;let n=Math.min(qty,Math.floor(r.amount));if(free(w)<wt(s.resource,n))n=0;r.amount-=n;return n;}
+ function harvest(w,s,qty){const r=source(w,s.id);if(!r)return 0;let n=Math.max(0,Math.min(qty,Math.floor(r.amount),Math.floor(free(w)/(weights[s.resource]||1))));r.amount-=n;return n;}
  function mount(){
    if(panel)return;
    const side=document.querySelector(".side");
