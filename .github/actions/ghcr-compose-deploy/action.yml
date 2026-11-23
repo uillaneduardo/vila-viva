@@ -1,0 +1,83 @@
+name: Validated GHCR Compose deploy
+description: Deploy a CI-validated checkout to a trusted self-hosted Docker runner without SSH fetch or persistent registry credentials.
+inputs:
+  app-dir:
+    description: Absolute target application directory on the runner host
+    required: true
+  compose-source:
+    description: Relative Compose file path within the checked-out project
+    required: true
+  compose-target:
+    description: Relative target Compose path within app-dir (keep paths relative to the Compose file in mind)
+    required: false
+    default: .deploy/compose.yml
+  validated-sha:
+    description: Full commit SHA already validated by upstream tests
+    required: true
+  image-tag:
+    description: Image tag published from validated-sha (e.g. SHA or sha-SHA)
+    required: true
+  registry-user:
+    description: GHCR username (usually github.actor)
+    required: true
+  registry-token:
+    description: Ephemeral GITHUB_TOKEN with packages read permission
+    required: true
+  health-url:
+    description: Local HTTP URL that must pass after the deploy
+    required: true
+  env-file:
+    description: Relative env file in app-dir; empty means no env file
+    required: false
+    default: .env
+  services:
+    description: Space-separated services to pull and update; empty means all default-profile services
+    required: false
+    default: ''
+  bootstrap-service:
+    description: Service to start before migrations, e.g. db; empty to skip
+    required: false
+    default: ''
+  migrate-service:
+    description: One-off Compose service used for migrations; empty to skip
+    required: false
+    default: ''
+  seed-service:
+    description: One-off Compose service used for idempotent seed; empty to skip
+    required: false
+    default: ''
+  maintenance-profile:
+    description: Compose profile for migrate/seed jobs
+    required: false
+    default: maintenance
+  health-retries:
+    description: Number of health attempts (3 seconds apart)
+    required: false
+    default: '20'
+  release-file:
+    description: Relative version marker within app-dir
+    required: false
+    default: .release.deploy.env
+runs:
+  using: composite
+  steps:
+    - name: Install validated image on self-hosted Docker
+      shell: bash
+      env:
+        DEPLOY_APP_DIR: ${{ inputs.app-dir }}
+        DEPLOY_COMPOSE_SOURCE: ${{ inputs.compose-source }}
+        DEPLOY_COMPOSE_TARGET: ${{ inputs.compose-target }}
+        DEPLOY_VALIDATED_SHA: ${{ inputs.validated-sha }}
+        IMAGE_TAG: ${{ inputs.image-tag }}
+        GHCR_USER: ${{ inputs.registry-user }}
+        GHCR_TOKEN: ${{ inputs.registry-token }}
+        DEPLOY_HEALTH_URL: ${{ inputs.health-url }}
+        DEPLOY_ENV_FILE: ${{ inputs.env-file }}
+        DEPLOY_SERVICES: ${{ inputs.services }}
+        DEPLOY_BOOTSTRAP_SERVICE: ${{ inputs.bootstrap-service }}
+        DEPLOY_MIGRATE_SERVICE: ${{ inputs.migrate-service }}
+        DEPLOY_SEED_SERVICE: ${{ inputs.seed-service }}
+        DEPLOY_MAINTENANCE_PROFILE: ${{ inputs.maintenance-profile }}
+        DEPLOY_HEALTH_RETRIES: ${{ inputs.health-retries }}
+        DEPLOY_RELEASE_FILE: ${{ inputs.release-file }}
+      run: bash "${{ github.action_path }}/deploy.sh"
