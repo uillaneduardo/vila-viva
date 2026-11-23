@@ -64,6 +64,7 @@ window.VilaLab = (() => {
  function needsAction(w,n,approachFn){
    ensure(w,[]);
    if(n.phase==="sleep"){n.energy=Math.min(100,n.energy+.85);n.sleepNeed=Math.max(0,n.sleepNeed-.32);if(n.sleepNeed<12){n.phase="idle";record(w,n,"Acordou","Necessidade de sono satisfeita");}return true;}
+   if(n.energy<=0 && n.phase!=="rest" && n.phase!=="sleep"){n.phase="rest";n.site=null;n.workLeft=0;record(w,n,"Descanso emergencial","Energia esgotada; interrompeu ação voluntária");return true;}
    if(n.phase==="toForage"){
      const known=(window.VilaSites||[]).filter(s=>s.resource==="food"&&source(w,s.id)?.amount>=1).sort((a,b)=>nearby(n,a)-nearby(n,b));
      const s=known[0];
@@ -83,6 +84,7 @@ window.VilaLab = (() => {
    if(n.sleepNeed>96&&n.phase!=="toSleep"&&n.phase!=="sleep"){n.phase="toSleep";n.site=null;n.workLeft=0;record(w,n,"Interrupção imediata","Privação de sono crítica; progresso parcial descartado");return true;}
    if(n.phase==="toDepot"&&n.hunger<12){n.phase="toFood";record(w,n,"Interrompeu transporte","Fome crítica; carga preservada");return true;}
    if(n.phase==="idle"||n.phase==="social"||n.phase==="rest"){
+     if(n.phase==="rest"&&n.energy<40)return false;
      if(n.hunger<34){n.phase=w.stock.food>0?"toFood":"toForage";n.site=null;record(w,n,"Procurar comida","Saciedade "+Math.round(n.hunger)+"%; alimento "+(w.stock.food>0?"no depósito":"natural"));return true;}
      if(n.sleepNeed>86&&n.energy>14){n.phase="toSleep";n.site=null;record(w,n,"Procurar abrigo","Necessidade diária de sono");return true;}
    }
