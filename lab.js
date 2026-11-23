@@ -5,7 +5,7 @@ window.VilaLab = (() => {
  const defaultResources={forest:72,orchard:42,hunt:30,farm:70,quarry:64,mine:50};
  const regeneration={forest:.015,orchard:.05,hunt:.025,farm:.065,quarry:.012,mine:.008};
  const limit=140;
- let panel=null, selected={kind:"player"}, camera=1, following=false, lastPaint=0;
+ let panel=null, selected={kind:"player"}, camera=1, following=false, lastPaint=0, pan=null, suppressClick=false;
  const esc=s=>String(s??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
  const wt=(key,qty)=> (weights[key]||1)*qty;
  const nearby=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -59,6 +59,8 @@ window.VilaLab = (() => {
    if(n.phase==="waitStorage"){if(n.cargo && free(w)>=wt(n.cargo.key,n.cargo.qty)){n.phase="toDepot";record(w,n,"Retomar entrega","Espaço no depósito voltou a ficar disponível");}else{n.energy=Math.min(100,n.energy+.1);}return true;}
    if(n.phase==="toDepot"&&n.cargo&&free(w)<wt(n.cargo.key,n.cargo.qty)){n.phase="waitStorage";n.site=null;record(w,n,"Entrega suspensa","Depósito sem capacidade suficiente; carga preservada");return true;}
    if(n.phase==="idle"&&n.cargo){n.phase="toDepot";return true;}
+   if(n.hunger<12&&n.phase!=="toFood"&&n.phase!=="sleep"){n.phase="toFood";n.site=null;n.workLeft=0;record(w,n,"Interrupção imediata","Fome crítica; atividade incompleta descartada e carga preservada");return true;}
+   if(n.sleepNeed>96&&n.phase!=="toSleep"&&n.phase!=="sleep"){n.phase="toSleep";n.site=null;n.workLeft=0;record(w,n,"Interrupção imediata","Privação de sono crítica; progresso parcial descartado");return true;}
    if(n.phase==="toDepot"&&n.hunger<12){n.phase="toFood";record(w,n,"Interrompeu transporte","Fome crítica; carga preservada");return true;}
    if(n.phase==="idle"||n.phase==="social"||n.phase==="rest"){
      if(n.hunger<34&&w.stock.food>0){n.phase="toFood";n.site=null;record(w,n,"Procurar comida","Saciedade "+Math.round(n.hunger)+"%; depósito possui alimento");return true;}
@@ -91,7 +93,7 @@ window.VilaLab = (() => {
    const side=document.querySelector(".side");
    if(!side)return;
    const section=document.createElement("section");section.className="panel";section.id="lab-panel";
-   section.innerHTML='<div class="row" style="justify-content:space-between"><h2>🔎 Laboratório ao vivo</h2><button id="lab-export" type="button">Exportar JSON</button></div><div class="row" style="margin:8px 0"><label for="lab-scenario">Cenário</label><select id="lab-scenario"><option value="food">Escassez de alimentos</option><option value="forest">Floresta exaurida</option><option value="storage">Depósito lotado</option><option value="fatigue">Exaustão coletiva</option><option value="normal">Condições normais</option></select><button id="lab-apply">Aplicar</button></div><div class="row" style="margin-bottom:8px"><button id="lab-zoom-in">Zoom +</button><button id="lab-zoom-out">Zoom −</button><button id="lab-follow">Seguir NPC</button></div><div id="lab-inspection"></div><div id="lab-history" class="log" style="max-height:160px"></div>';
+   section.innerHTML='<div class="row" style="justify-content:space-between"><h2>🔎 Laboratório ao vivo</h2><button id="lab-export" type="button">Exportar JSON</button></div><div class="row" style="margin:8px 0"><label for="lab-scenario">Cenário</label><select id="lab-scenario"><option value="food">Escassez de alimentos</option><option value="forest">Floresta exaurida</option><option value="storage">Depósito lotado</option><option value="fatigue">Exaustão coletiva</option><option value="normal">Condições normais</option></select><button id="lab-apply">Aplicar</button></div><div class="row" style="margin-bottom:8px"><button id="lab-zoom-in">Zoom +</button><button id="lab-zoom-out">Zoom −</button><button id="lab-follow">Seguir NPC</button></div><div id="lab-summary" class="notice"></div><div id="lab-inspection"></div><div id="lab-history" class="log" style="max-height:160px"></div>';
    side.prepend(section);panel=section;
    panel.querySelector("#lab-apply").onclick=()=>scenario(cur(),panel.querySelector("#lab-scenario").value);
    panel.querySelector("#lab-export").onclick=()=>{const w=cur();const data=JSON.stringify({version:1,seed:w.seed,world:w,exportedAt:new Date().toISOString()},null,2);const url=URL.createObjectURL(new Blob([data],{type:"application/json"}));const a=document.createElement("a");a.href=url;a.download="vila-viva-lab-dia-"+w.day+".json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
@@ -99,8 +101,13 @@ window.VilaLab = (() => {
    panel.querySelector("#lab-zoom-out").onclick=()=>zoom(-.2);
    panel.querySelector("#lab-follow").onclick=()=>{following=!following;panel.querySelector("#lab-follow").textContent=following?"Parar de seguir":"Seguir NPC";};
    const cv=document.getElementById("map");cv.addEventListener("wheel",e=>{e.preventDefault();zoom(e.deltaY<0?.1:-.1)},{passive:false});
+   cv.addEventListener("pointerdown",e=>{if(e.button!==0)return;pan={x:e.clientX,y:e.clientY,sx:cv.parentElement.scrollLeft,sy:cv.parentElement.scrollTop,moved:false};});
+   cv.addEventListener("pointermove",e=>{if(!pan||!e.buttons)return;const dx=e.clientX-pan.x,dy=e.clientY-pan.y;if(Math.hypot(dx,dy)>7)pan.moved=true;if(pan.moved){cv.parentElement.scrollLeft=pan.sx-dx;cv.parentElement.scrollTop=pan.sy-dy;}});
+   cv.addEventListener("pointerup",()=>{if(pan?.moved)suppressClick=true;pan=null;});
+   cv.addEventListener("pointercancel",()=>{pan=null;});
  }
  function zoom(delta){camera=Math.max(1,Math.min(2.5,camera+delta));const cv=document.getElementById("map");cv.style.width=(camera*100)+"%";cv.style.maxWidth="none";cv.style.height="auto";cv.parentElement.style.overflow="auto";}
+ function ignoreClick(){if(suppressClick){suppressClick=false;return true;}return false;}
  function pick(e,x,y,w,sites,TILE){
    ensure(w,sites);
    const targets=[{kind:"depot",x:13,y:8},{kind:"board",x:15,y:7},...w.lab.drops.map((d,i)=>({kind:"drop",id:i,x:d.x,y:d.y}))];
@@ -109,6 +116,9 @@ window.VilaLab = (() => {
  }
  function refresh(w,current,sites){
    if(!panel||!w)return;ensure(w,sites);if(current&&current.kind!=="lab")selected=current;
+   const total=w.lab.stats;const completed=Object.values(total).reduce((v,t)=>v+t.tasks,0);const delivered=Object.values(total).reduce((v,t)=>v+t.deliveries,0);const interruptions=Object.values(total).reduce((v,t)=>v+t.interruptions,0);
+   panel.querySelector("#lab-summary").innerHTML="<b>Vila · "+w.npcs.length+" NPCs</b><p>Tarefas: "+completed+" · Entregas: "+delivered+" · Interrupções: "+interruptions+"</p><p>Estoque: "+used(w).toFixed(1)+"/"+w.lab.depotCapacity+" kg · Fontes regenerativas: "+Object.keys(w.lab.resources).length+"</p>";
+   if(following && selected.kind==="npc"){const n=w.npcs.find(z=>z.id===selected.id);if(n){const cv=document.getElementById("map"),wrap=cv.parentElement;wrap.scrollLeft=n.x*40*camera-wrap.clientWidth/2;wrap.scrollTop=n.y*40*camera-wrap.clientHeight/2;}}
    const ins=panel.querySelector("#lab-inspection");let out="";
    if(selected.kind==="npc"||selected.kind==="player"){
      const n=selected.kind==="player"?w.player:w.npcs.find(z=>z.id===selected.id);
@@ -137,5 +147,5 @@ window.VilaLab = (() => {
    record(w,null,"Evento de laboratório: "+id,"Condições do mundo alteradas; NPCs devem reagir às regras normais");
    refresh(w,selected,window.VilaSites||[]);save();
  }
- return {ensure,choose,needsAction,beginTick,endTick,harvest,mount,pick,refresh,draw,free,used,source};
+ return {ensure,choose,needsAction,beginTick,endTick,harvest,mount,pick,ignoreClick,refresh,draw,free,used,source};
 })();
