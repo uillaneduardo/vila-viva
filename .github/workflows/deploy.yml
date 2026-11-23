@@ -1,0 +1,96 @@
+name: CI and homelab2 deploy
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate prototype structure and scripts
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          html = Path("index.html").read_text()
+          assert "<canvas" in html and "function tick(w)" in html
+          assert "function event(w,type)" in html
+          assert "localStorage" in html
+          print("Prototype structure OK")
+          PY
+      - name: Verify Docker build
+        run: docker build -t vila-viva:test .
+  publish:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Select immutable tag
+        id: meta
+        run: echo "tag=sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/uillaneduardo/vila-viva:${{ steps.meta.outputs.tag }}
+            ghcr.io/uillaneduardo/vila-viva:main
+  deploy_homelab2:
+    needs: [verify, publish]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, linux, x64, vila-viva-svr2]
+    permissions:
+      contents: read
+      packages: read
+    concurrency:
+      group: vila-viva-homelab2
+      cancel-in-progress: false
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Check validated commit remains on main
+        id: latest
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = await github.rest.repos.getBranch({
+              owner: context.repo.owner, repo: context.repo.repo, branch: 'main'
+            });
+            core.setOutput('current', String(branch.data.commit.sha === context.sha));
+      - name: Deploy using engineering standard
+        if: steps.latest.outputs.current == 'true'
+        uses: uillaneduardo/engineering/.github/actions/ghcr-compose-deploy@965309726fb9a773b74c099de8d4f7ca4f69c0c3
+        with:
+          app-dir: /home/uillan/homelab2/apps/vila-viva
+          compose-source: compose.yml
+          compose-target: .deploy/compose.yml
+          validated-sha: ${{ github.sha }}
+          image-tag: ${{ needs.publish.outputs.image_tag }}
+          registry-user: ${{ github.actor }}
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          health-url: http://127.0.0.1:8480/healthz
+          env-file: ''
+          services: web
+          release-file: .release.svr2.env
