@@ -26,3 +26,6 @@ docs/
 
 ## Extensão do MVP de moradia e população
 Novos subsistemas planejados: `construction`, `housing`, `social`, `mood`, `reproduction`, `lifecycle`, `needs`, `modifiers`, `population`, `ai`. O blueprint da casa é conteúdo em `packages/content/src/buildings/community-house.ts`, não local de execução de decisões afetivas/reprodutivas. A integração usa eventos, consultas de capacidade e processamento determinístico por tick. Ver issue #19.
+
+## Sistema de efeitos transversal
+`packages/domain/src/effects.ts` define contrato; `packages/content/src/effects/catalog.ts` contém dados; `packages/systems/effects/` gerencia ciclo de vida e resolve atributos. Consumidores recebem capacidades calculadas e eventos declarativos. Nascimento/relacionamentos não pertencem ao Effect Manager. Veja [EFFECT_SYSTEM.md](EFFECT_SYSTEM.md).

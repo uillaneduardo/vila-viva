@@ -58,3 +58,6 @@ Os IDs usados no protocolo são estáveis e em inglês (`wood`, `food`, `stone`)
 
 ## Extensão social e familiar do MVP
 As definições de moradia, vínculos, reprodução, ciclo de vida, infância e modificadores temporários estão em [HOUSING_FAMILY_MVP.md](HOUSING_FAMILY_MVP.md), com issue #19. **A casa publica capacidade habitacional/conforto; não executa reprodução.** As fases de gestação e recuperação influenciam movimento, inventário, trabalho e prioridades por um sistema transversal de modificadores. O catálogo TypeScript de entidades existente é a fundação inicial; novos componentes ainda precisam ser implementados.
+
+## Efeitos e atributos derivados
+Pessoas podem possuir instâncias de efeitos; definições reutilizáveis em `packages/content/src/effects/`. Primários e estado vital alimentam um grafo acíclico de atributos derivados (humor → produtividade/interação). As fontes e durações de modificadores são rastreáveis para inspeção administrativa. Um efeito não é entidade física, mas componente opcional do personagem. Ver `docs/architecture/EFFECT_SYSTEM.md`.
