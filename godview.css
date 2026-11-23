@@ -179,3 +179,22 @@ button:focus-visible,select:focus-visible{outline:2px solid #d9eab2;outline-offs
 #god-npc-hover[hidden]{display:none}
 #god-npc-hover small{font-size:11px;color:#b9cabb}
 @media(hover:none){#god-npc-hover{display:none!important}}
+
+/* Observatory v2: compact survival telemetry, tactile roster, flexible map */
+#god-survival-ribbon{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:#304b3b;border-bottom:1px solid #45634a;flex:0 0 auto}
+#god-survival-ribbon>div{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#142820;padding:9px 17px;min-width:0}
+#god-survival-ribbon small{font-size:11px;color:#a9c4ae;white-space:nowrap}
+#god-survival-ribbon strong{font-size:14px;font-variant-numeric:tabular-nums;color:#e9f4df;white-space:nowrap}
+#god-roster-strip{display:flex;align-items:stretch;gap:6px;padding:8px 12px;background:#11231d;border-top:1px solid #385546;overflow-x:auto;scrollbar-width:thin;flex:0 0 auto}
+.god-roster-unit{border-radius:10px;background:#1b3229;border:1px solid #385a46;display:flex;align-items:center;gap:8px;text-align:left;padding:6px 9px;min-width:134px;flex:1 0 134px;max-width:205px;position:relative}
+.god-roster-unit:hover{background:#2a4937}
+.god-roster-unit.active{background:#31533d;border-color:#c0e09b}
+.god-roster-face{flex:0 0 32px;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:#6b8462;color:#f9f6e8;font-weight:750;font-size:17px}
+.god-roster-info{min-width:0;display:flex;flex-direction:column;gap:3px;padding-bottom:5px}
+.god-roster-info b{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.god-roster-info small{font-size:10px;color:#afc2b1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.god-roster-health{height:3px;position:absolute;bottom:4px;left:49px;right:8px;background:#435547;border-radius:3px;overflow:hidden}
+.god-roster-health i{display:block;height:100%;background:#8ccf7b;border-radius:3px}
+#god-inspector{border-top:1px solid #405f4a}
+@media(min-width:761px){.mapwrap{height:0;min-height:0;flex:1}.layout>main{min-height:0}}
+@media(max-width:760px){#god-survival-ribbon{grid-template-columns:repeat(2,minmax(0,1fr))}#god-survival-ribbon>div{padding:7px 9px}#god-survival-ribbon small{font-size:10px}#god-survival-ribbon strong{font-size:12px}#god-roster-strip{padding:7px}.god-roster-unit{min-width:135px;flex:0 0 135px}.mapwrap{height:clamp(270px,48dvh,560px)}}
