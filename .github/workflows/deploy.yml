@@ -19,9 +19,12 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           html = Path("index.html").read_text()
-          assert "<canvas" in html and "function tick(w)" in html
-          assert "function event(w,type)" in html
-          assert "localStorage" in html
+          js = Path("app.js").read_text()
+          assert "<canvas" in html
+          assert 'src="./app.js"' in html
+          assert "function tick(w)" in js
+          assert "function event(w,type" in js
+          assert "localStorage" in js
           print("Prototype structure OK")
           PY
       - name: Validate JavaScript syntax
