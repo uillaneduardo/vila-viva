@@ -1,0 +1,25 @@
+name: Interfaces UI
+on:
+  push:
+    branches: [architecture/vnext-foundation]
+  pull_request:
+    paths: ['apps/**', 'packages/**', '.github/workflows/ui-checks.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-ui:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: JavaScript syntax
+        run: |
+          find apps/admin-web apps/player-web packages/protocol packages/renderer packages/demo-world -name '*.js' -print0 | xargs -0 -n 1 node --check
+      - name: Admin template tests
+        run: node --test apps/admin-web/tests/*.test.js
+      - name: Action catalog tests
+        run: node --test packages/protocol/tests/*.test.js

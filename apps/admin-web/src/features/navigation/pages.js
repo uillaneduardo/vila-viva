@@ -1,4 +1,4 @@
-import {actionsFor} from "../../../../../../packages/protocol/src/actions.js";
+import {actionsFor} from "../../../../../packages/protocol/src/actions.js";
 import {escapeHTML} from "../../shared/escape-html.js";
 function card(title,description,meta,action=""){return `<article class="generic-card" ${action}><h3>${escapeHTML(title)}</h3><p>${escapeHTML(description)}</p><small>${escapeHTML(meta)}</small></article>`;}
 export function renderPage(view,state,worlds){let html="";
