@@ -206,3 +206,34 @@ button:focus-visible,select:focus-visible{outline:2px solid #d9eab2;outline-offs
 .god-inspector-tabs[hidden]{display:none}
 .god-inspector-tabs button{font-size:11px;padding:8px 3px;background:#1b3429;border:1px solid #345343;border-radius:7px}
 .god-inspector-tabs button.active{background:#40654a;color:#f3ffe8;border-color:#96bf87}
+
+/* God-mode top-down: preserve map canvas, make interventions the primary control strip. */
+.layout>main>#god-tools{position:relative;flex:0 0 auto;margin:0;padding:7px 12px;background:#101f19;border:0;border-top:1px solid #40594b;border-radius:0;z-index:7;box-shadow:none;min-width:0}
+.layout>main>#god-tools>h2{display:none}
+.layout>main>#god-tools .god-tools-row{display:flex;gap:6px;align-items:center}
+.layout>main>#god-tools .god-tool{display:flex;flex:1 1 0;flex-direction:row;align-items:center;gap:7px;min-height:41px;max-width:none;padding:7px 10px;border-radius:9px;font-size:12px}
+.layout>main>#god-tools .tool-icon{font-size:17px}
+.layout>main>#god-tools #god-tool-content{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:9px 3px 3px;border-top:1px solid #354e3e;margin-top:8px}
+.layout>main>#god-tools #god-tool-content:empty{display:none}
+.layout>main>#god-tools #god-tool-content label{font-size:11px;color:#b8cebc}
+.layout>main>#god-tools #god-tool-content input,
+.layout>main>#god-tools #god-tool-content select{min-width:110px;max-width:200px;width:auto;flex:0 1 170px;padding:8px}
+.layout>main>#god-tools #god-tool-content .row{margin:0}
+.layout>main>#god-tools #god-tool-content button{padding:8px 12px}
+.layout>main>#god-tools #god-tool-content p,
+.layout>main>#god-tools #god-tool-content small{margin:0;font-size:11px;max-width:340px}
+#god-dock .god-dock-stat:nth-child(3),
+#god-dock .god-dock-stat:nth-child(4),
+#god-dock .god-dock-stat:nth-child(5),
+#god-dock .god-dock-stat:nth-child(6){display:none}
+#god-roster-strip{border-top:1px solid #2e4e3d}
+@media(max-width:760px){
+ .layout>main>#god-tools{padding:7px}
+ .layout>main>#god-tools .god-tools-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+ .layout>main>#god-tools .god-tool{flex-direction:column;gap:2px;font-size:10px;min-height:47px;padding:5px 2px}
+ .layout>main>#god-tools .tool-icon{font-size:17px}
+ .layout>main>#god-tools #god-tool-content input,
+ .layout>main>#god-tools #god-tool-content select{flex:1 1 120px;max-width:none;min-width:0}
+ .layout>main>#god-tools #god-tool-content .row{flex:1 1 auto}
+ .layout>main>#god-tools #god-tool-content button{font-size:12px}
+}
