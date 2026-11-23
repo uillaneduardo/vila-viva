@@ -18,7 +18,9 @@ export function applyCommand(world: World, command: Command): Result {
   if (command.action==="npc.spawn"){
    const name = command.parameters?.name;
    if (typeof name!=="string" || !name.trim() || name.length>64) return reject(command,"INVALID_PAYLOAD");
-   const character: Character={kind:"character",id,name,position:{...command.position},health:100,energy:100};
+   const ownerId=command.parameters?.ownerId;
+   if(ownerId!==undefined && (typeof ownerId!=="string" || !ownerId.trim()))return reject(command,"INVALID_PAYLOAD");
+   const character: Character={kind:"character",id,name,position:{...command.position},health:100,energy:100,...(typeof ownerId==="string"?{ownerId}:{})};
    world.entities.push(character);
   } else {
    const type=command.parameters?.resourceType, quantity=command.parameters?.quantity;

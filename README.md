@@ -1,25 +1,26 @@
-# Vila Viva — reconstrução gameplay-first
+# Vila Viva — G1: primeira fatia vertical real
 
-Esta branch é uma **base nova e isolada**, sem copiar o JavaScript, HTML ou backend das implementações anteriores. O único material reaproveitado são documentos de requisitos e decisões.
+Este branch foi reconstruído apenas a partir da documentação do jogo. Não reutiliza código executável da UI ou backend anteriores.
 
-## Primeiro: especificar
-- [Ações, precondições e permissões](docs/gameplay/ACTIONS_AND_PERMISSIONS.md)
-- [Ciclos de gameplay](docs/gameplay/CORE_LOOPS.md)
-- [Fluxos e telas dos dois perfis](docs/ui/SCREEN_FLOWS.md)
-- [Decisões a homologar](docs/gameplay/OPEN_DECISIONS.md)
-
-A documentação é proposta de produto e antecede a implementação de gameplay completo. Issue #17 (G0), vinculada à #15.
-
-## Fundação mínima
-- `packages/domain/`: contratos TypeScript para estados, entidades, ações e resultados, sem UI, banco ou rede.
-- `packages/engine/`: uma implementação inicial headless com um mundo, um NPC e comandos reais de movimentação e criação de fonte, apenas para validar limites arquiteturais.
-- `apps/player-web/` e `apps/admin-web/`: reservados às interfaces sobre esses contratos; sem UI mock herdada.
-- `infra/`: reservado a deploy futuro. A main existente e o deploy não são alterados.
-
-## Executar os testes
+## Experimento local (Node 22.18+)
 ```bash
-node --version  # 22.18+ recomendado
-node --experimental-strip-types --test tests/*.test.mts
+npm test
+npm run dev
 ```
+Abra `http://127.0.0.1:8086/` (jogador) e `http://127.0.0.1:8086/admin` (Modo Deus).
 
-O primeiro incremento **não** possui persistência, REST/WebSocket, autenticação ou UI funcional. Não publique os comandos em um servidor sem RBAC. Os recursos mínimos visam testar arquitetura, não simular todo o gameplay.
+### O que realmente funciona
+- Um mesmo mundo em memória no servidor, acessado pelas duas interfaces.
+- Inspecionar NPCs/fontes; posicionar um NPC ou uma fonte por comando admin.
+- Mover o personagem do jogador **um tile ortogonal** por comando, com redução real de energia e resposta do motor.
+- Backend valida limites, ator responsável e duplicação do commandId.
+- Ações são derivadas do estado do motor e mostram o motivo do bloqueio.
+- Atualizar consulta o estado atual. Não há stream automático ainda.
+
+### Restrições de segurança
+Servidor vinculado exclusivamente a `127.0.0.1`. O campo de papel é demonstrativo e NÃO comprova autorização. Não adicionar Cloudflare Tunnel, proxy público ou binding em `0.0.0.0` antes de autenticação, RBAC, limitação de taxa e auditoria.
+
+### Ainda não implementado
+Persistência, tick contínuo, patfinding, colisões, coleta física, sobrevivência, construção, IA, WebSocket, login e operações administrativas seguras. Não mesclar na `main` nem alterar deploy atual.
+
+Arquitetura, fluxos e decisões: docs/gameplay, docs/ui e issues #17/#15. PR #18.
