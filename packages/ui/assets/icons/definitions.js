@@ -8,6 +8,7 @@ export const ICON_GEOMETRY=Object.freeze({
  wood:'<path d="M12 21v-3m0-14-4 5h2l-3 4h3l-2 3h8l-2-3h3l-3-4h2z"/>',
  stone:'<path d="m5 14 3-7 7-2 4 5-2 8H8zm3-7 4 5 6-1"/>',
  food:'<path d="M12 20c-3.6 0-7-5.1-7-10.4C5 7.1 6.4 5 8.5 5c1.6 0 2.5 1.2 3.5 1.2S13.9 5 15.5 5C17.6 5 19 7.1 19 9.6 19 14.9 15.6 20 12 20Z"/><path d="M12 8c-.7-2.3.2-4.1 2.6-5"/>',
+ scenery:'<path d="M4 19h16M6 19V9l6-5 6 5v10M9 19v-6h6v6M4 9l8-6 8 6"/>',
  house:'<path d="m4 11 8-6 8 6M6 10.5V19a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-8.5M10 20v-5h4v5"/>',
  events:'<path d="m12 3 1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/>',
  stats:'<path d="M5 18V9M12 18V5M19 18v-7M3 21h18"/>',

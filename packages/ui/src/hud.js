@@ -4,12 +4,13 @@ const toolDefs=[
  ['npc','Habitante','action.add-npc'],
  ['wood','Floresta','action.add-wood'],
  ['stone','Pedreira','action.add-stone'],
- ['food','Alimento','action.add-food'],
+ ['food','Macieira','action.add-food'],
+ ['scenery','Cenário','action.add-scenery'],
  ['house','Construir','action.build'],
  ['events','Eventos','action.events'],
  ['stats','Métricas','action.metrics']
 ];
-export function createHud({role,onTool,onClock,onSize}){
+export function createHud({role,onTool,onClock,onSize,onPreset=()=>{}}){
  const el=id=>document.getElementById(id);
  const dock=el('dock');
  for(const [id,label,glyph] of toolDefs){
@@ -31,16 +32,27 @@ export function createHud({role,onTool,onClock,onSize}){
   b.addEventListener('click',()=>onClock(speed));
  });
  const range=el('brushSize'),minus=el('brushMinus'),plus=el('brushPlus');
+ const label=document.createElement('label');label.className='brush-preset';label.textContent='Tipo';
+ const preset=document.createElement('select');preset.id='brushPreset';preset.setAttribute('aria-label','Tipo de elemento');
+ label.append(preset);
+ el('brushPanel').insertBefore(label,el('brushName').nextSibling);
+ preset.addEventListener('change',()=>onPreset(preset.value));
  range.addEventListener('input',()=>onSize(Number(range.value)));
  minus.addEventListener('click',()=>onSize(Math.max(1,Number(range.value)-1)));
  plus.addEventListener('click',()=>onSize(Math.min(15,Number(range.value)+1)));
  return {
   tool(id){
    for(const button of dock.querySelectorAll('[data-tool]'))button.classList.toggle('active',button.dataset.tool===id);
-   const brush=['npc','wood','stone','food'].includes(id);
+   const brush=['npc','wood','stone','food','scenery'].includes(id);
+   label.hidden=id!=='food'&&id!=='scenery';
+   if(id==='food'||id==='scenery'){
+    const items=id==='food'?[['apple_adult','Adulta'],['apple_seedling','Muda']]:[['boulder','Pedra sólida'],['wall','Muro'],['statue','Estátua']];
+    preset.replaceChildren(...items.map(([value,name])=>{const option=document.createElement('option');option.value=value;option.textContent=name;return option;}));
+    onPreset(preset.value);
+   }
    el('brushPanel').hidden=!brush;
-   el('brushName').textContent=({npc:'Pincel · Habitante',wood:'Pincel · Floresta',stone:'Pincel · Pedreira',food:'Pincel · Alimento'})[id]||'';
-   el('toolBadge').textContent=({inspect:'Modo observar',npc:'Adicionar habitantes',wood:'Adicionar fontes de madeira',stone:'Adicionar pedreiras',food:'Adicionar alimento'})[id]||id;
+   el('brushName').textContent=({npc:'Pincel · Habitante',wood:'Pincel · Floresta',stone:'Pincel · Pedreira',food:'Pincel · Macieira',scenery:'Pincel · Cenário'})[id]||'';
+   el('toolBadge').textContent=({inspect:'Modo observar',npc:'Adicionar habitantes',wood:'Adicionar fontes de madeira',stone:'Adicionar pedreiras',food:'Plantar macieiras',scenery:'Posicionar obstáculos sólidos'})[id]||id;
   },
   size(n){
    range.value=String(n);el('brushValue').textContent=n+' × '+n;el('brushCount').textContent=(n*n)+' célula'+(n===1?'':'s');
@@ -48,7 +60,7 @@ export function createHud({role,onTool,onClock,onSize}){
   update(data){
    if(!data)return;
    const {world,clock,storageSummary}=data;
-   el('worldName').textContent='Vila Viva / '+world.id;
+   el('worldName').textContent='Oturo / '+world.id;
    el('day').textContent='Dia '+String(clock.day).padStart(2,'0');
    el('clockTime').textContent=String(clock.hour).padStart(2,'0')+':'+String(clock.minute).padStart(2,'0');
    speedButtons.forEach((b,i)=>b.classList.toggle('active',[0,1,2,4][i]===clock.speed));

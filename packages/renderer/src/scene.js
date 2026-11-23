@@ -41,6 +41,18 @@ export class Scene {
      c.beginPath();c.arc(0,0,Math.max(7,s*.28),0,Math.PI*2);c.fillStyle=e.ownerId?'#e5d19e':'#d6c091';c.fill();
      c.strokeStyle='rgba(35,42,26,.7)';c.lineWidth=1.5;c.stroke();
      c.fillStyle='#29342a';c.font='bold '+Math.max(10,s*.29)+'px system-ui';c.textAlign='center';c.textBaseline='middle';c.fillText((e.name||'?').charAt(0).toUpperCase(),0,1);
+    }else if(e.kind==='obstacle'){
+     c.lineWidth=Math.max(1,s*.025);c.strokeStyle='#283c33';
+     if(e.obstacleType==='wall'){
+      c.fillStyle='#87968e';c.fillRect(-s*.43,-s*.29,s*.86,s*.59);c.strokeRect(-s*.43,-s*.29,s*.86,s*.59);
+      c.strokeStyle='#5b7068';c.beginPath();c.moveTo(-s*.43,0);c.lineTo(s*.43,0);c.moveTo(0,-s*.29);c.lineTo(0,0);c.moveTo(-s*.20,0);c.lineTo(-s*.20,s*.29);c.moveTo(s*.22,0);c.lineTo(s*.22,s*.29);c.stroke();
+     }else if(e.obstacleType==='statue'){
+      c.fillStyle='#a8b8ae';c.fillRect(-s*.3,s*.05,s*.6,s*.23);c.fillStyle='#839a8d';c.fillRect(-s*.19,-s*.15,s*.38,s*.22);
+      c.beginPath();c.arc(0,-s*.25,s*.15,0,Math.PI*2);c.fill();
+     }else{
+      c.fillStyle='#8a9993';c.beginPath();c.moveTo(-s*.37,s*.17);c.lineTo(-s*.3,-s*.12);c.lineTo(-s*.10,-s*.34);c.lineTo(s*.25,-s*.24);c.lineTo(s*.39,s*.16);c.lineTo(s*.12,s*.29);c.lineTo(-s*.31,s*.25);c.closePath();c.fill();c.stroke();
+      c.fillStyle='#b3bfb6';c.beginPath();c.moveTo(-s*.3,-s*.12);c.lineTo(-s*.1,-s*.3);c.lineTo(s*.18,-s*.2);c.lineTo(0,0);c.closePath();c.fill();
+     }
     }else if(e.resourceType==='wood'){
      c.fillStyle='#6b8f65';c.beginPath();c.arc(-s*.09,0,s*.22,0,Math.PI*2);c.arc(s*.1,-s*.07,s*.22,0,Math.PI*2);c.fill();
      c.fillStyle='#9f8464';c.fillRect(-s*.035,s*.13,s*.07,s*.17);

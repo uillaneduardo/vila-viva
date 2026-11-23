@@ -6,18 +6,19 @@ import {createHud} from '../../packages/ui/src/hud.js';
 import {createInspector} from '../../packages/ui/src/inspector.js';
 const el=id=>document.getElementById(id),role=document.body.dataset.role;
 applyUiTheme(document.documentElement);
-const scene=new Scene(el('game')),inspector=createInspector();
-let snapshot=null,catalog=null,selectedId=null,hoverId=null,tool='inspect',brushSize=1;
+const scene=new Scene(el('game')),inspector=createInspector({onHarvest:(id)=>void harvestSelected(id)});
+let snapshot=null,catalog=null,selectedId=null,hoverId=null,tool='inspect',brushSize=1,preset='apple_adult';
 let pan=null,painting=new Map(),loading=false,inspection=null,lastSpeed=1;
 const keys=new Set();
 const request=async(path,options)=>{
  const response=await fetch(path,options),data=await response.json();
- if(!response.ok)throw Error(data.error||'Falha na comunicação');
+ if(!response.ok)throw Error(data.error||data.result?.error||'Falha na comunicação');
  return data;
 };
 const hud=createHud({
  role,
- onTool(id){tool=id;hud.tool(id);scene.setBrush(['npc','wood','stone','food'].includes(id)?{kind:id,size:brushSize}:null);hoverId=null;scene.setHover(null);el('tooltip').hidden=true;},
+ onTool(id){tool=id;hud.tool(id);scene.setBrush(['npc','wood','stone','food','scenery'].includes(id)?{kind:id,size:brushSize}:null);hoverId=null;scene.setHover(null);el('tooltip').hidden=true;},
+ onPreset(value){preset=value;},
  onSize(n){brushSize=n;hud.size(n);if(scene.brush)scene.setBrush({...scene.brush,size:n});},
  onClock(speed){changeSpeed(speed);}
 });
@@ -33,9 +34,32 @@ async function refreshInspector(entity){
  try{
   const details=await request('/api/inspect?entityId='+encodeURIComponent(entity.id));
   if(entity.id!==selectedId)return;
-  inspection=details;inspector.render(entity,details,catalog);
+  inspection=details;inspector.render(entity,details,catalog,{role,canHarvest:!!harvestActor(entity)});
  }catch(error){status('Falha na inspeção: '+error.message);}
 }
+/** God Mode may test a real NPC harvest only when one stands next to the source. */
+function harvestActor(entity){
+ if(!snapshot||entity?.kind!=='resource'||entity.sourceId!=='apple_tree'||entity.quantity<=0||entity.life?.stage==='dead')return null;
+ const eligible=e=>e.kind==='character'&&e.health>0&&e.energy>0&&
+  Math.abs(e.position.x-entity.position.x)+Math.abs(e.position.y-entity.position.y)===1&&
+  Object.values(e.inventory||{}).reduce((sum,value)=>sum+value,0)<12;
+ if(role==='admin')return snapshot.world.entities.find(e=>!e.ownerId&&eligible(e))||null;
+ return snapshot.world.entities.find(e=>e.id===snapshot.playerId&&eligible(e))||null;
+}
+async function harvestSelected(sourceId){
+ const source=snapshot?.world.entities.find(e=>e.id===sourceId);
+ const actor=harvestActor(source);
+ if(!actor){status('A coleta exige um personagem adjacente, com energia e espaço no inventário.');return;}
+ const command={commandId:crypto.randomUUID(),action:'resource.harvest',targetId:sourceId,role:role==='admin'?'npc':'player'};
+ if(role==='admin')command.actorId=actor.id;
+ try{
+  const data=await request('/api/commands',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(command)});
+  if(!data.result?.ok)throw Error(data.result?.error||'Falha na coleta');
+  status(actor.name+' coletou maçãs. O produto está no inventário, não no depósito.');
+  await refresh();
+ }catch(error){status('Falha na coleta: '+error.message);}
+}
+
 function updateHover(point){
  if(tool!=='inspect'||pan||!snapshot){el('tooltip').hidden=true;scene.setHover(null);scene.setRoute(null);return;}
  const target=scene.pick(point.x,point.y);
@@ -64,10 +88,13 @@ function addBrushAt(point){
 }
 async function submitBrush(){
  if(!painting.size){status('Nenhuma célula livre para posicionar.');return;}
- const cells=[...painting.values()],kind=tool,action=kind==='npc'?'npc.spawn':'resource.spawn';
+ const cells=[...painting.values()],kind=tool,action=kind==='npc'?'npc.spawn':kind==='scenery'?'obstacle.spawn':'resource.spawn';
  const commands=cells.map((position,i)=>({
   commandId:crypto.randomUUID(),action,position,
-  parameters:kind==='npc'?{name:'Habitante '+(snapshot.world.entities.filter(e=>e.kind==='character').length+i+1)}:{resourceType:kind,quantity:25}
+  parameters:kind==='npc'?{name:'Habitante '+(snapshot.world.entities.filter(e=>e.kind==='character').length+i+1)}:
+   kind==='scenery'?{obstacleType:preset}:
+   kind==='food'?{resourceType:'food',sourceId:'apple_tree',ageTicks:preset==='apple_seedling'?0:120,quantity:preset==='apple_seedling'?0:6}:
+   {resourceType:kind,quantity:25}
  }));
  painting.clear();
  try{
@@ -157,5 +184,5 @@ function animate(now){
 }
 requestAnimationFrame(animate);
 el('worldTick').textContent='Carregando mundo…';
-el('introHint').replaceChildren(createUiVisual('action.inspect',{size:15}),document.createTextNode(' Prévia de desenvolvimento: mundo real em memória, sem IA, depósito ou construção.'));
+el('introHint').replaceChildren(createUiVisual('action.inspect',{size:15}),document.createTextNode(' Macieiras produzem por ticks; NPCs coletam manualmente nesta fase. Cenário sólido bloqueia movimento.'));
 refresh();setInterval(refresh,650);

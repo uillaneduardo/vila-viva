@@ -2,6 +2,8 @@ import {displayText} from "../../../packages/domain/src/localization.ts";
 import {baseRegistry,RESOURCE_PRESETS} from "../../../packages/content/src/catalog.ts";
 import {EFFECTS} from "../../../packages/content/src/effects/catalog.ts";
 import {COMMUNITY_HOUSE} from "../../../packages/content/src/buildings/community-house.ts";
+import {NATURAL_SOURCES} from "../../../packages/content/src/natural-sources.ts";
+import {SCENERY_PRESETS} from "../../../packages/content/src/scenery.ts";
 import {resolveAttributes} from "../../../packages/systems/effects/src/resolver.ts";
 import {createServer} from "node:http";
 import {readFile} from "node:fs/promises";
@@ -52,7 +54,9 @@ export function makePrototype(){
     actions:Object.fromEntries([...baseRegistry.actions].map(([id,d])=>[id,displayText(d.displayName)])),
     resources:Object.fromEntries(Object.values(RESOURCE_PRESETS).map(p=>[p.resourceType,displayText(baseRegistry.entity(p.definitionId).displayName)])),
     effects:Object.fromEntries(Object.values(EFFECTS).map(e=>[e.id,displayText(e.displayName)])),
-    buildings:{[COMMUNITY_HOUSE.id]:displayText(COMMUNITY_HOUSE.displayName)}
+    buildings:{[COMMUNITY_HOUSE.id]:displayText(COMMUNITY_HOUSE.displayName)},
+    naturalSources:Object.fromEntries(Object.values(NATURAL_SOURCES).map(s=>[s.id,{label:s.label,productId:s.productId,production:s.production,stages:s.stages}])),
+    scenery:Object.fromEntries(Object.values(SCENERY_PRESETS).map(s=>[s.id,s.label]))
    });
    if(url.pathname==="/api/world"&&req.method==="GET")return json(res,200,{world,clock:clockView(),storageSummary:null,
     npcViews:Object.fromEntries(world.entities.filter(e=>e.kind==="character").map(e=>[e.id,{
@@ -69,7 +73,13 @@ export function makePrototype(){
        id:e.instanceId,name:EFFECTS[e.definitionId]?.displayName["pt-BR"]??e.definitionId,
        sourceId:e.sourceId,stacks:e.stacks,expiresAtTick:e.expiresAtTick??null
       })):[],
-      activity:null,route:null,inventory:null,needs:null,social:null,decisions:null
+      activity:null,route:null,inventory:entity.kind==="character"?(entity.inventory??{}):null,
+      natural:entity.kind==="resource"&&entity.sourceId?{
+       species:entity.sourceId,productId:entity.productId,life:entity.life??null,
+       production:NATURAL_SOURCES[entity.sourceId]?.production??null
+      }:null,
+      scenery:entity.kind==="obstacle"?{type:entity.obstacleType,blocksMovement:entity.blocksMovement,harvestable:false}:null,
+      needs:null,social:null,decisions:null
     });
    }
    if(url.pathname==="/api/clock"&&req.method==="POST"){
@@ -89,8 +99,11 @@ export function makePrototype(){
    if(url.pathname==="/api/commands"&&req.method==="POST"){
     const input=await readBody(req);
     if(!input||typeof input!=="object"||typeof input.commandId!=="string"||!/^[-\w]{1,80}$/.test(input.commandId))return json(res,400,{error:"INVALID_PAYLOAD"});
-    const role:Role=input.role==="admin"?"admin":"player";
-    const command:Command={worldId:world.id,commandId:input.commandId,actorRole:role,actorId:role==="player"?"local-player":undefined,action:input.action,targetId:role==="player"?playerId:input.targetId,position:input.position,parameters:input.parameters};
+    const role:Role=input.role==="admin"?"admin":input.role==="npc"?"npc":"player";
+    const command:Command={worldId:world.id,commandId:input.commandId,actorRole:role,
+      actorId:role==="player"?"local-player":role==="npc"?input.actorId:undefined,
+      action:input.action,targetId:role==="player"&&input.action==="movement.move"?playerId:input.targetId,
+      position:input.position,parameters:input.parameters};
     const result=applyCommand(world,command);
     return json(res,result.ok?200:422,{result,world,clock:clockView()});
    }
@@ -101,7 +114,7 @@ export function makePrototype(){
     const results=[];
     for(const c of input.commands){
      if(!c||typeof c.commandId!=="string"||!/^[-\w]{1,80}$/.test(c.commandId))return json(res,422,{error:"INVALID_PAYLOAD"});
-     if(c.action!=="npc.spawn"&&c.action!=="resource.spawn")return json(res,422,{error:"INVALID_PAYLOAD"});
+     if(c.action!=="npc.spawn"&&c.action!=="resource.spawn"&&c.action!=="obstacle.spawn")return json(res,422,{error:"INVALID_PAYLOAD"});
     }
     for(const c of input.commands)results.push(applyCommand(world,{worldId:world.id,actorRole:"admin",commandId:c.commandId,action:c.action,position:c.position,parameters:c.parameters}));
     return json(res,200,{results,world,clock:clockView()});
