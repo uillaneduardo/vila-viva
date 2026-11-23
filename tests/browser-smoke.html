@@ -24,6 +24,13 @@ iframe.addEventListener("load",()=>{
       check(!!w.VilaGodView,"God View deve estar disponível");
       check(!!d.querySelector("#god-inspector"),"Painel de inspeção contextual deve existir");
       check(!!d.querySelector("#god-tools"),"Ferramentas de intervenção devem existir");
+      check(!!d.querySelector(".layout>main>#god-tools"),"Modo Deus deve ficar abaixo do mapa, não ocupar a lateral");
+      check(!!d.querySelector("#god-survival-ribbon"),"Barra de sobrevivência visível");
+      check(!!d.querySelector("#god-roster-strip"),"Lista de moradores visível");
+      d.querySelector('[data-god-tool="npc"]').click();
+      check(!!d.querySelector("#god-npc-role")&&!!d.querySelector("#god-npc-add"),"Criar NPC acessível no modo Deus");
+      d.querySelector('[data-god-tool="observe"]').click();
+
       check(!!d.querySelector("#god-dock"),"Indicadores inferiores devem existir");
       w.VilaGodView?.select("build");
       check(d.querySelector("#god-inspector-content").textContent.includes("Materiais necessários"),"Inspeção da obra exibe requisitos");
@@ -31,6 +38,12 @@ iframe.addEventListener("load",()=>{
       check(d.querySelector("#god-inspector-content").textContent.includes("Capacidade ocupada"),"Inspeção do depósito exibe ocupação");
       w.VilaGodView?.select("npc","collector");
       check(d.querySelector("#god-inspector-content").textContent.includes("Borin"),"Inspeção do NPC exibe morador");
+      d.querySelector('[data-inspect-tab="inventory"]').click();
+      check(d.querySelector("#god-inspector-content").textContent.includes("Carga"),"Aba de inventário funciona");
+      d.querySelector('[data-inspect-tab="history"]').click();
+      check(d.querySelector("#god-inspector-content").textContent.includes("Decisões"),"Aba de decisões funciona");
+      d.querySelector('[data-inspect-tab="status"]').click();
+
       d.querySelector("#god-worlds").click();
       check(!d.querySelector("#god-modal").hidden,"Gerenciador de mundos abre");
       d.querySelector("#god-close-worlds").click();
