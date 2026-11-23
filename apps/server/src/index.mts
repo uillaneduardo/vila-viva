@@ -23,10 +23,6 @@ export function makePrototype(){
  init("npc.spawn","player-init",{x:4,y:5},{name:"Meu personagem",ownerId:"local-player"});
  init("npc.spawn","npc-init",{x:13,y:9},{name:"Ayla"});
  init("resource.spawn","wood-init",{x:7,y:8},{resourceType:"wood",quantity:30});
- // Real food-source entities for visual homologation; inventories remain authoritative.
- init("resource.spawn","apple-ripe-init",{x:9,y:7},{resourceType:"food",quantity:30});
- init("resource.spawn","apple-sparse-init",{x:11,y:9},{resourceType:"food",quantity:6});
- init("resource.spawn","apple-empty-init",{x:10,y:11},{resourceType:"food",quantity:0});
  const playerId="npc-player-init";
  const clock={speed:1 as 0|1|2|4};
  const clockView=()=>({speed:clock.speed,paused:clock.speed===0,tick:world.tick,day:1+Math.floor(world.tick/240),hour:Math.floor(world.tick/10)%24,minute:(world.tick%10)*6});

@@ -34,7 +34,11 @@ test('world sprite route serves valid atlas and blocks arbitrary binary',async()
   assert.equal((await manifest.json()).frameWidth,96);
   const wrong=await fetch(base+'/packages/renderer/src/sprites.png');
   assert.equal(wrong.status,404);
+  const before=(await (await fetch(base+'/api/world')).json()).world;
+  assert.equal(before.entities.length,3); // original seed remains unchanged
+  const placed=await fetch(base+'/api/brush',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({role:'admin',commands:[{commandId:'sprite-tree-test',action:'resource.spawn',position:{x:8,y:8},parameters:{resourceType:'food',quantity:8}}]})});
+  assert.equal(placed.status,200);
   const world=(await (await fetch(base+'/api/world')).json()).world;
-  assert.ok(world.entities.some(e=>e.resourceType==='food'));
+  assert.equal(world.entities.find(e=>e.id==='resource-sprite-tree-test').resourceType,'food');
  }finally{await new Promise(resolve=>server.close(resolve));}
 });
