@@ -7,7 +7,7 @@ const appSource=fs.readFileSync(path.join(ROOT,"app.js"),"utf8").replace(/\bsetu
 const worlds=new Map();
 function engine(data){
  const window={};const sandbox={window,console,Math,Date,JSON,setTimeout,clearTimeout,document:{getElementById:()=>({getContext:()=>({imageSmoothingEnabled:false})})},localStorage:{getItem:()=>null,setItem:()=>{}}};
- vm.createContext(sandbox);vm.runInContext(labSource,sandbox,{timeout:1000});vm.runInContext(appSource,sandbox,{timeout:1000});
+ vm.createContext(sandbox);vm.runInContext(labSource,sandbox,{timeout:1000});sandbox.VilaLab=window.VilaLab;vm.runInContext(appSource,sandbox,{timeout:1000});
  vm.runInContext("window.VilaSites=sites;window.VilaNames=R",sandbox);
  const api=vm.runInContext("({fresh,tick,event,sites,lab:window.VilaLab})",sandbox);
  const w=data||api.fresh("Novo Vale");
