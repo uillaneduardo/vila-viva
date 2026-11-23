@@ -59,7 +59,7 @@ Estados `hover/selected/disabled` são **apresentação** e não regras. A UI at
 1. Identificar o componente e seu estado semântico (ex.: `section.inventory`), preservando a disposição aprovada (HUD topo central, dock embaixo, inspector direito proporcional e recolhível, navegação vertical).
 2. Se o ID ainda não existir, adicioná-lo a `assets/manifest.js` com `{icon:'...',sprite:null}`. Se necessário, registrar geometria local em `icons/definitions.js`. Nunca colocar SVG copiado em `hud.js` ou `inspector.js`.
 3. Criar o sprite em `public/assets/ui/<namespace>/<nome>.webp` (ou PNG/SVG seguro). Registrar licença/autoria em um inventário de assets. Os arquivos reais ainda **não** foram criados.
-4. Registrar o caminho em ponto central de bootstrap/manifest, **depois que o arquivo existir**; utilizar `createUiVisual()`. Se o browser não carregar, verificar resposta HTTP e fallback.
+4. O servidor loopback mapeia `/assets/ui/...` para `public/assets/ui/...` e serve PNG/WebP/SVG; verificar arquivo real, MIME e resposta HTTP. Registrar o caminho em um bootstrap/manifest central **depois que existir** e utilizar `createUiVisual()`. Se o browser não carregar, verificar resposta HTTP e fallback.
 5. Para novo tema, cadastrar tokens em `themes/index.js`, mapear estados de sprite por tema e verificar contraste/foco/disabled. Não modificar cores ou desenhos do mapa nesse PR.
 6. Testar em 1366×768 e 1920×1080; confirmar que painel continua proporcional, sem barra horizontal; zoom, pan e WASD do mapa intactos.
 7. Rodar `npm test`, `node --check` em módulos UI e realizar QA visual no navegador. Atualizar issue #29 com evidências e limitações.
