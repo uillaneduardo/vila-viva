@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="theme-color" content="#101713"/>
+<title>Vila Viva — Administração</title>
+<link rel="stylesheet" href="./src/styles.css"/>
+</head>
+<body>
+<div id="app" class="shell">
+  <aside class="sidebar" id="sidebar" aria-label="Navegação">
+    <div class="brand"><div class="brand-mark">✳</div><div><strong>Vila Viva</strong><span>World Control</span></div><button class="icon-button mobile-close" id="close-menu" aria-label="Fechar menu">×</button></div>
+    <div class="side-label">AMBIENTE</div>
+    <nav class="nav-list" id="main-nav">
+      <button class="nav-item active" data-view="world"><span>◈</span> Visão do mundo</button>
+      <button class="nav-item" data-view="worlds"><span>▦</span> Simulações</button>
+      <button class="nav-item" data-view="population"><span>♙</span> População</button>
+      <button class="nav-item" data-view="resources"><span>◉</span> Recursos</button>
+      <button class="nav-item" data-view="events"><span>⌁</span> Eventos</button>
+    </nav>
+    <div class="side-label">ADMINISTRAÇÃO</div>
+    <nav class="nav-list"><button class="nav-item" data-view="rules"><span>⚙</span> Regras do mundo</button><button class="nav-item" data-view="metrics"><span>▥</span> Estatísticas</button></nav>
+    <div class="side-bottom"><div class="demo-indicator"><span class="status-dot"></span> Ambiente de demonstração</div><div class="user"><div class="avatar">AD</div><div><strong>Administrador</strong><small>Modo Deus</small></div><span class="user-more">···</span></div></div>
+  </aside>
+  <div class="main-wrap">
+    <header class="topbar">
+      <div class="top-left"><button id="open-menu" class="icon-button menu-button" aria-label="Abrir menu">☰</button><span class="breadcrumb">Simulações</span><span class="slash">/</span><strong id="breadcrumb-current">Visão do mundo</strong></div>
+      <div class="top-right"><span class="demo-pill"><span class="status-dot"></span> DEMO LOCAL</span><button class="icon-button" id="help-button" title="Sobre este protótipo" aria-label="Informações">ⓘ</button><div class="avatar small">AD</div></div>
+    </header>
+    <main class="content">
+      <div class="page-heading"><div><div class="eyebrow">PAINEL DE CONTROLE</div><h1 id="page-title">Visão do mundo</h1><p id="page-description">Observe a simulação e intervenha no ambiente em tempo real.</p></div><div class="heading-actions"><button class="btn ghost" id="worlds-button">▦ <span>Selecionar mundo</span></button><button class="btn primary" id="new-world-button">＋ <span>Nova simulação</span></button></div></div>
+      <section class="stats" id="stats">
+        <div class="stat"><div class="stat-head">População <span>♙</span></div><div class="stat-number" id="stat-npcs">12</div><div class="stat-detail">NPCs no mundo</div></div>
+        <div class="stat"><div class="stat-head">Dia atual <span>◷</span></div><div class="stat-number" id="stat-day">24</div><div class="stat-detail">Ano 1 · Primavera</div></div>
+        <div class="stat"><div class="stat-head">Recursos <span>◈</span></div><div class="stat-number" id="stat-resources">8</div><div class="stat-detail">Fontes disponíveis</div></div>
+        <div class="stat"><div class="stat-head">Estado do mundo <span>◎</span></div><div class="stat-number state-value" id="stat-status"><span class="live-dot"></span> Em execução</div><div class="stat-detail" id="stat-speed">Velocidade 1×</div></div>
+      </section>
+      <div id="view-world" class="view active">
+        <section class="workspace">
+          <div class="map-column">
+            <div class="panel-head"><div><strong>Mapa da simulação</strong><small id="world-meta">Assentamento Inicial · 64 × 48</small></div><div class="world-controllers"><button class="ctrl" id="pause-btn" title="Pausar ou continuar">Ⅱ</button><select id="speed-select" aria-label="Velocidade"><option value="1">1×</option><option value="2">2×</option><option value="5">5×</option><option value="10">10×</option></select><button class="ctrl" id="reset-view" title="Centralizar mapa">⤢</button></div></div>
+            <div class="map-frame" id="map-frame"><canvas id="world-canvas" aria-label="Mapa interativo da simulação"></canvas><div class="map-overlay top"><span><span class="live-dot"></span> PRÉVIA VISUAL</span><span id="map-coords">X: 0 · Y: 0</span></div><div class="tool-float" aria-label="Ferramentas do mapa"><button class="tool active" data-tool="inspect" title="Inspecionar">⌖</button><button class="tool" data-tool="npc" title="Adicionar NPC">♙</button><button class="tool" data-tool="resource" title="Adicionar recurso">♧</button><button class="tool" data-tool="event" title="Gerar evento">ϟ</button><div class="tool-separator"></div><button class="tool" id="zoom-in" title="Aproximar">＋</button><button class="tool" id="zoom-out" title="Afastar">−</button></div><div class="map-overlay bottom" id="map-tip">Arraste para mover · Roda para zoom · Clique para inspecionar</div></div>
+            <div class="bottom-bar"><span><span class="legend-dot npc"></span> NPCs</span><span><span class="legend-dot resource"></span> Recursos</span><span><span class="legend-dot building"></span> Estruturas</span><span class="bottom-note">Visualização topdown · dados fictícios</span></div>
+          </div>
+          <aside class="inspector" id="inspector"><div class="panel-head"><div><strong>Inspetor</strong><small>Detalhes da seleção</small></div><button class="icon-button" id="clear-selection" title="Limpar seleção">×</button></div><div id="inspector-content" class="inspector-content"><div class="empty-inspector"><div class="empty-icon">⌖</div><strong>Nenhum item selecionado</strong><p>Selecione um NPC, recurso ou construção no mapa para ver os detalhes.</p></div></div></aside>
+        </section>
+        <section class="events-panel"><div class="panel-head"><div><strong>Atividade do mundo</strong><small>Eventos recentes da simulação</small></div><button class="text-link" id="see-events">Ver todos →</button></div><div id="activity-list" class="activity-list"></div></section>
+      </div>
+      <section id="view-generic" class="view generic-view"><div class="generic-header"><h2 id="generic-title"></h2><p id="generic-description"></p></div><div id="generic-content"></div></section>
+    </main>
+  </div>
+  <div class="toast-container" id="toasts" aria-live="polite"></div>
+  <dialog id="create-dialog"><form method="dialog" id="create-form"><div class="dialog-header"><h2>Nova simulação</h2><button type="button" class="icon-button" id="dialog-close">×</button></div><p>Crie um mundo demonstrativo para experimentar o painel.</p><label for="world-name">Nome do mundo</label><input id="world-name" maxlength="48" value="Novo assentamento" required/><label for="world-seed">Semente</label><input id="world-seed" type="number" value="12345"/><div class="dialog-actions"><button type="button" class="btn ghost" id="dialog-cancel">Cancelar</button><button class="btn primary" id="dialog-create" value="confirm">Criar mundo</button></div></form></dialog>
+</div>
+<script type="module" src="./src/app.js"></script>
+</body></html>
