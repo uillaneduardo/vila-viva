@@ -31,9 +31,10 @@ export function applyCommand(world: World, command: Command): Result {
   const character=world.entities.find(e=>e.id===command.targetId);
   if(!character)return reject(command,"NOT_FOUND");
   if(character.kind!=="character")return reject(command,"INVALID_TARGET");
+  if(!command.actorId || (command.actorRole==="npc" ? command.actorId!==character.id : !character.ownerId || character.ownerId!==command.actorId))return reject(command,"UNAUTHORIZED");
   if(!command.position || !inBounds(world,command.position))return reject(command,"OUT_OF_BOUNDS");
-  if(character.energy<=0)return reject(command,"BLOCKED");
-  // Prototype discrete relocation; pathfinding and movement duration are NOT implemented.
+  if(character.energy<=0 || Math.abs(character.position.x-command.position.x)+Math.abs(character.position.y-command.position.y)!==1)return reject(command,"BLOCKED");
+  // Single orthogonal tile per command. No pathfinding or timed movement in this foundational slice.
   character.position={...command.position};
   character.energy=Math.max(0,character.energy-1);
  } else if (command.action==="entity.inspect"){
