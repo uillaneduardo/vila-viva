@@ -5,7 +5,7 @@ fs.mkdirSync(DIR,{recursive:true});
 const labSource=fs.readFileSync(path.join(ROOT,"lab.js"),"utf8");
 const appSource=fs.readFileSync(path.join(ROOT,"app.js"),"utf8").replace(/\bsetup\(\);\s*$/,"");
 const worlds=new Map(),subscribers=new Map();
-function publish(e){const clients=subscribers.get(e.w.id);if(!clients?.size)return;const payload="event: snapshot\\ndata: "+JSON.stringify({world:e.w})+"\\n\\n";for(const res of clients){if(res.destroyed){clients.delete(res);continue;}if(!res.write(payload))res.end();}}
+function publish(e){const clients=subscribers.get(e.w.id);if(!clients?.size)return;const payload="event: snapshot\ndata: "+JSON.stringify({world:e.w})+"\n\n";for(const res of clients){if(res.destroyed){clients.delete(res);continue;}if(!res.write(payload))res.end();}}
 function engine(data){
  const window={};const sandbox={window,console,Math,Date,JSON,setTimeout,clearTimeout,document:{getElementById:()=>({getContext:()=>({imageSmoothingEnabled:false})})},localStorage:{getItem:()=>null,setItem:()=>{}}};
  vm.createContext(sandbox);vm.runInContext(labSource,sandbox,{timeout:1000});sandbox.VilaLab=window.VilaLab;vm.runInContext(appSource,sandbox,{timeout:1000});
@@ -72,8 +72,8 @@ http.createServer(async(req,res)=>{try{
  if(parts.length===4&&parts[3]==="stream"&&req.method==="GET"){
   const clients=subscribers.get(e.w.id)||new Set();if(clients.size>=20)return respond(res,429,{error:"Limite de observadores"});subscribers.set(e.w.id,clients);
   res.writeHead(200,{"Content-Type":"text/event-stream; charset=utf-8","Cache-Control":"no-cache, no-transform","Connection":"keep-alive","X-Accel-Buffering":"no"});
-  clients.add(res);res.write("retry: 1500\\n\\n");res.write("event: snapshot\\ndata: "+JSON.stringify({world:e.w})+"\\n\\n");
-  const heartbeat=setInterval(()=>{if(!res.destroyed)res.write(": heartbeat\\n\\n")},15000);
+  clients.add(res);res.write("retry: 1500\n\n");res.write("event: snapshot\ndata: "+JSON.stringify({world:e.w})+"\n\n");
+  const heartbeat=setInterval(()=>{if(!res.destroyed)res.write(": heartbeat\n\n")},15000);
   res.on("close",()=>{clearInterval(heartbeat);clients.delete(res)});return;
  }
  if(parts.length===3&&req.method==="GET")return respond(res,200,{world:e.w});
