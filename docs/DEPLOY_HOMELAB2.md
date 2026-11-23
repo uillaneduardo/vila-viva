@@ -1,11 +1,11 @@
 # Deploy no homelab2
 
 ## Arquitetura
-Workflow push main → verify (Ubuntu 24.04) → build e push GHCR tag sha-<commit> → runner dedicado homelab2 → ação engineering → Compose em `/home/uillan/homelab2/apps/vila-viva` → healthcheck loopback 8481.
+Workflow push main → verify (Ubuntu 24.04) → build e push GHCR tag sha-<commit> → runner dedicado homelab2 → ação local baseada no padrão engineering → Compose em `/home/uillan/homelab2/apps/vila-viva` → healthcheck loopback 8481.
 
 ## Preparação (uma vez)
 1. GitHub Settings > Actions > Runners: cadastrar runner self-hosted exclusivo ou configurado com label adicional **vila-viva-svr2**, além de self-hosted/linux/x64. O runner deve ser executado no homelab2.
-2. Garantir que o runner possua acesso controlado ao Docker e que o GitHub Actions tenha acesso à ação privada do repositório `engineering`.
+2. Garantir que o runner possua acesso controlado ao Docker e que o GitHub Actions tenha acesso à ação local versionada em `.github/actions/ghcr-compose-deploy`.
 3. Criar `/home/uillan/homelab2/apps/vila-viva` com propriedade/permissões adequadas ao serviço do runner. A ação criará `.deploy/compose.yml`.
 4. Verificar se a porta **8481** está livre. Publicação desejada via Cloudflare Tunnel: origem HTTP `http://localhost:8481` no homelab2. Não apontar o tunnel para um servidor diferente.
 5. Garantir acesso do workflow ao GHCR e visibilidade adequada do pacote. Nenhuma chave SSH pessoal ou PAT permanente deve ser necessária.
