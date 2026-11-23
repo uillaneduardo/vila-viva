@@ -61,3 +61,6 @@ As definições de moradia, vínculos, reprodução, ciclo de vida, infância e 
 
 ## Efeitos e atributos derivados
 Pessoas podem possuir instâncias de efeitos; definições reutilizáveis em `packages/content/src/effects/`. Primários e estado vital alimentam um grafo acíclico de atributos derivados (humor → produtividade/interação). As fontes e durações de modificadores são rastreáveis para inspeção administrativa. Um efeito não é entidade física, mas componente opcional do personagem. Ver `docs/architecture/EFFECT_SYSTEM.md`.
+
+## Localização e identidade
+O identificador de domínio (`resource.wood`, `gestation`, `building.community_house`) é estável e jamais deve ser exibido como título padrão. Definições de entidades, ações, efeitos e blueprints/etapas possuem `displayName: {"pt-BR": "..."}`. Personagens podem manter `name` próprio, definido por usuário ou simulação. O servidor disponibiliza rótulos no `GET /api/catalog` para o cliente, mantendo separação entre lógica e apresentação. A localização inicial é `pt-BR`; o contrato prevê fallback ao idioma padrão e extensão futura para outros idiomas. Ver `docs/architecture/LOCALIZATION.md`.

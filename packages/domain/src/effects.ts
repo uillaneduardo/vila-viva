@@ -7,8 +7,10 @@ export type EffectLifetime=
  | {kind:"conditional"}
  | {kind:"permanent"};
 export type StackingMode="unique"|"refresh"|"stack";
+import type {LocalizedText} from "./localization.ts";
 export interface EffectDefinition {
  id:string;
+ displayName:LocalizedText;
  tags:readonly string[];
  lifetime:EffectLifetime;
  stacking:StackingMode;

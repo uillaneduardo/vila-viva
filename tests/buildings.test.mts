@@ -12,5 +12,5 @@ test("building data does not own pregnancy logic",()=>{
  assert.ok(COMMUNITY_HOUSE.effects.every(e=>!e.capability.startsWith("reproduction.")&&!e.capability.startsWith("lifecycle.")));
 });
 test("invalid stage materials rejected",()=>{
- assert.throws(()=>validateBuildingBlueprint({...COMMUNITY_HOUSE,stages:[{id:"bad",label:"bad",materials:{wood:-1},workUnits:1}]}));
+ assert.throws(()=>validateBuildingBlueprint({...COMMUNITY_HOUSE,stages:[{id:"bad",label:"bad",materials:{wood:-1},workUnits:1,displayName:{"pt-BR":"Etapa inválida"}}]}));
 });

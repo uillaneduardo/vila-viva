@@ -1,3 +1,7 @@
+import {displayText} from "../../../packages/domain/src/localization.ts";
+import {baseRegistry,RESOURCE_PRESETS} from "../../../packages/content/src/catalog.ts";
+import {EFFECTS} from "../../../packages/content/src/effects/catalog.ts";
+import {COMMUNITY_HOUSE} from "../../../packages/content/src/buildings/community-house.ts";
 import {createServer} from "node:http";
 import {readFile} from "node:fs/promises";
 import {resolve,extname,sep} from "node:path";
@@ -26,6 +30,14 @@ export function makePrototype(){
  const server=createServer(async(req,res)=>{
   try{
    const url=new URL(req.url||"/","http://localhost");
+   if(url.pathname==="/api/catalog"&&req.method==="GET")return json(res,200,{
+    locale:"pt-BR",
+    entities:Object.fromEntries([...baseRegistry.entities].map(([id,d])=>[id,displayText(d.displayName)])),
+    actions:Object.fromEntries([...baseRegistry.actions].map(([id,d])=>[id,displayText(d.displayName)])),
+    resources:Object.fromEntries(Object.values(RESOURCE_PRESETS).map(p=>[p.resourceType,displayText(baseRegistry.entity(p.definitionId).displayName)])),
+    effects:Object.fromEntries(Object.values(EFFECTS).map(e=>[e.id,displayText(e.displayName)])),
+    buildings:{[COMMUNITY_HOUSE.id]:displayText(COMMUNITY_HOUSE.displayName)}
+   });
    if(url.pathname==="/api/world"&&req.method==="GET")return json(res,200,{world,playerId,mode:"local-prototype",persistent:false});
    if(url.pathname==="/api/actions"&&req.method==="GET"){
     const role:Role=url.searchParams.get("role")==="admin"?"admin":"player";

@@ -9,9 +9,9 @@ test("registry contains content and action contracts with unique IDs",()=>{
  assert.equal(baseRegistry.action("movement.move").readonly,false);
  assert.equal(createBaseRegistry().entities.size,7);
  const registry=new DefinitionRegistry();
- registry.registerEntity({id:"test",kind:"item",components:["position"],description:"item"});
- assert.throws(()=>registry.registerEntity({id:"test",kind:"item",components:["position"],description:"again"}));
- assert.throws(()=>registry.registerEntity({id:"bad",kind:"item",components:["position","position"],description:"duplicate"}));
+ registry.registerEntity({id:"test",kind:"item",components:["position"],displayName:{"pt-BR":"Item"},description:"item"});
+ assert.throws(()=>registry.registerEntity({id:"test",kind:"item",components:["position"],displayName:{"pt-BR":"Item"},description:"again"}));
+ assert.throws(()=>registry.registerEntity({id:"bad",kind:"item",components:["position","position"],displayName:{"pt-BR":"Item"},description:"duplicate"}));
 });
 
 test("engine does not spawn an unregistered resource",()=>{

@@ -1,7 +1,7 @@
 const $=id=>document.getElementById(id);
 const isAdmin=document.body.dataset.role==="admin";
 const role=isAdmin?"admin":"player";
-let state=null,selected=null,cursor={x:5,y:5},busy=false;
+let catalog=null,state=null,selected=null,cursor={x:5,y:5},busy=false;
 const tile=28,canvas=$("map"),ctx=canvas.getContext("2d");
 const reason={BLOCKED:"Não está adjacente ou falta energia",OUT_OF_BOUNDS:"Selecione uma célula válida",UNAUTHORIZED:"Ação não permitida",INVALID_PAYLOAD:"Parâmetros inválidos",DUPLICATE_COMMAND:"Comando já utilizado",NOT_FOUND:"Entidade não encontrada"};
 const request=async(path,options)=>{const response=await fetch(path,options);const data=await response.json();if(!response.ok&& !data.result)throw Error(data.error||"Falha de rede");return data;};
@@ -27,11 +27,12 @@ function writeInspector(){
  const e=state.world.entities.find(item=>item.id===selected);
  $("selection").replaceChildren();
  if(!e){$("selection").textContent="Escolha uma célula ou entidade no mapa.";return;}
- const title=document.createElement("strong");title.textContent=e.kind==="character"?e.name:e.resourceType;
+ const title=document.createElement("strong");title.textContent=e.kind==="character"?e.name:(catalog?.resources?.[e.resourceType]??e.resourceType);
  const detail=document.createElement("p");detail.textContent=e.kind==="character"?"Saúde "+e.health+" · Energia "+e.energy:e.quantity+" / "+e.maximum+" unidades";
  $("selection").append(title,detail);
 }
 async function refresh(){
+ if(!catalog)catalog=await request("/api/catalog");
  const newState=await request("/api/world");state=newState;
  if(selected&&!state.world.entities.some(e=>e.id===selected))selected=null;
  paint();writeInspector();await updateActions();
@@ -45,7 +46,7 @@ async function updateActions(){
  for(const a of actions){
   const button=document.createElement("button");button.type="button";button.disabled=busy||!a.enabled;
   button.className="action";
-  const label=document.createElement("span");label.textContent=a.label;
+  const label=document.createElement("span");label.textContent=catalog?.actions?.[a.id]??a.label;
   const small=document.createElement("small");small.textContent=a.enabled?"Disponível":reason[a.reason]||a.reason||"Indisponível";
   button.append(label,small);
   button.addEventListener("click",()=>send(a.id));
