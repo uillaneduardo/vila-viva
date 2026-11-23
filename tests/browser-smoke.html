@@ -38,6 +38,24 @@ iframe.addEventListener("load",()=>{
       d.querySelector('[data-god-tool="source"]').click();
       check(!!d.querySelector("#god-source-type"),"Fonte de recursos disponível nas ferramentas");
       d.querySelector('[data-god-tool="observe"]').click();
+
+      // Viewport regression: controls and inspector must not push the simulation off-screen.
+      const viewport=iframe.getBoundingClientRect(),frameHeight=iframe.clientHeight;
+      const mapRegion=d.querySelector(".mapwrap"),dock=d.querySelector("#god-dock"),side=d.querySelector(".side");
+      check(dock.getBoundingClientRect().bottom<=frameHeight+3,"Desktop: rodapé do simulador deve caber na altura do navegador");
+      check(mapRegion.getBoundingClientRect().height>=200,"Desktop: mapa deve permanecer utilizável");
+      check(side.getBoundingClientRect().bottom<=frameHeight+3,"Desktop: painel lateral não ultrapassa a tela");
+      check(d.documentElement.scrollWidth<=d.documentElement.clientWidth+3,"Desktop: não deve haver overflow horizontal");
+      check(!!d.querySelector("#god-zoom-in")&&!!d.querySelector("#god-map-center"),"Controles de zoom e centralização visíveis");
+      d.querySelector("#god-zoom-in").click();
+      check(parseFloat(d.querySelector("#map").style.width)>100,"Controle de aumentar zoom operacional");
+      d.querySelector("#god-map-center").click();
+      check(d.querySelector("#map").style.width==="100%","Centralizar retorna zoom para ajuste à tela");
+      iframe.style.width="390px";iframe.style.height="740px";
+      check(d.documentElement.scrollWidth<=d.documentElement.clientWidth+3,"Mobile: sem corte horizontal da página");
+      check(mapRegion.getBoundingClientRect().height>=250,"Mobile: mapa não desaparece");
+      check(d.querySelector("#god-worlds").getBoundingClientRect().right<=d.documentElement.clientWidth+3,"Mobile: menu de mundos dentro da largura");
+      iframe.style.width="1100px";iframe.style.height="850px";
       d.querySelector("#pause").click();
       check(d.querySelector("#lab-inspection").textContent.toLowerCase().includes("decis"),"Decisões consultáveis");
       result.dataset.status=errors.length?"fail":"pass";
