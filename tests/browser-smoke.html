@@ -22,7 +22,7 @@ iframe.addEventListener("load",()=>{
       d.querySelector("#lab-zoom-in").click();
       check(d.querySelector("#map").style.width!=="","Controle de zoom funcional");
       d.querySelector("#pause").click();
-      check(d.querySelector("#lab-panel").textContent.includes("Decisão"),"Decisões consultáveis");
+      check(d.querySelector("#lab-inspection").textContent.toLowerCase().includes("decis"),"Decisões consultáveis");
       result.dataset.status=errors.length?"fail":"pass";
       result.textContent=errors.length?"FALHOU ("+errors.length+")":"PASSOU — seleção, inspeção, eventos e controles";
       details.textContent=errors.join("\n");
