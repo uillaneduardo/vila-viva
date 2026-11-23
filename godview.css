@@ -89,3 +89,87 @@ button:focus-visible,select:focus-visible{outline:2px solid #d9eab2;outline-offs
 @media(max-width:1040px){.layout{grid-template-columns:minmax(0,1fr) 308px}.top{padding:9px 12px}.top .pill{max-width:180px}.mapwrap{height:calc(100vh - 180px)}}
 @media(max-width:760px){.top{min-height:58px;gap:8px}.top h1{font-size:21px}.top #settlements{min-width:0;flex:1;max-width:none;margin:0}.top .pill{display:none}.layout{display:flex;flex-direction:column}.layout>main{min-height:0}.layout .maphead{padding:9px 10px;gap:7px}.layout .maphead h2{font-size:13px}.layout .maphead .row button{font-size:11px;padding:6px;min-width:37px}.mapwrap{height:calc(100dvh - 235px);min-height:350px;max-height:none;flex:none}.side{display:flex;max-height:none;overflow:visible;border-left:0;border-top:1px solid #425a48}.side #god-tools{padding:12px}.god-tools-row{display:flex}.god-tool{flex:1;min-height:53px;flex-direction:row;font-size:12px}.god-tool .tool-icon{font-size:17px}.side #god-inspector{padding:15px}.mapwrap .hint{font-size:10px}.god-dock-stat{padding-right:8px}.god-dock-stat small{display:none}#god-dock{padding:8px;min-height:46px;gap:8px}.god-world-card{flex-wrap:wrap}.god-world-card button{flex:1}}
 @media(max-width:430px){.top h1{font-size:18px}.top #settlements{width:100px}.top #god-worlds{font-size:11px;padding:7px}.layout .maphead h2{font-size:12px}.layout .maphead .row{gap:3px}.layout .maphead .row button{min-width:30px;padding:5px}#god-dock .god-dock-stat:nth-child(n+4){display:none}}
+
+/* Viewport usability: fixed desktop cockpit, independently scrollable map and inspector. */
+@media(min-width:761px){
+ html,body{height:100%;overflow:hidden}
+ .shell{height:100vh;height:100dvh;min-height:0;overflow:hidden}
+ .top{flex:0 0 auto;min-height:58px;flex-wrap:nowrap;padding:8px 14px}
+ .top h1{font-size:21px;flex:0 0 auto}
+ .top #settlements{flex:0 1 195px;min-width:90px}
+ .layout{height:0;min-height:0;flex:1;overflow:hidden}
+ .layout>main{height:100%;min-height:0;overflow:hidden}
+ .layout>main>.panel:first-child{height:0;flex:1;min-height:0;overflow:hidden}
+ .layout .maphead{flex:0 0 auto;min-height:52px;flex-wrap:nowrap;padding:8px 12px}
+ .layout .maphead .row{flex-wrap:nowrap;min-width:0}
+ .layout .maphead .row button{white-space:nowrap;min-width:34px;padding:7px}
+ .mapwrap{height:0;min-height:0;max-height:none;flex:1;overflow:auto}
+ .side{height:100%;min-height:0;max-height:none;overflow-y:auto;overscroll-behavior:contain}
+ .side #god-tools{flex:0 0 auto}
+ .side #god-inspector{flex:0 0 auto;min-height:0}
+ #god-dock{min-height:49px;padding:6px 12px}
+}
+.god-tools-row{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+.god-tool{min-width:0;min-height:54px;padding:5px 2px;font-size:10px;overflow:hidden}
+#god-inspector-content{min-width:0;overflow-wrap:anywhere}
+.god-header{min-width:0}.god-header>div{min-width:0}
+.god-metric{min-width:0}.god-metric>span{min-width:0}
+.god-metric strong{flex:0 0 auto;max-width:55%;overflow-wrap:anywhere}
+.god-list button{min-width:0}
+.god-list button>span{min-width:0;overflow-wrap:anywhere}
+.god-map-controls{display:flex;gap:4px;align-items:center;position:absolute;right:12px;top:12px;z-index:6;padding:5px;background:#13241eea;border:1px solid #526d55;border-radius:11px;box-shadow:0 5px 20px #0003}
+.god-map-controls button{font-size:12px;min-width:36px;height:34px;padding:4px 8px;background:#294236}
+.god-map-controls button:hover{background:#456a4a}
+#god-map-zoom{font-size:11px;font-variant-numeric:tabular-nums;color:#d0e3d2;min-width:41px;text-align:center}
+#god-map-center{min-width:57px}
+@media(min-width:761px) and (max-width:1170px){
+ .layout{grid-template-columns:minmax(0,1fr) 285px}
+ .top .pill{display:none}
+ .layout .maphead h2{font-size:12px}
+ .layout .maphead .row button{min-width:30px;padding:6px}
+ #god-dock{gap:6px}
+ .god-dock-stat{padding-right:7px}
+ .god-dock-stat small{display:none}
+ .side>.panel{padding:12px}
+}
+@media(min-width:761px) and (max-height:680px){
+ .side>.panel{padding:10px 13px}
+ .god-tool{min-height:43px}.god-tool .tool-icon{font-size:16px}
+ .mapwrap .hint{bottom:9px}
+ .layout .maphead{min-height:45px}
+}
+@media(max-width:760px){
+ html,body{height:auto;min-height:100%;overflow-x:hidden;overflow-y:auto}
+ .shell{height:auto;min-height:100dvh;overflow:visible}
+ .top{position:sticky;top:0;z-index:30;flex-wrap:nowrap;padding:7px 9px;min-height:56px}
+ .top h1{flex:0 0 auto;font-size:18px}
+ .top #settlements{flex:1;min-width:0;width:0;max-width:none}
+ #god-worlds{flex:0 0 auto;padding:8px}
+ .layout{display:flex;flex-direction:column;min-height:0;overflow:visible}
+ .layout>main{min-height:0;overflow:visible}
+ .layout>main>.panel:first-child{min-height:0}
+ .layout .maphead{flex-wrap:wrap;min-height:0;gap:6px;padding:8px 10px}
+ .layout .maphead .row{flex:1;justify-content:flex-end;min-width:0;gap:3px}
+ .layout .maphead .row button{white-space:nowrap;min-width:31px;padding:6px}
+ .mapwrap{height:clamp(270px,50dvh,560px);min-height:0;max-height:none;flex:none;overflow:auto}
+ .mapwrap .hint{bottom:8px;left:8px;font-size:10px;pointer-events:none}
+ .side{height:auto;min-height:0;max-height:none;overflow:visible}
+ .side #god-tools{padding:10px 12px}
+ .god-tools-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+ .god-tool{flex-direction:column;min-height:51px;padding:6px 2px;font-size:10px}
+ .side #god-inspector{padding:12px;min-height:200px}
+ #god-dock{min-height:47px;max-width:100%;overflow-x:auto}
+ .god-map-controls{right:8px;top:8px}
+ .god-map-controls button{min-width:31px;padding:3px 6px}
+ #god-map-center{min-width:48px}
+ #god-events-drawer{position:fixed;bottom:8px;left:8px;width:calc(100vw - 16px);max-height:65dvh}
+ .god-modal-backdrop{padding:8px}
+ .god-modal{max-height:calc(100dvh - 16px);padding:14px}
+}
+@media(max-width:390px){
+ .top h1{font-size:16px}
+ .layout .maphead{align-items:flex-start}
+ .layout .maphead .row{justify-content:flex-start}
+ .mapwrap{height:44dvh;min-height:255px}
+ .god-map-controls{gap:2px;padding:3px}
+}
