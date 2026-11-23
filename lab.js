@@ -31,6 +31,18 @@ window.VilaLab = (() => {
    if(n.hunger<32)return null;
    const roleMap={leader:["forest","orchard"],collector:["forest","orchard"],farmer:["farm","orchard"],mason:["quarry","mine"],builder:["build","forest"],merchant:["orchard","forest"]};
    let options=[];
+   if(w.project.stage<4 && ["leader","merchant"].includes(n.id)){
+     const stages=[{wood:20,stone:12},{wood:30,stone:20},{wood:25,stone:10},{wood:10,stone:5}];
+     const target=stages[w.project.stage];
+     for(const key of ["wood","stone"]){
+       const pending=w.npcs.reduce((sum,p)=>sum+(p.supplyKey===key&&["toBuildPickup","toBuildDelivery"].includes(p.phase)?(p.cargo?.qty||Math.min(5,w.stock[key]||0)):0),0);
+       const missing=target[key]-(w.project.delivered[key]||0)-pending;
+       if(missing>0 && w.stock[key]>0 && n.energy>22){
+         const score=key==="wood"?88:86;
+         options.push({id:"supply:"+key,score});
+       }
+     }
+   }
    for(const s of sites){
      if(s.id==="build"){if(n.id==="builder" && w.project.stage<4 && typeof window.VilaStageReady==="function" && window.VilaStageReady(w)) options.push({id:s.id,score:120});continue;}
      if(!eligible(w,n,s))continue;
