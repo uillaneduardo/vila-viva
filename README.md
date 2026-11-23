@@ -34,3 +34,25 @@ O acesso local é pela porta 8481 (loopback). Configurar Cloudflare Tunnel com h
 O protótipo mantém a simulação no navegador. A futura versão multiplayer moverá o motor para um processo autoritativo e armazenará o estado no PostgreSQL. Eventos de tempo e mutações econômicas não podem ser confiados ao cliente na versão online.
 
 Veja `docs/GAME_DESIGN.md` para conceitos, regras e evolução.
+
+## Laboratório visual (primeira entrega da issue #2)
+
+O mapa continua sendo uma partida local observável no navegador. Na seção **Laboratório ao vivo**, é possível:
+- Clicar em um NPC para ver energia, fome, sono, carga, tarefas, entregas, interrupções e última decisão registrada.
+- Selecionar uma fonte no mapa para ver quantidade restante e taxa de regeneração, ou o depósito para conferir ocupação por peso.
+- Selecionar o quadro comunitário (ícone 📋) e observar demandas gerais. A consulta/registro físico por NPCs ainda não está implementada.
+- Usar **Zoom +/−**, roda do mouse e arrastar o mapa; **Seguir NPC** centraliza a visualização no NPC selecionado.
+- Aplicar cenários de escassez de alimento, floresta exaurida, depósito cheio e exaustão.
+- Exportar o estado, a semente, os registros de decisões e as métricas em JSON para inspecionar resultados.
+
+As fontes naturais sempre permanecem no mapa e se regeneram com o tempo de mundo, mesmo depois de exauridas. A produção normal é suspensa quando não existe espaço de destino. Os NPCs podem reagir à fome e à necessidade de sono; a alimentação reduz fisicamente o estoque quando o alimento é retirado.
+
+### Testes
+```bash
+node --check app.js
+node --check lab.js
+node --test tests/lab.test.cjs
+```
+
+### Escopo ainda pendente
+Esta primeira entrega **não** conclui as etapas E0–E6. A issue #2 mantém o plano para inventários completos por peso, ferramentas físicas, depósitos múltiplos, pilhas recuperáveis, memória individual/esquecimento, quadro com comunicação física, sistema genérico de ações, rotas com obstáculos, canteiros automáticos, painel histórico avançado, exportação CSV e benchmarks. O motor segue local no navegador, sem multiplayer. A UI deve ser homologada visualmente depois do deploy.
