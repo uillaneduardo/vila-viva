@@ -24,6 +24,8 @@ jobs:
           assert "localStorage" in html
           print("Prototype structure OK")
           PY
+      - name: Validate JavaScript syntax
+        run: node --check app.js
       - name: Verify Docker build
         run: docker build -t vila-viva:test .
   publish:
