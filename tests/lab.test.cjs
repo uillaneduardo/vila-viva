@@ -105,7 +105,7 @@ test("starvation can reach zero health and ends NPC activity",()=>{
 
 test("unique NPC identifiers retain their profession and equipment",()=>{
  const L=lab(),w=world();w.npcs[0].id="npc-unique";w.npcs[0].job="collector";
- L.ensure(w,sites);
+ w.stock.food=90;L.ensure(w,sites);
  assert.equal(w.npcs[0].equipment,"axe");
  assert.equal(L.choose(w,w.npcs[0],sites),"forest");
 });
