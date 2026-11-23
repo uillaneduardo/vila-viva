@@ -25,12 +25,37 @@ jobs:
           assert "function tick(w)" in js
           assert "function event(w,type" in js
           assert "localStorage" in js
+          assert 'src="./lab.js"' in html
+          assert Path("lab.js").is_file()
           print("Prototype structure OK")
           PY
       - name: Validate JavaScript syntax
-        run: node --check app.js
+        run: |
+          node --check app.js
+          node --check lab.js
+          node --test tests/lab.test.cjs
       - name: Verify Docker build
         run: docker build -t vila-viva:test .
+      - name: Verify files inside deployment image
+        run: |
+          docker run -d --name vila-viva-ci -p 127.0.0.1:18761:80 vila-viva:test
+          trap 'docker rm -f vila-viva-ci >/dev/null 2>&1 || true' EXIT
+          docker exec vila-viva-ci test -s /usr/share/nginx/html/index.html
+          docker exec vila-viva-ci test -s /usr/share/nginx/html/app.js
+          docker exec vila-viva-ci test -s /usr/share/nginx/html/lab.js
+          docker exec vila-viva-ci mkdir -p /usr/share/nginx/html/tests
+          docker cp tests/browser-smoke.html vila-viva-ci:/usr/share/nginx/html/tests/browser-smoke.html
+          for i in 1 2 3 4 5; do
+            curl -fsS http://127.0.0.1:18761/lab.js >/dev/null && break
+            sleep 1
+          done
+          google-chrome --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --virtual-time-budget=6000 --dump-dom http://127.0.0.1:18761/tests/browser-smoke.html > /tmp/vila-viva-image-browser.html 2>/tmp/vila-viva-image-chrome.log
+          if ! grep -q 'id="smoke-result" data-status="pass"' /tmp/vila-viva-image-browser.html; then
+            grep -A4 'id="smoke-result"' /tmp/vila-viva-image-browser.html | head -8 || true
+            tail -20 /tmp/vila-viva-image-chrome.log || true
+            exit 1
+          fi
+          echo "Production image browser smoke passed"
   publish:
     needs: verify
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
