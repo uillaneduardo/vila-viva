@@ -58,3 +58,11 @@ Usar sprites próprios/procedurais na primeira versão. Para futuros pacotes, av
 - O mapa usa canvas de maior resolução e personagens clicáveis. A seleção abre um painel de inspeção de características e estado atual.
 - O loop visual nunca recria botões; painéis são montados em interações, enquanto indicadores são atualizados diretamente.
 - A versão de armazenamento local v2 cria assentamentos novos para não misturar os estados dos NPCs da versão anterior.
+
+
+## Implementação experimental da issue #8 — modo observador e mundos persistentes
+- O relógio e ticks passam a ocorrer no processo Node.js, inclusive com o navegador fechado. Cada mundo executa em isolamento de VM, com estado salvo em volume Docker; o cliente consulta a API e só renderiza/intervém.
+- As ações manuais do avatar ficam desativadas. Os NPCs mantêm as regras físicas de coleta, carga, transporte, trabalho e repouso.
+- O seletor de simulações permite criar, alternar, pausar, renomear e excluir; cada mundo tem velocidade própria. Fontes podem ser adicionadas por presets diretamente no mapa.
+- Fontes esgotadas continuam regenerando. Canteiros mostram etapas, entregas e trabalho; depósitos mostram recursos, capacidade e cargas a caminho.
+- Persistência implementada via snapshots JSON atômicos (não PostgreSQL ainda); falta autenticação, importação de mundos locais, diffs em tempo real, sistema de permissões e observabilidade de alta escala.
