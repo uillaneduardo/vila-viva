@@ -198,3 +198,11 @@ button:focus-visible,select:focus-visible{outline:2px solid #d9eab2;outline-offs
 #god-inspector{border-top:1px solid #405f4a}
 @media(min-width:761px){.mapwrap{height:0;min-height:0;flex:1}.layout>main{min-height:0}}
 @media(max-width:760px){#god-survival-ribbon{grid-template-columns:repeat(2,minmax(0,1fr))}#god-survival-ribbon>div{padding:7px 9px}#god-survival-ribbon small{font-size:10px}#god-survival-ribbon strong{font-size:12px}#god-roster-strip{padding:7px}.god-roster-unit{min-width:135px;flex:0 0 135px}.mapwrap{height:clamp(270px,48dvh,560px)}}
+
+.god-inspector-heading{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.god-inspector-heading h2{margin:0!important}
+.god-inspector-heading small{font-size:10px;color:#8ed4a4;white-space:nowrap}
+.god-inspector-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+.god-inspector-tabs[hidden]{display:none}
+.god-inspector-tabs button{font-size:11px;padding:8px 3px;background:#1b3429;border:1px solid #345343;border-radius:7px}
+.god-inspector-tabs button.active{background:#40654a;color:#f3ffe8;border-color:#96bf87}
