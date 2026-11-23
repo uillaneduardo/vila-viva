@@ -13,6 +13,10 @@ test("authoritative persistent simulations",async()=>{
   const first=(await call("/api/simulations")).worlds[0];assert.ok(first.id);
   const b=(await call("/api/simulations","POST",{name:"Estudo B"})).world;
   assert.notEqual(first.id,b.id);
+
+  const created=await call("/api/simulations/"+b.id+"/commands","POST",{type:"npc",role:"farmer",name:"Ari"});
+  assert.ok(created.world.npcs.find(n=>n.name==="Ari"&&n.job==="farmer"));
+  assert.equal(created.world.npcs.length,7);
   await call("/api/simulations/"+b.id+"/commands","POST",{type:"speed",value:20});
   const before=(await call("/api/simulations/"+b.id)).world.ticks;
   await new Promise(r=>setTimeout(r,550));
@@ -27,7 +31,8 @@ test("authoritative persistent simulations",async()=>{
   assert.equal(placed.extraSites.length,1);assert.ok(placed.lab.resources[placed.extraSites[0].id]);
   await stop();start();await ready();
   const recovered=(await call("/api/simulations/"+b.id)).world;
-  assert.equal(recovered.extraSites.length,1);assert.ok(recovered.ticks>=after);
+  assert.equal(recovered.extraSites.length,1);
+  assert.ok(recovered.npcs.some(n=>n.name==="Ari"&&n.job==="farmer"));assert.ok(recovered.ticks>=after);
   assert.equal((await call("/api/simulations/"+first.id)).world.run.paused,true);
  }finally{await stop();fs.rmSync(DIR,{recursive:true,force:true})}
 });
