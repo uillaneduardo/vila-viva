@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Vila Viva — teste de navegador</title></head>
+<body><h1>Smoke test do Laboratório Vila Viva</h1><p id="smoke-result" data-status="running">Executando...</p><pre id="smoke-details"></pre>
+<iframe id="game" src="../index.html" title="Jogo" style="width:1100px;height:850px;border:1px solid #bbb"></iframe>
+<script>
+const result=document.querySelector("#smoke-result"),details=document.querySelector("#smoke-details");
+let errors=[];const check=(condition,label)=>{if(!condition)errors.push(label);};
+const iframe=document.querySelector("#game");
+iframe.addEventListener("load",()=>{
+  setTimeout(()=>{
+    try{
+      const w=iframe.contentWindow,d=iframe.contentDocument;
+      check(!!w.VilaLab,"API do laboratório deve estar carregada");
+      check(!!d.querySelector("#map"),"Canvas deve existir");
+      check(!!d.querySelector("#lab-panel"),"Painel do laboratório deve existir");
+      check(d.querySelectorAll("[data-lab-npc]").length===6,"Seis NPCs devem estar disponíveis para inspeção");
+      const first=d.querySelector('[data-lab-npc="collector"]');
+      if(first){first.click();check(d.querySelector("#lab-inspection").textContent.includes("Borin"),"Clique no NPC deve abrir ficha de Borin");}
+      const scenario=d.querySelector("#lab-scenario");scenario.value="forest";d.querySelector("#lab-apply").click();
+      check(d.querySelector("#lab-history").textContent.includes("forest"),"Cenário aplicado deve aparecer no histórico");
+      check(d.querySelector("#lab-summary").textContent.includes("NPCs"),"Estatísticas globais visíveis");
+      d.querySelector("#lab-zoom-in").click();
+      check(d.querySelector("#map").style.width!=="","Controle de zoom funcional");
+      d.querySelector("#pause").click();
+      check(d.querySelector("#lab-inspection").textContent.toLowerCase().includes("decis"),"Decisões consultáveis");
+      result.dataset.status=errors.length?"fail":"pass";
+      result.textContent=errors.length?"FALHOU ("+errors.length+")":"PASSOU — seleção, inspeção, eventos e controles";
+      details.textContent=errors.join("\n");
+    }catch(e){errors.push(e.stack||String(e));result.dataset.status="fail";result.textContent="FALHOU — exceção";details.textContent=errors.join("\n");}
+  },850);
+});
+</script></body></html>
