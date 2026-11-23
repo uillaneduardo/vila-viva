@@ -1,3 +1,4 @@
+import {baseRegistry,resourcePreset} from "../../content/src/catalog.ts";
 import {inBounds} from "../../domain/src/contracts.ts";
 import type {Command, World, Result, Character, Resource, Position} from "../../domain/src/contracts.ts";
 
@@ -10,6 +11,9 @@ const reject = (command: Command, error: Extract<Result,{ok:false}>["error"]): R
 export function applyCommand(world: World, command: Command): Result {
  if (world.id!==command.worldId || !command.commandId.trim()) return reject(command,"INVALID_PAYLOAD");
  if (world.appliedCommands.includes(command.commandId)) return reject(command,"DUPLICATE_COMMAND");
+ const specification=baseRegistry.actions.get(command.action);
+ if(!specification)return reject(command,"INVALID_PAYLOAD");
+ if(!specification.roles.includes(command.actorRole))return reject(command,"UNAUTHORIZED");
  const admin = command.actorRole==="admin";
  if (command.action==="npc.spawn" || command.action==="resource.spawn"){
   if (!admin) return reject(command,"UNAUTHORIZED");
@@ -24,7 +28,7 @@ export function applyCommand(world: World, command: Command): Result {
    world.entities.push(character);
   } else {
    const type=command.parameters?.resourceType, quantity=command.parameters?.quantity;
-   if(typeof type!=="string" || !type.trim() || typeof quantity!=="number" || !Number.isSafeInteger(quantity) || quantity<0) return reject(command,"INVALID_PAYLOAD");
+   if(typeof type!=="string" || !resourcePreset(type) || typeof quantity!=="number" || !Number.isSafeInteger(quantity) || quantity<0) return reject(command,"INVALID_PAYLOAD");
    const resource:Resource={kind:"resource",id,resourceType:type,position:{...command.position},quantity,maximum:quantity};
    world.entities.push(resource);
   }
