@@ -10,6 +10,7 @@ test("same authoritative world visible via two UI contexts; commands change real
  try{
   const first=await (await fetch(base+"/api/world")).json();
   assert.equal(first.world.entities.length,3);
+  assert.equal(first.world.entities.filter((e:any)=>e.kind==="resource").length,1);
   const actions=await (await fetch(base+"/api/actions?role=player&x=5&y=5")).json();
   assert.ok(actions.actions.some((x:any)=>x.id==="movement.move"&&x.enabled));
   const command={commandId:"test-move",role:"player",action:"movement.move",position:{x:5,y:5}};

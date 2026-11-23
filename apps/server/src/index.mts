@@ -17,7 +17,7 @@ export function makePrototype(){
   applyCommand(world,{worldId:world.id,actorRole:"admin",commandId,action,position,parameters});
  init("npc.spawn","player-init",{x:4,y:5},{name:"Meu personagem",ownerId:"local-player"});
  init("npc.spawn","npc-init",{x:13,y:9},{name:"Ayla"});
- init("resource.spawn","wood-init",{x:7,y:8},{resourceType:"madeira",quantity:30});
+ init("resource.spawn","wood-init",{x:7,y:8},{resourceType:"wood",quantity:30});
  const playerId="npc-player-init";
  const json=(res:import("node:http").ServerResponse,status:number,data:unknown)=>{
   res.writeHead(status,{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"});

@@ -50,3 +50,6 @@ Cada ação terá `id`, perfil/ator, alvo, precondições, custos, execução, e
 
 ## Invariantes para testes
 IDs de conteúdos/ações únicos; componentes sem duplicações; recurso spawn só usa preset conhecido; comando sem permissão não gera entidade; inspeção não altera tick; a UI nunca adiciona recursos ao estoque sem entrega real.
+
+## Convenção de identificadores
+Os IDs usados no protocolo são estáveis e em inglês (`wood`, `food`, `stone`); rótulos visíveis ficam localizados em português. Servidor, catálogo e opções administrativas usam os mesmos IDs.
