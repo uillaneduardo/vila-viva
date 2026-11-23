@@ -32,6 +32,6 @@ jobs:
         run: |
           node --check apps/shared-ui/app.js
           node --check packages/i18n/src/index.js
-          for source in packages/renderer/src/*.js packages/ui/src/*.js; do
+          for source in packages/renderer/src/*.js packages/ui/src/*.js packages/ui/assets/*.js packages/ui/assets/icons/*.js packages/ui/assets/themes/*.js; do
             node --check "$source"
           done
