@@ -57,3 +57,16 @@ As pré-condições devem ser revalidadas no início da execução e sempre que 
 
 ## Primeira fatia vertical aprovada para construir como experimento técnico
 `world.create` interno + `npc.spawn` + `movement.move` + `resource.spawn` + `entity.inspect`, com testes headless, sem banco. Gameplay completo permanece pendente de validação deste documento.
+
+## Ações novas do MVP — moradia, social e família
+| ID | Ator / alvo | Condições e efeito |
+|---|---|---|
+| `housing.apply` | adulto → casa | residência disponível, abrigo concluído; atribui vaga |
+| `housing.leave` | morador → casa | libera vínculo/vaga, gera atualização de humor |
+| `social.meet` | adulto → outro adulto | proximidade, disponibilidade, tempo; afeto/interesse dirigidos podem mudar |
+| `social.partner` | dois adultos | reciprocidade, elegibilidade e sem impedimentos; cria parceria recíproca |
+| `family.plan` | casal | abrigo funcional, vaga de dependente, requisitos vitais e reprodutivos; intenção de ter filho, não gestação instantânea |
+| `care.dependent` | responsável → criança | proximidade, recursos, energia; satisfaz cuidado e necessidades da criança |
+| `needs.recover` | personagem → abrigo | vaga e necessidade; aumenta descanso, respeita gravidez/pós-parto |
+
+São contratos propostos; sem executores atuais. Ações e eventos de gestação/nascimento não devem ser acionados como comandos arbitrários pelos jogadores ou pelo Modo Deus.

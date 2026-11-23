@@ -43,3 +43,12 @@ Desktop: mapa dominante, inspetor lateral recolhível, ação contextual próxim
 - Jogador não vê Modo Deus; admin não precisa controlar avatar.
 - Seleção e foco persistem entre updates; menus não piscam nem capturam indevidamente toques.
 - Sem inventar estados 'em tempo real' quando não há backend.
+
+## Extensão MVP — casa, vínculos e ciclo familiar
+**Inspetor de construção:** blueprint, etapa, materiais exigidos/entregues, trabalho restante, estado de conclusão, vagas adultas/dependentes, conforto, moradores e atividades de convivência.
+
+**Inspetor NPC (admin):** fase de vida, necessidades, humor e fontes, vínculos dirigidos, parceria, moradia, família, etapa de gestação/recuperação, modificadores e razões de bloqueio de atividades. Mudanças demográficas são eventos do sistema e não botões arbitrários de gravidez.
+
+**Jogador:** casa apresenta descanso, conforto, residentes públicos, vagas e interações permitidas; perfil próprio mostra modificadores, necessidades e tarefas. Dados sensíveis de NPCs não precisam ser públicos para jogadores.
+
+**Estatísticas admin:** ocupação, capacidade familiar, interações, nascimentos, cuidados pendentes, bloqueios e efeitos de bem-estar. Estados `planejado` permanecem explícitos até existir execução real.

@@ -23,3 +23,6 @@ docs/
 - Infraestrutura externa implementa portas (repositórios, transporte, autenticação) sem contaminar domínio.
 - Nova base é **clean-room de implementação**: usar apenas documentação de requisitos, sem copiar o código funcional da branch vNext anterior ou main.
 - A proteção do God Mode deve ser garantida na API/worker, não apenas na aparência.
+
+## Extensão do MVP de moradia e população
+Novos subsistemas planejados: `construction`, `housing`, `social`, `mood`, `reproduction`, `lifecycle`, `needs`, `modifiers`, `population`, `ai`. O blueprint da casa é conteúdo em `packages/content/src/buildings/community-house.ts`, não local de execução de decisões afetivas/reprodutivas. A integração usa eventos, consultas de capacidade e processamento determinístico por tick. Ver issue #19.

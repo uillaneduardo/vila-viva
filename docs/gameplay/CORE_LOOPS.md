@@ -29,3 +29,8 @@
 
 ## Fluxo mínimo de integração
 O backend autoritativo aceita comandos, processa em tick e retorna `accepted/rejected`; a aplicação posterior retorna `completed/failed` por evento sequenciado. O frontend mostra `pending` e não modifica o estado autoritativo diretamente.
+
+## Loop de moradia, vínculos e crescimento populacional (MVP)
+`construir casa → habilitar abrigo → atribuir residentes → aplicar conforto e encontros → fortalecer vínculos dirigidos → verificar reciprocidade e parceria → avaliar condições de reprodução → gestação temporal → nascimento → cuidado e recuperação pós-parto → desenvolvimento infantil`.
+
+A casa sozinha não cria filhos; o nascimento é evento do sistema de população, condicionado por moradia funcional/capacidade, duas pessoas adultas elegíveis e relacionamento recíproco. Gravidez e pós-parto aplicam modificadores temporários às capacidades físicas, que os sistemas de movimento, inventário e trabalho devem consumir. Ver [HOUSING_FAMILY_MVP.md](HOUSING_FAMILY_MVP.md).

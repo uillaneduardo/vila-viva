@@ -14,6 +14,8 @@
 | Pilha de itens | item.stack | position, inventory | pickup/drop / spawn | apenas metadados |
 | Depósito | storage.depot | position, storage, inventory | deposit/withdraw / configure | apenas metadados |
 | Canteiro | construction.site | position, construction, inventory | deliver/work / place | apenas metadados |
+| Casa Comunitária | building.community_house | position, housing, comfort, socialMeeting | assignResidence/rest/interact / build/inspect | blueprint especificado, mecânica pendente |
+| Família / unidade doméstica | household.family | members, guardians, residence | planFamily/care / inspect | contrato proposto, implementação pendente |
 
 ## Componentes e dados
 - `position`: coordenadas; `identity`: nome e identificador.
@@ -53,3 +55,6 @@ IDs de conteúdos/ações únicos; componentes sem duplicações; recurso spawn 
 
 ## Convenção de identificadores
 Os IDs usados no protocolo são estáveis e em inglês (`wood`, `food`, `stone`); rótulos visíveis ficam localizados em português. Servidor, catálogo e opções administrativas usam os mesmos IDs.
+
+## Extensão social e familiar do MVP
+As definições de moradia, vínculos, reprodução, ciclo de vida, infância e modificadores temporários estão em [HOUSING_FAMILY_MVP.md](HOUSING_FAMILY_MVP.md), com issue #19. **A casa publica capacidade habitacional/conforto; não executa reprodução.** As fases de gestação e recuperação influenciam movimento, inventário, trabalho e prioridades por um sistema transversal de modificadores. O catálogo TypeScript de entidades existente é a fundação inicial; novos componentes ainda precisam ser implementados.
