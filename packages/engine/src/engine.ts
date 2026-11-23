@@ -41,6 +41,8 @@ export function applyCommand(world: World, command: Command): Result {
   character.energy=Math.max(0,character.energy-1);
  } else if (command.action==="entity.inspect"){
   if (!world.entities.some(e=>e.id===command.targetId))return reject(command,"NOT_FOUND");
+  // Inspection is read-only: do not advance world tick or create an event.
+  return {ok:true,status:"completed",commandId:command.commandId,tick:world.tick,events:[]};
  } else return reject(command,"INVALID_PAYLOAD");
  world.appliedCommands.push(command.commandId);
  world.tick+=1;
