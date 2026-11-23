@@ -98,3 +98,17 @@ button:focus-visible,input:focus-visible,canvas:focus-visible{outline:2px solid 
 .ui-visual.sprite-loaded .ui-visual-fallback{visibility:hidden}
 .ui-visual[data-visual-state="disabled"]{opacity:.45}
 .ui-visual[data-visual-state="alert"]{color:#e5bb91}
+
+/* Natural resource actions, scenery and compact mobile placement controls. */
+.context-action{display:block;width:100%;margin:10px 0;padding:9px;border-radius:9px;background:#55775b;color:#fff;border:1px solid #81a084;font-size:12px}
+.context-action:disabled{opacity:.45;cursor:not-allowed}
+.brush-preset{display:flex;align-items:center;gap:5px;color:#b9cfb8}
+.brush-preset select{min-width:112px;max-width:155px;background:#294133;color:#e5f0e3;border:1px solid #55765e;border-radius:8px;padding:6px;font-size:11px}
+.brush-preset[hidden]{display:none}
+@media(max-width:740px){
+ .dock{max-width:calc(100vw - 12px);overflow-x:auto;justify-content:flex-start;scrollbar-width:none}
+ .dock::-webkit-scrollbar{display:none}
+ .dock-button{flex:0 0 43px}
+ .brush{max-width:calc(100vw - 12px);flex-wrap:wrap;white-space:normal;justify-content:center}
+ .brush-preset select{min-width:98px}
+}
