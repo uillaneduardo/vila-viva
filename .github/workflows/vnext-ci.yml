@@ -1,4 +1,4 @@
-name: vNext Foundation CI
+name: Oturo vNext CI and homelab2 deploy
 on:
   push:
     branches: [main, migration/vnext-root-legacy-archive, architecture/gameplay-first]
@@ -18,16 +18,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22.18.0'
-      - name: Run domain, effects, localization and API tests
+      - name: Run domain, effects, localization, renderer and API tests
         run: node --experimental-strip-types --test tests/*.test.mts
-      - name: Ensure old deployments are archived
+      - name: Ensure archived deployment and new deployment contracts coexist
         run: |
           test -s .old/Dockerfile
           test -s .old/compose.yml
           test -s .old/.github/workflows/deploy.yml
-          test ! -e Dockerfile
-          test ! -e compose.yml
-          test ! -e .github/workflows/deploy.yml
+          test -s Dockerfile
+          test -s compose.yml
+          test -s infra/deploy-vnext.sh
+          bash -n infra/deploy-vnext.sh
+          IMAGE_TAG=vnext-ci SOURCE_SHA=unknown docker compose -f compose.yml config --quiet
       - name: Verify browser JavaScript syntax
         run: |
           node --check apps/shared-ui/app.js
@@ -35,3 +37,104 @@ jobs:
           for source in packages/renderer/src/*.js packages/ui/src/*.js packages/ui/assets/*.js packages/ui/assets/icons/*.js packages/ui/assets/themes/*.js; do
             node --check "$source"
           done
+  image_smoke:
+    needs: foundation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build vNext image and validate HTTP/visual endpoints
+        run: |
+          set -euo pipefail
+          docker build --build-arg SOURCE_SHA="$GITHUB_SHA" -t oturo-vnext-ci .
+          docker run -d --name oturo-vnext-ci -p 127.0.0.1:18586:8086 oturo-vnext-ci
+          trap 'docker rm -f oturo-vnext-ci >/dev/null 2>&1 || true' EXIT
+          for i in $(seq 1 20); do
+            curl -fsS http://127.0.0.1:18586/healthz >/dev/null && break || sleep 2
+          done
+          test "$(curl -fsS http://127.0.0.1:18586/version.txt | tr -d '\r\n')" = "$GITHUB_SHA"
+          curl -fsS http://127.0.0.1:18586/admin | grep -q ADMINISTRADOR
+          curl -fsS http://127.0.0.1:18586/apps/player-web/assets-preview.html | grep -q Oturo
+          curl -fsS http://127.0.0.1:18586/api/world | grep -q '"world"'
+          curl -fsS http://127.0.0.1:18586/assets/world/vegetation/apple_tree_atlas_96.png -o /tmp/oturo-apple-atlas.png
+          python3 - <<'PY'
+          from pathlib import Path
+          assert Path('/tmp/oturo-apple-atlas.png').read_bytes().startswith(b'\x89PNG\r\n\x1a\n')
+          PY
+  publish:
+    needs: [foundation, image_smoke]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          build-args: |
+            SOURCE_SHA=${{ github.sha }}
+          tags: ghcr.io/uillaneduardo/vila-viva:vnext-sha-${{ github.sha }}
+  deploy_homelab2:
+    needs: [foundation, image_smoke, publish]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, linux, x64, vila-viva-svr2]
+    timeout-minutes: 20
+    concurrency:
+      group: oturo-vnext-homelab2
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Verify release SHA still is main HEAD
+        id: latest
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const main=await github.rest.repos.getBranch({owner:context.repo.owner,repo:context.repo.repo,branch:'main'});
+            core.setOutput('current', String(main.data.commit.sha===context.sha));
+      - name: Deploy validated vNext and verify local endpoint
+        if: steps.latest.outputs.current == 'true'
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
+          DEPLOY_IMAGE_TAG: vnext-sha-${{ github.sha }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: bash infra/deploy-vnext.sh
+      - name: Check public Cloudflare hostname
+        if: steps.latest.outputs.current == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="${GITHUB_SHA}"
+          for attempt in $(seq 1 8); do
+            actual="$(curl -fsS --max-time 12 -H 'Cache-Control: no-cache' "https://vila-viva-svr2.ulln.com.br/version.txt?sha=${expected}" 2>/dev/null | tr -d '\r\n' || true)"
+            if [[ "$actual" == "$expected" ]]; then
+              curl -fsS --max-time 12 "https://vila-viva-svr2.ulln.com.br/admin" | grep -q ADMINISTRADOR
+              curl -fsS --max-time 12 "https://vila-viva-svr2.ulln.com.br/assets/world/vegetation/apple_tree_atlas_96.png" -o /dev/null
+              echo "Public Oturo vNext revision verified: $expected"
+              exit 0
+            fi
+            echo "Attempt $attempt/8: expected $expected, received ${actual:-<none>}"
+            sleep 5
+          done
+          echo "::error::Local service deployed, but public Tunnel is not serving the expected revision"
+          exit 1

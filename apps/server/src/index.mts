@@ -11,10 +11,10 @@ import {createWorld,applyCommand,advanceTick} from "../../../packages/engine/src
 import {availableActions} from "../../../packages/engine/src/capabilities.ts";
 import type {Command,Role,Position} from "../../../packages/domain/src/contracts.ts";
 
-// Local developer preview only. The caller controls role and there is no RBAC.
-// Never publicly bind or tunnel this server until real auth is implemented.
+// Explicit opt-in homologation server. There is no authentication/RBAC yet.
+// Keep host-side exposure loopback-only via Docker/Cloudflare Tunnel; public Modo Deus is unprotected.
 const root=resolve(fileURLToPath(new URL("../../../",import.meta.url)));
-const host="127.0.0.1";
+const host=process.env.HOST||"127.0.0.1";
 const port=Number(process.env.PORT||8086);
 export function makePrototype(){
  const world=createWorld("first-world",24,16);
@@ -41,6 +41,11 @@ export function makePrototype(){
  const server=createServer(async(req,res)=>{
   try{
    const url=new URL(req.url||"/","http://localhost");
+   if(url.pathname==="/healthz")return json(res,200,{status:"ok"});
+   if(url.pathname==="/version.txt"){
+    res.writeHead(200,{"content-type":"text/plain; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"});
+    return res.end(req.method==="HEAD"?"":(process.env.SOURCE_SHA||"development")+"\n");
+   }
    if(url.pathname==="/api/catalog"&&req.method==="GET")return json(res,200,{
     locale:"pt-BR",
     entities:Object.fromEntries([...baseRegistry.entities].map(([id,d])=>[id,displayText(d.displayName)])),
