@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "oturo.vegetation.apple_tree",
+  "visualStyle": "pixel-art-top-down",
+  "atlas": "/assets/world/vegetation/apple_tree_atlas_96.png",
+  "frameWidth": 96,
+  "frameHeight": 96,
+  "pivot": {
+    "x": 48,
+    "y": 88
+  },
+  "order": [
+    "leafless",
+    "foliage",
+    "fruit_sparse",
+    "fruit_ripe"
+  ],
+  "stateRules": {
+    "source": "authoritative resource quantities",
+    "empty": "foliage",
+    "low": "fruit_sparse",
+    "high": "fruit_ripe",
+    "leafless": "explicit visualState"
+  },
+  "fidelity": "96px prototype atlas downscaled and quantized from approved 128px source; full-resolution 128/256px references retained in conversation ZIP",
+  "notes": "Resource food is visually represented as apple tree only in current foundational prototype; when species/biome content exists, select sprite by species. Does not implement fruit growth or harvest mechanics."
+}

@@ -1,9 +1,9 @@
 import {Camera,hitTest,brushCells} from './camera.js';
-import {SPRITES,SpriteLibrary} from './sprites.js';
+import {SpriteLibrary,resolveWorldSprite} from './sprites.js';
 export class Scene {
  constructor(canvas){
   this.canvas=canvas;this.ctx=canvas.getContext('2d');this.camera=new Camera();
-  this.sprites=new SpriteLibrary();this.world=null;this.selected=null;this.hover=null;this.hoverRoute=null;this.pointer=null;this.brush=null;
+  this.sprites=new SpriteLibrary();this.sprites.preload();this.world=null;this.selected=null;this.hover=null;this.hoverRoute=null;this.pointer=null;this.brush=null;
   this.resize();this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(canvas);
  }
  resize(){
@@ -30,12 +30,11 @@ export class Scene {
    if((x*17+y*23)%29===0&&s>16){c.fillStyle='rgba(191,214,168,.13)';c.fillRect(p.x+s*.6,p.y+s*.29,2,3);}
   }
   // Only real entities from /api/world are visualized. No fake houses, stocks or paths.
-  for(const e of this.world.entities){
+  for(const e of [...this.world.entities].sort((a,b)=>a.position.y-b.position.y)){
    const p=k.worldToScreen((e.position.x+.5)*t,(e.position.y+.5)*t),s=t*k.zoom;
    if(p.x<-s||p.y<-s||p.x>w+s||p.y>h+s)continue;
-   const type=e.kind==='character'?'character.human':'resource.'+e.resourceType;
-   const visual=SPRITES[type];const state=e.kind==='resource'&&e.quantity===0?'exhausted':'idle';
-   const drawn=visual&&this.sprites.draw(c,visual.id,p.x,p.y,s*.79,state);
+   const visual=resolveWorldSprite(e);
+   const drawn=visual&&this.sprites.draw(c,visual.id,p.x,p.y,s*visual.scale,visual.state);
    if(!drawn){
     c.save();c.translate(p.x,p.y);
     if(e.kind==='character'){

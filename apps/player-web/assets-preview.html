@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Oturo · Homologação dos sprites de árvore</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#14281d;color:#e4ecdd;font-family:system-ui,Arial,sans-serif;padding:24px}h1{margin:0 0 6px;font-size:24px}p{color:#b6cbb4;line-height:1.5}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px;margin:24px auto;max-width:950px}.tile{border:1px solid #476e52;background:repeating-conic-gradient(#304b39 0 25%,#3a5842 0 50%) 0/38px 38px;border-radius:14px;padding:12px;text-align:center}.tile canvas{width:100%;image-rendering:pixelated}.tile h2{font-size:14px;background:#14281dd9;margin:0 -4px;padding:8px;border-radius:8px}.note{max-width:850px;font-size:13px}a{color:#c9ecad}
+</style></head><body><h1>Oturo · Homologação dos sprites</h1>
+<p>Quatro estados visuais do atlas de árvore frutífera. Esta página é estática e não executa comandos de Modo Deus.</p>
+<div class="grid" id="grid"></div><p class="note">Estados visuais disponíveis: sem folhas (reservado para estado explícito), com folhagem, poucos frutos e muitos frutos. A renderização em jogo utiliza os recursos reais do mundo; esta galeria é apenas uma prévia visual.</p>
+<script type="module">
+const states=[['leafless','Sem folhas'],['foliage','Com folhas'],['fruit_sparse','Poucos frutos'],['fruit_ripe','Muitos frutos']];
+const image=new Image();
+image.src=(location.hostname==='127.0.0.1'||location.hostname==='localhost')
+ ?'/assets/world/vegetation/apple_tree_atlas_96.png'
+ :new URL('../../public/assets/world/vegetation/apple_tree_atlas_96.png',location.href).href;
+image.onload=()=>{for(let i=0;i<states.length;i++){const box=document.createElement('div');box.className='tile';const c=document.createElement('canvas');c.width=192;c.height=192;const ctx=c.getContext('2d');ctx.imageSmoothingEnabled=false;ctx.drawImage(image,i*96,0,96,96,0,0,192,192);const h=document.createElement('h2');h.textContent=states[i][1];box.append(c,h);document.getElementById('grid').append(box);}};
+image.onerror=()=>document.getElementById('grid').textContent='Não foi possível carregar o atlas local. Execute o servidor de desenvolvimento: npm run dev.';
+</script></body></html>
