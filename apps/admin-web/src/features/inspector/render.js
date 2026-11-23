@@ -1,0 +1,8 @@
+import {escapeHTML} from "../../shared/escape-html.js";
+export function renderInspector(e){if(!e){return '<div class="empty-inspector"><div class="empty-icon">⌖</div><strong>Nenhum item selecionado</strong><p>Selecione um NPC, recurso ou construção no mapa para ver os detalhes.</p></div>';}
+let content=`<div class="inspector-name">${escapeHTML(e.name)}</div><div class="inspector-meta">${e.type==="npc"?"Habitante":e.type==="resource"?"Fonte natural":"Estrutura"} · X ${Math.round(e.x)}, Y ${Math.round(e.y)}</div>`;
+if(e.type==="npc"){content+=`<div class="section-caption">NECESSIDADES E ESTADO</div>`;for(const [label,value] of [["Saúde",e.health],["Energia",e.energy],["Saciedade",e.hunger]])content+=`<div class="detail-row"><span>${label}</span><strong>${value}%</strong></div><div class="meter"><div style="width:${value}%"></div></div>`;content+=`<div class="section-caption">COMPORTAMENTO</div><div class="detail-row"><span>Atividade atual</span><strong>${escapeHTML(e.task)}</strong></div><div class="detail-row"><span>Última decisão</span><strong>Prioridade local</strong></div><div class="detail-row"><span>Inventário</span><strong>Sem itens</strong></div>`;}
+else if(e.type==="resource"){content+=`<div class="section-caption">ESTOQUE DA FONTE</div><div class="detail-row"><span>Quantidade</span><strong>${e.qty} unidades</strong></div><div class="detail-row"><span>Regeneração</span><strong>Ativa</strong></div>`;}
+else{content+=`<div class="section-caption">CONSTRUÇÃO</div><div class="detail-row"><span>Progresso</span><strong>${e.progress}%</strong></div><div class="meter"><div style="width:${e.progress}%"></div></div><div class="detail-row"><span>Status</span><strong>${e.progress===100?"Concluído":"Em andamento"}</strong></div>`;}
+return content;
+}

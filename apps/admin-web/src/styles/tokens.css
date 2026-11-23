@@ -1,0 +1,22 @@
+/* Shared, semantic design tokens. All future admin components reference this contract. */
+:root {
+ --color-bg:#0d1410;
+ --color-sidebar:#111a15;
+ --color-surface:#151f18;
+ --color-surface-raised:#1b2a20;
+ --color-border:#2a3b2e;
+ --color-text:#e5e9e3;
+ --color-text-muted:#8ca094;
+ --color-accent:#b5dda9;
+ --color-accent-text:#162b1b;
+ --color-danger:#f1a4a0;
+ --radius-sm:6px;
+ --radius-md:9px;
+ --radius-lg:11px;
+ --space-1:4px;
+ --space-2:8px;
+ --space-3:12px;
+ --space-4:16px;
+ --space-5:20px;
+ --focus-ring:2px solid #a1dca0;
+}

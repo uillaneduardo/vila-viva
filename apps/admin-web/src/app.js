@@ -1,33 +1,23 @@
+import {views} from "./features/navigation/views.js";
+import {renderPage} from "./features/navigation/pages.js";
+import {renderInspector} from "./features/inspector/render.js";
+import {renderActivityMarkup} from "./features/activity/render.js";
 import {worlds,createDemoState} from "./mock.js";
 import {createMap} from "./map.js";
 const $=id=>document.getElementById(id);
 let state=createDemoState(),view="world";
-const views={world:["Visão do mundo","Observe a simulação e intervenha no ambiente em tempo real."],worlds:["Simulações","Gerencie e alterne entre seus mundos experimentais."],population:["População","Observe necessidades, objetivos e atividades dos NPCs."],resources:["Recursos","Monitore fontes naturais e estoques disponíveis."],events:["Eventos","Acompanhe acontecimentos e intervenções administrativas."],rules:["Regras do mundo","Parâmetros de simulação — configuração demonstrativa."],metrics:["Estatísticas","Indicadores e evolução do mundo — dados demonstrativos."]};
-const escapeHTML=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+
 function toast(message){const n=document.createElement("div");n.className="toast";n.textContent=message;$("toasts").append(n);setTimeout(()=>n.remove(),3200);}
 function event(title,description,icon="◈"){state.events.unshift({title,description,icon,time:"Agora"});state.events=state.events.slice(0,24);renderActivity();}
 function updateStats(){$("stat-npcs").textContent=state.npc.length;$("stat-resources").textContent=state.resource.length;$("stat-day").textContent=state.day;$("stat-status").innerHTML=state.paused?"Ⅱ Pausado":'<span class="live-dot"></span> Em execução';$("stat-speed").textContent="Velocidade "+state.speed+"×";$("world-meta").textContent=state.world.name+" · 64 × 48";$("pause-btn").textContent=state.paused?"▶":"Ⅱ";$("speed-select").value=String(state.speed);}
-function renderActivity(){$("activity-list").innerHTML=state.events.slice(0,3).map(e=>`<div class="activity"><div class="activity-icon">${escapeHTML(e.icon)}</div><div><strong>${escapeHTML(e.title)}</strong><p>${escapeHTML(e.description)}</p><time>${escapeHTML(e.time)}</time></div></div>`).join("");}
-function inspect(e){state.selected=e;const el=$("inspector-content");if(!e){el.innerHTML='<div class="empty-inspector"><div class="empty-icon">⌖</div><strong>Nenhum item selecionado</strong><p>Selecione um NPC, recurso ou construção no mapa para ver os detalhes.</p></div>';return;}
-let content=`<div class="inspector-name">${escapeHTML(e.name)}</div><div class="inspector-meta">${e.type==="npc"?"Habitante":e.type==="resource"?"Fonte natural":"Estrutura"} · X ${Math.round(e.x)}, Y ${Math.round(e.y)}</div>`;
-if(e.type==="npc"){content+=`<div class="section-caption">NECESSIDADES E ESTADO</div>`;for(const [label,value] of [["Saúde",e.health],["Energia",e.energy],["Saciedade",e.hunger]])content+=`<div class="detail-row"><span>${label}</span><strong>${value}%</strong></div><div class="meter"><div style="width:${value}%"></div></div>`;content+=`<div class="section-caption">COMPORTAMENTO</div><div class="detail-row"><span>Atividade atual</span><strong>${escapeHTML(e.task)}</strong></div><div class="detail-row"><span>Última decisão</span><strong>Prioridade local</strong></div><div class="detail-row"><span>Inventário</span><strong>Sem itens</strong></div>`;}
-else if(e.type==="resource"){content+=`<div class="section-caption">ESTOQUE DA FONTE</div><div class="detail-row"><span>Quantidade</span><strong>${e.qty} unidades</strong></div><div class="detail-row"><span>Regeneração</span><strong>Ativa</strong></div>`;}
-else{content+=`<div class="section-caption">CONSTRUÇÃO</div><div class="detail-row"><span>Progresso</span><strong>${e.progress}%</strong></div><div class="meter"><div style="width:${e.progress}%"></div></div><div class="detail-row"><span>Status</span><strong>${e.progress===100?"Concluído":"Em andamento"}</strong></div>`;}
-el.innerHTML=content;
-}
+function renderActivity(){$("activity-list").innerHTML=renderActivityMarkup(state.events);}
+function inspect(e){state.selected=e;$("inspector-content").innerHTML=renderInspector(e);}
 function tool(name){state.tool=name;document.querySelectorAll("[data-tool]").forEach(e=>e.classList.toggle("active",e.dataset.tool===name));$("map-tip").textContent=({inspect:"Arraste para mover · Roda para zoom · Clique para inspecionar",npc:"Clique em um espaço livre para adicionar um NPC fictício",resource:"Clique no mapa para criar uma fonte demonstrativa",event:"Clique no mapa para gerar um evento demonstrativo"})[name];}
 function place(p){const x=Math.round(p.x),y=Math.round(p.y);if(state.tool==="npc"){const id="npc-"+Date.now();const e={id,type:"npc",name:"Novo habitante",x,y,health:100,energy:100,hunger:80,task:"Explorando",dx:0,dy:0};state.npc.push(e);inspect(e);event("NPC adicionado",e.name+" foi adicionado ao mapa.","♙");}else if(state.tool==="resource"){const e={id:"res-"+Date.now(),type:"resource",name:"Nova floresta",x,y,qty:100};state.resource.push(e);inspect(e);event("Fonte adicionada","Uma nova fonte foi colocada no mapa.","♧");}else if(state.tool==="event"){event("Evento do administrador","Intervenção demonstrativa em X "+x+", Y "+y+".","ϟ");toast("Evento fictício registrado");}updateStats();if(view!=="world")renderGeneric();}
 const map=createMap($("world-canvas"),()=>state,inspect,place,(x,y)=>{$("map-coords").textContent="X: "+x+" · Y: "+y});
 function changeView(id){view=id;document.querySelectorAll(".nav-item").forEach(n=>n.classList.toggle("active",n.dataset.view===id));$("page-title").textContent=views[id][0];$("breadcrumb-current").textContent=views[id][0];$("page-description").textContent=views[id][1];$("view-world").classList.toggle("active",id==="world");$("view-generic").classList.toggle("active",id!=="world");$("stats").style.display=id==="world"?"grid":"none";$("sidebar").classList.remove("open");if(id!=="world")renderGeneric();}
-function card(title,description,meta,action=""){return `<article class="generic-card" ${action}><h3>${escapeHTML(title)}</h3><p>${escapeHTML(description)}</p><small>${escapeHTML(meta)}</small></article>`;}
-function renderGeneric(){const el=$("generic-content");$("generic-title").textContent=views[view][0];$("generic-description").textContent=views[view][1];let html="";
-if(view==="worlds")html=worlds.map(w=>card(w.name,"Dia "+w.day+" · Ano "+w.year+" · Seed "+w.seed,w.id===state.world.id?"Mundo selecionado":"Abrir mundo",`data-world="${w.id}" tabindex="0" role="button"`)).join("");
-else if(view==="population")html=state.npc.map(n=>card(n.name,n.task+" · Saúde "+n.health+"%","Inspecionar NPC",`data-select="${n.id}" tabindex="0" role="button"`)).join("");
-else if(view==="resources")html=state.resource.map(n=>card(n.name,"Posição "+n.x+", "+n.y,n.qty+" unidades",`data-select="${n.id}" tabindex="0" role="button"`)).join("");
-else if(view==="events")html=state.events.map(n=>card(n.title,n.description,n.time)).join("");
-else if(view==="rules")html=["Velocidade do tempo","Regeneração de recursos","Necessidades e sobrevivência","Construções e população"].map(n=>card(n,"Configuração prevista para a integração com o motor.","Somente visualização nesta etapa")).join("");
-else html=["População","Saúde média","Coleta por dia","Construções concluídas"].map((n,i)=>card(n,["Habitantes no mundo","Média de saúde dos NPCs","Produção ilustrativa","Estruturas finalizadas"][i],[state.npc.length+" habitantes",Math.round(state.npc.reduce((a,x)=>a+x.health,0)/state.npc.length)+"%","48 unidades","1 estrutura"][i])).join("");
-el.innerHTML='<div class="generic-grid">'+html+"</div>";}
+function renderGeneric(){$("generic-title").textContent=views[view][0];$("generic-description").textContent=views[view][1];$("generic-content").innerHTML=renderPage(view,state,worlds);}
 function chooseWorld(id){const w=worlds.find(w=>w.id===id);if(!w)return;state=createDemoState(w);inspect(null);tool("inspect");updateStats();renderActivity();changeView("world");toast("Simulação demonstrativa carregada: "+w.name);}
 document.querySelectorAll("[data-view]").forEach(n=>n.addEventListener("click",()=>changeView(n.dataset.view)));
 $("generic-content").addEventListener("click",e=>{const c=e.target.closest("[data-world],[data-select]");if(!c)return;if(c.dataset.world)chooseWorld(c.dataset.world);else{const ent=[...state.npc,...state.resource].find(n=>n.id===c.dataset.select);changeView("world");inspect(ent);}});
