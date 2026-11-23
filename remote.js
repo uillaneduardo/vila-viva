@@ -2,7 +2,7 @@
 (function(){
  const api="/api/simulations",app=window.VilaApp,el=id=>document.getElementById(id);
  const remote=window.VilaRemote={connected:false};
- let pending=false,selectedSource=null,updating=false;
+ let pending=false,selectedSource=null,updating=false,stream=null,streamReady=false;
  const notify=message=>{let target=el("server-state");if(target)target.textContent=message;};
  async function request(url,method="GET",data){
   const resp=await fetch(url,{method,headers:{"Content-Type":"application/json"},body:data?JSON.stringify(data):undefined,cache:"no-store",signal:AbortSignal.timeout(4000)});
@@ -17,12 +17,26 @@
  async function send(cmd){if(pending||!remote.connected)return;pending=true;try{
   const r=await request(api+"/"+app.current().id+"/commands","POST",cmd);app.replaceWorld(r.world);app.refresh();notify("● Servidor ativo");
  }catch(err){notify("⚠ "+err.message)}finally{pending=false}}
+ function connectStream(id){
+   if(stream)stream.close();streamReady=false;
+   if(!window.EventSource)return;
+   stream=new EventSource(api+"/"+encodeURIComponent(id)+"/stream");
+   stream.onopen=()=>{streamReady=true;notify("● Tempo real conectado")};
+   stream.addEventListener("snapshot",event=>{
+    if(app.current()?.id!==id)return;
+    try{const {world}=JSON.parse(event.data);if(world.revision < (app.current().revision||0))return;
+     app.replaceWorld(world);el("pause").textContent=world.run.paused?"▶":"⏸";
+     document.querySelectorAll("[data-speed]").forEach(b=>b.classList.toggle("active-speed",Number(b.dataset.speed)===world.run.speed&&!world.run.paused));
+    }catch(err){console.warn("Snapshot inválido",err)}
+   });
+   stream.onerror=()=>{streamReady=false;notify("◌ Reconectando canal em tempo real…")};
+  }
  function connectControls(){
   const choose=el("settlements");
-  choose.onchange=async e=>{app.switchTo(e.target.value);localStorage.setItem("vilaviva.remote.current",e.target.value);try{app.replaceWorld((await request(api+"/"+e.target.value)).world);app.refresh()}catch(err){notify("⚠ "+err.message)}};
-  el("new").onclick=async()=>{const name=prompt("Nome da nova simulação:","Nova Vila");if(!name)return;try{const r=await request(api,"POST",{name});const worlds=await syncList();app.setWorlds(worlds,r.world.id);app.replaceWorld(r.world);localStorage.setItem("vilaviva.remote.current",r.world.id)}catch(err){notify("⚠ "+err.message)}};
+  choose.onchange=async e=>{app.switchTo(e.target.value);localStorage.setItem("vilaviva.remote.current",e.target.value);try{app.replaceWorld((await request(api+"/"+e.target.value)).world);app.refresh();connectStream(e.target.value)}catch(err){notify("⚠ "+err.message)}};
+  el("new").onclick=async()=>{const name=prompt("Nome da nova simulação:","Nova Vila");if(!name)return;try{const r=await request(api,"POST",{name});const worlds=await syncList();app.setWorlds(worlds,r.world.id);app.replaceWorld(r.world);localStorage.setItem("vilaviva.remote.current",r.world.id);connectStream(r.world.id)}catch(err){notify("⚠ "+err.message)}};
   el("rename").onclick=async()=>{const name=prompt("Renomear simulação:",app.current().name);if(!name)return;try{app.replaceWorld((await request(api+"/"+app.current().id,"PATCH",{name})).world);app.refresh();choose.querySelector("option:checked").textContent=name}catch(err){notify("⚠ "+err.message)}};
-  el("delete").onclick=async()=>{if(!confirm("Excluir permanentemente esta simulação do servidor?"))return;try{await request(api+"/"+app.current().id,"DELETE");const worlds=await syncList();app.setWorlds(worlds,worlds[0].id)}catch(err){notify("⚠ "+err.message)}};
+  el("delete").onclick=async()=>{if(!confirm("Excluir permanentemente esta simulação do servidor?"))return;try{await request(api+"/"+app.current().id,"DELETE");const worlds=await syncList();app.setWorlds(worlds,worlds[0].id);connectStream(worlds[0].id)}catch(err){notify("⚠ "+err.message)}};
   el("pause").onclick=()=>{const w=app.current();send({type:"pause",value:!w.run.paused})};
   document.querySelectorAll("[data-speed]").forEach(b=>b.onclick=()=>send({type:"speed",value:Number(b.dataset.speed)}));
   el("nextday").onclick=()=>send({type:"nextday"});
@@ -49,15 +63,15 @@
    const full=await Promise.all(meta.map(x=>request(api+"/"+x.id).then(r=>r.world)));
    const saved=localStorage.getItem("vilaviva.remote.current");
    const id=full.some(w=>w.id===saved)?saved:full[0].id;
-   remote.connected=true;app.setWorlds(full,id);connectControls();app.refresh();
-   setInterval(async()=>{if(updating||pending)return;updating=true;try{
+   remote.connected=true;app.setWorlds(full,id);connectControls();app.refresh();connectStream(id);
+   setInterval(async()=>{if(updating||pending||streamReady)return;updating=true;try{
     const id=app.current().id;
     const r=await request(api+"/"+id);
     if(app.current()?.id===id){app.replaceWorld(r.world);notify("● Servidor ativo · mundos persistentes")}
     const selector=el("settlements");if(!selector.options.length)app.refresh();
     el("pause").textContent=r.world.run.paused?"▶":"⏸";
     document.querySelectorAll("[data-speed]").forEach(b=>b.classList.toggle("active-speed",Number(b.dataset.speed)===r.world.run.speed&&!r.world.run.paused));
-   }catch(err){notify("⚠ Sem conexão com o servidor: "+err.message)}finally{updating=false}},900);
+   }catch(err){notify("⚠ Sem conexão com o servidor: "+err.message)}finally{updating=false}},2500);
   }catch(err){notify("⚠ Modo local: "+err.message)}
  }
  initialize();
