@@ -35,15 +35,17 @@ async function refreshInspector(entity){
  }catch(error){status('Falha na inspeção: '+error.message);}
 }
 function updateHover(point){
- if(tool!=='inspect'||pan||!snapshot){el('tooltip').hidden=true;scene.setHover(null);return;}
+ if(tool!=='inspect'||pan||!snapshot){el('tooltip').hidden=true;scene.setHover(null);scene.setRoute(null);return;}
  const target=scene.pick(point.x,point.y);
  const npc=target?.kind==='character'?target:null;
- if(!npc){hoverId=null;el('tooltip').hidden=true;scene.setHover(null);return;}
+ if(!npc){hoverId=null;el('tooltip').hidden=true;scene.setHover(null);scene.setRoute(null);return;}
  hoverId=npc.id;scene.setHover(hoverId);
  el('tooltipName').textContent=npc.name;
  el('tooltipHealth').textContent='Saúde '+npc.health+'% · Energia '+npc.energy+'%';
- el('tooltipActivity').textContent='Atividade indisponível · Humor não informado';
- el('tooltipRoute').textContent='Rota ainda não disponível (pathfinder pendente)';
+ const view=snapshot.npcViews?.[npc.id];
+ el('tooltipActivity').textContent=(view?.activity??'Atividade indisponível')+' · Humor '+(view?.mood==null?'—':Math.round(view.mood)+'%');
+ el('tooltipRoute').textContent=view?.route?.length?'Rota calculada: '+view.route.length+' pontos':'Rota ainda não disponível (pathfinder pendente)';
+ scene.setRoute(view?.route??null);
  const tip=el('tooltip');
  tip.style.left=Math.min(scene.camera.width-248,point.x+16)+'px';
  tip.style.top=Math.min(scene.camera.height-128,point.y+12)+'px';

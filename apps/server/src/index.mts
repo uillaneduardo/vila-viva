@@ -49,7 +49,12 @@ export function makePrototype(){
     effects:Object.fromEntries(Object.values(EFFECTS).map(e=>[e.id,displayText(e.displayName)])),
     buildings:{[COMMUNITY_HOUSE.id]:displayText(COMMUNITY_HOUSE.displayName)}
    });
-   if(url.pathname==="/api/world"&&req.method==="GET")return json(res,200,{world,clock:clockView(),storageSummary:null,playerId,mode:"local-prototype",persistent:false});
+   if(url.pathname==="/api/world"&&req.method==="GET")return json(res,200,{world,clock:clockView(),storageSummary:null,
+    npcViews:Object.fromEntries(world.entities.filter(e=>e.kind==="character").map(e=>[e.id,{
+     mood:resolveAttributes({...e,attributes:{...e.attributes,health:e.health,energy:e.energy}},world.tick).values.mood,
+     activity:null,route:null
+    }])),
+    playerId,mode:"local-prototype",persistent:false});
    if(url.pathname==="/api/inspect"&&req.method==="GET"){
     const entity=world.entities.find(e=>e.id===url.searchParams.get("entityId"));
     if(!entity)return json(res,404,{error:"NOT_FOUND"});

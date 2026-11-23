@@ -3,7 +3,7 @@ import {SPRITES,SpriteLibrary} from './sprites.js';
 export class Scene {
  constructor(canvas){
   this.canvas=canvas;this.ctx=canvas.getContext('2d');this.camera=new Camera();
-  this.sprites=new SpriteLibrary();this.world=null;this.selected=null;this.hover=null;this.pointer=null;this.brush=null;
+  this.sprites=new SpriteLibrary();this.world=null;this.selected=null;this.hover=null;this.hoverRoute=null;this.pointer=null;this.brush=null;
   this.resize();this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(canvas);
  }
  resize(){
@@ -14,6 +14,7 @@ export class Scene {
  setWorld(world){if(!this.world)this.camera.centerOnWorld(world);this.world=world;}
  setSelection(id){this.selected=id;}
  setHover(id){this.hover=id;}
+ setRoute(waypoints){this.hoverRoute=Array.isArray(waypoints)?waypoints:null;}
  setBrush(brush){this.brush=brush;}
  pick(x,y){return this.world?hitTest(this.world.entities,this.camera,x,y):null;}
  paint(now=0){
@@ -56,6 +57,14 @@ export class Scene {
     c.beginPath();c.arc(p.x,p.y,s*.4,0,Math.PI*2);
     c.strokeStyle=e.id===this.selected?'#f2e3a7':'rgba(241,251,225,.75)';c.lineWidth=e.id===this.selected?2.7:1.5;c.stroke();
    }
+  }
+  if(this.hover&&this.hoverRoute?.length>1){
+   c.beginPath();
+   this.hoverRoute.forEach((point,i)=>{
+    const p=k.worldToScreen((point.x+.5)*t,(point.y+.5)*t);
+    if(i)c.lineTo(p.x,p.y);else c.moveTo(p.x,p.y);
+   });
+   c.setLineDash([5,5]);c.strokeStyle='#e9dca2';c.lineWidth=2;c.stroke();c.setLineDash([]);
   }
   if(this.brush&&this.pointer){
    const center=k.tileAt(this.pointer.x,this.pointer.y),cells=brushCells(center,this.brush.size,this.world);
