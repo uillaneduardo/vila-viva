@@ -33,9 +33,13 @@ jobs:
         run: |
           node --check app.js
           node --check lab.js
-          node --test tests/lab.test.cjs
+          node --check remote.js
+          node --check server/index.cjs
+          node --test tests/lab.test.cjs tests/server.test.cjs
       - name: Verify Docker build
-        run: docker build --build-arg SOURCE_SHA="${GITHUB_SHA}" -t vila-viva:test .
+        run: |
+          docker build --build-arg SOURCE_SHA="${GITHUB_SHA}" -t vila-viva:test .
+          docker build --target engine -t vila-viva-engine:test .
       - name: Verify files inside deployment image
         run: |
           docker run -d --name vila-viva-ci -p 127.0.0.1:18761:80 vila-viva:test
@@ -66,6 +70,7 @@ jobs:
             rm -f "$headers" "$body"
           done
           curl -fsS http://127.0.0.1:18761/index.html | grep -Fq "lab.js?v=${GITHUB_SHA}"
+          curl -fsS http://127.0.0.1:18761/remote.js | grep -Fq "window.VilaRemote"
           echo "Production image browser smoke passed"
   publish:
     needs: verify
@@ -97,6 +102,15 @@ jobs:
           tags: |
             ghcr.io/uillaneduardo/vila-viva:${{ steps.meta.outputs.tag }}
             ghcr.io/uillaneduardo/vila-viva:main
+      - name: Publish persistent engine image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: engine
+          push: true
+          tags: |
+            ghcr.io/uillaneduardo/vila-viva:${{ steps.meta.outputs.tag }}-engine
+            ghcr.io/uillaneduardo/vila-viva:main-engine
   deploy_homelab2:
     needs: [verify, publish]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -135,7 +149,7 @@ jobs:
           registry-token: ${{ secrets.GITHUB_TOKEN }}
           health-url: http://127.0.0.1:8481/healthz
           env-file: ''
-          services: web
+          services: api web
           release-file: .release.svr2.env
       - name: Verify public domain serves the deployed revision
         if: steps.latest.outputs.current == 'true'
@@ -171,7 +185,11 @@ jobs:
                 echo "::error::Public index.html does not reference cache-busted lab.js for expected commit"
                 exit 1
               }
-              echo "Public JavaScript MIME, payload and HTML reference verified"
+              curl -fsS --max-time 15 "https://vila-viva-svr2.ulln.com.br/api/simulations" | grep -q 'worlds' || {
+                echo "::error::Public simulation API is unavailable"
+                exit 1
+              }
+              echo "Public JavaScript MIME, payload and API verified"
               exit 0
             fi
             echo "Public check ${attempt}/6: expected ${expected}, received '${actual:0:100}'"
