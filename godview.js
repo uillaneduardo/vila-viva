@@ -73,8 +73,8 @@
   const w=world();if(!w)return;
   if(worldId!==w.id){worldId=w.id;selection={kind:"overview"};inspectCache=""}
   const html=inspector(w);if(html!==inspectCache){$("god-inspector-content").innerHTML=html;inspectCache=html}
-  $("god-clock").textContent=tm(w);$("god-population").textContent=w.npcs.length;
-  $("god-stock").textContent=used(w).toFixed(1)+" kg";$("god-building").textContent=Math.min(w.project?.stage||0,4)+"/4";
+  $("god-clock").textContent=tm(w);$("god-population").textContent=w.npcs.filter(n=>n.phase!=="dead").length;
+  $("god-stock").textContent=used(w).toFixed(1)+" kg";$("god-food").textContent=(w.stock?.food||0)+" un.";const alive=w.npcs.filter(n=>n.phase!=="dead");$("god-health").textContent=Math.round(alive.reduce((sum,n)=>sum+(n.health??100),0)/Math.max(1,alive.length))+"%";$("god-blocked").textContent=w.npcs.filter(n=>n.phase==="waitStorage"||["idle","social"].includes(n.phase)&&n.lastDecision?.action==="Sem tarefa viável").length;$("god-building").textContent=Math.min(w.project?.stage||0,4)+"/4";
   $("god-live-state").textContent=w.run?.paused?"⏸ Pausada":window.VilaRemote?.connected?"● Ao vivo":"○ Local";
   if(modalOpen)paintWorlds();if(historyOpen)paintHistory(w);
  }
@@ -117,6 +117,9 @@
   const dock=document.createElement("div");dock.id="god-dock";dock.innerHTML='<div class="god-dock-stat"><small>Relógio</small><strong id="god-clock"></strong></div>'+
    '<div class="god-dock-stat"><small>Moradores</small><strong id="god-population"></strong></div>'+
    '<div class="god-dock-stat"><small>Estoque</small><strong id="god-stock"></strong></div>'+
+   '<div class="god-dock-stat"><small>Alimento</small><strong id="god-food"></strong></div>'+
+   '<div class="god-dock-stat"><small>Saúde média</small><strong id="god-health"></strong></div>'+
+   '<div class="god-dock-stat"><small>Bloqueados</small><strong id="god-blocked"></strong></div>'+
    '<div class="god-dock-stat"><small>Obra</small><strong id="god-building"></strong></div>'+
    '<div class="god-dock-stat"><small>Estado</small><strong id="god-live-state"></strong></div><button id="god-history">☷ Histórico</button>';
   document.querySelector(".layout>main").append(dock);
