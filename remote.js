@@ -14,9 +14,10 @@
    if(existing)return existing;return (await request(api+"/"+m.id)).world;
   }));
  }
- async function send(cmd){if(pending||!remote.connected)return;pending=true;try{
-  const r=await request(api+"/"+app.current().id+"/commands","POST",cmd);app.replaceWorld(r.world);app.refresh();notify("● Servidor ativo");
- }catch(err){notify("⚠ "+err.message)}finally{pending=false}}
+ async function send(cmd){if(pending||!remote.connected)return false;pending=true;try{
+  const r=await request(api+"/"+app.current().id+"/commands","POST",cmd);app.replaceWorld(r.world);app.refresh();notify("● Servidor ativo");return true;
+ }catch(err){notify("⚠ "+err.message);return false}finally{pending=false}}
+ remote.send=send;
  function connectStream(id){
    if(stream)stream.close();streamReady=false;
    if(!window.EventSource)return;

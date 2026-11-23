@@ -5,7 +5,7 @@
  const names={wood:"Madeira",stone:"Pedra",food:"Alimentos",ore:"Minério",coins:"Moedas"},weights={wood:2,stone:3,food:.5,ore:3,coins:.01};
  const stages=[{label:"Fundação",wood:20,stone:12,time:80},{label:"Estrutura",wood:30,stone:20,time:120},{label:"Telhado",wood:25,stone:10,time:100},{label:"Acabamento",wood:10,stone:5,time:70}];
  const presets={forest:"🌲 Floresta",orchard:"🍎 Pomar",hunt:"🐾 Caça",farm:"🌾 Fazenda",quarry:"🪨 Pedreira",mine:"⛏ Mina"};
- let selection={kind:"overview"},mode="observe",modalOpen=false,historyOpen=false,worldId="",inspectCache="",worldsCache="",historyCache="";
+ let selection={kind:"overview"},mode="observe",modalOpen=false,historyOpen=false,worldId="",inspectCache="",worldsCache="",historyCache="",inspectorTab="status";
  const tm=w=>"Dia "+w.day+" · "+String(Math.floor(w.minute/60)).padStart(2,"0")+":"+String(Math.floor(w.minute%60)).padStart(2,"0");
  const used=w=>Object.entries(w.stock||{}).reduce((v,[k,n])=>v+n*(weights[k]||1),0);
  const row=(label,value,sub="")=>'<div class="god-metric"><span>'+esc(label)+(sub?'<small class="muted"> · '+esc(sub)+'</small>':"")+'</span><strong>'+esc(value)+'</strong></div>';
@@ -19,6 +19,9 @@
   if(selection.kind==="npc"){
    const n=npcs.find(x=>x.id===selection.id);if(!n)return note("Morador não encontrado.");
    const s=lab.stats?.[n.id]||{},d=n.lastDecision,events=(lab.decisions||[]).filter(e=>e.npc===n.id).slice(0,5);
+   if(inspectorTab==="inventory")return header("🎒",n.name,n.role||"Morador")+section("Inventário e trabalho")+row("Carga",n.cargo?n.cargo.qty+" "+(names[n.cargo.key]||n.cargo.key):"Sem carga")+row("Ferramenta",n.equipment||"Nenhuma")+row("Capacidade",String(n.carryCapacity||20)+" kg")+row("Destino",n.site||"Nenhum")+row("Trabalho restante",n.workLeft||0);
+   if(inspectorTab==="history")return header("🧠",n.name,n.role||"Morador")+section("Decisões recentes")+(events.length?events.map(e=>'<div class="god-event"><small>Dia '+e.day+' · '+String(Math.floor(e.minute/60)).padStart(2,"0")+':'+String(e.minute%60).padStart(2,"0")+'</small><div><b>'+esc(e.action)+'</b></div><small>'+esc(e.reason||"")+'</small></div>').join(""):note("Nenhuma decisão registrada."));
+
    return header("🧑",n.name,n.role||"Morador")+row("Atividade",n.phase)+row("Energia",Math.round(n.energy)+"%")+bar(n.energy,100)+
      row("Saciedade",Math.round(n.hunger??100)+"%")+bar(n.hunger??100,100)+row("Sono pendente",Math.round(n.sleepNeed||0)+"%")+
      row("Saúde",Math.round(n.health??100)+"%")+section("Inventário e trabalho")+
@@ -68,14 +71,26 @@
     link("🏗 Construção","build","","Etapas e requisitos")+link("🌲 Fontes","sources","","Produção e regeneração")+'</div>'+
     note("Clique em NPCs, fontes, depósito ou canteiro no mapa para inspecioná-los.");
  }
- function select(kind,id){if(kind==="lab")return;selection={kind,id};mode="observe";paint();if(kind==="npc")window.VilaSelectNPC?.(id)}
+ function select(kind,id){if(kind==="lab")return;selection={kind,id};inspectorTab="status";inspectCache="";mode="observe";paint();if(kind==="npc")window.VilaSelectNPC?.(id)}
  function paint(){
   const w=world();if(!w)return;
   if(worldId!==w.id){worldId=w.id;selection={kind:"overview"};inspectCache=""}
   const html=inspector(w);if(html!==inspectCache){$("god-inspector-content").innerHTML=html;inspectCache=html}
+  const tabs=$("god-inspector-tabs");if(tabs){tabs.hidden=selection.kind!=="npc";tabs.querySelectorAll("[data-inspect-tab]").forEach(b=>b.classList.toggle("active",b.dataset.inspectTab===inspectorTab));}
+
   $("god-clock").textContent=tm(w);$("god-population").textContent=w.npcs.filter(n=>n.phase!=="dead").length;
   $("god-stock").textContent=used(w).toFixed(1)+" kg";$("god-food").textContent=(w.stock?.food||0)+" un.";const alive=w.npcs.filter(n=>n.phase!=="dead");$("god-health").textContent=Math.round(alive.reduce((sum,n)=>sum+(n.health??100),0)/Math.max(1,alive.length))+"%";$("god-blocked").textContent=w.npcs.filter(n=>n.phase==="waitStorage"||["idle","social"].includes(n.phase)&&n.lastDecision?.action==="Sem tarefa viável").length;$("god-building").textContent=Math.min(w.project?.stage||0,4)+"/4";
   $("god-live-state").textContent=w.run?.paused?"⏸ Pausada":window.VilaRemote?.connected?"● Ao vivo":"○ Local";
+  const rFood=$("god-ribbon-food");if(rFood){
+   const alive=w.npcs.filter(n=>n.phase!=="dead");
+   rFood.textContent=(w.stock?.food||0)+" un.";
+   $("god-ribbon-health").textContent=Math.round(alive.reduce((v,n)=>v+(n.health??100),0)/Math.max(1,alive.length))+"%";
+   $("god-ribbon-storage").textContent=used(w).toFixed(0)+"/"+(w.lab?.depotCapacity||170)+" kg";
+   $("god-ribbon-blocked").textContent=alive.filter(n=>n.phase==="waitStorage"||["idle","social"].includes(n.phase)&&n.lastDecision?.action==="Sem tarefa viável").length;
+   const roster=$("god-roster-strip");
+   const markup=alive.map(n=>'<button type="button" data-roster-npc="'+esc(n.id)+'" class="god-roster-unit '+(selection.kind==="npc"&&selection.id===n.id?"active":"")+'"><span class="god-roster-face">'+esc(n.name.slice(0,1))+'</span><span class="god-roster-info"><b>'+esc(n.name)+'</b><small>'+esc(n.phase==="waitStorage"?"Depósito cheio":n.phase==="toFood"?"Buscando alimento":n.phase==="work"?"Trabalhando":n.phase==="social"?"Socializando":n.phase)+'</small></span><span class="god-roster-health"><i style="width:'+Math.max(0,n.health??100)+'%"></i></span></button>').join("");
+   if(roster.dataset.markup!==markup){roster.innerHTML=markup;roster.dataset.markup=markup;}
+  }
   if(modalOpen)paintWorlds();if(historyOpen)paintHistory(w);
  }
  function paintWorlds(){
@@ -88,12 +103,22 @@
   if(html!==historyCache){$("god-events-body").innerHTML=html;historyCache=html}
  }
  function tools(kind){
+  if(kind==="observe")$("source-cancel")?.click();
   mode=kind;const panel=$("god-tool-content");
   document.querySelectorAll("[data-god-tool]").forEach(b=>b.classList.toggle("is-active",b.dataset.godTool===kind));
   if(kind==="source"){
    panel.innerHTML='<label class="muted" for="god-source-type">Fonte de recursos</label><select id="god-source-type">'+Object.entries(presets).map(([k,n])=>'<option value="'+k+'">'+n+'</option>').join("")+'</select><div class="row"><button id="god-source-start">Posicionar no mapa</button><button id="god-source-cancel">Cancelar</button></div><p class="muted" id="god-source-help">Configure a fonte e escolha sua posição no mapa.</p>';
    $("god-source-start").onclick=()=>{const original=$("source-preset");if(!original){$("god-source-help").textContent="Conecte ao servidor primeiro.";return}original.value=$("god-source-type").value;$("source-place")?.click();$("god-source-help").textContent="Clique num local livre no mapa para criar a fonte."};
    $("god-source-cancel").onclick=()=>{$("source-cancel")?.click();tools("observe")};
+  }else if(kind==="npc"){
+   const choices=[["collector","Coletor"],["farmer","Fazendeiro"],["mason","Pedreiro"],["builder","Construtor"],["merchant","Mercador"],["leader","Líder"]];
+   panel.innerHTML='<label for="god-npc-role">Função</label><select id="god-npc-role">'+choices.map(([id,name])=>'<option value="'+id+'">'+name+'</option>').join("")+'</select><label for="god-npc-name">Nome</label><input id="god-npc-name" maxlength="32" placeholder="Novo morador"><button id="god-npc-add" type="button">Adicionar à vila</button><small id="god-npc-help" class="muted">O NPC entrará no assentamento e tomará decisões sozinho.</small>';
+   $("god-npc-add").onclick=async()=>{if(!window.VilaRemote?.connected){$("god-npc-help").textContent="Aguarde a conexão com o servidor.";return;}
+     const name=$("god-npc-name").value.trim(),role=$("god-npc-role").value;
+     if(!name){$("god-npc-help").textContent="Informe um nome.";return;}
+     $("god-npc-add").disabled=true;const ok=await window.VilaRemote.send({type:"npc",name,role});
+     if(ok)tools("observe");else $("god-npc-add").disabled=false;
+   };
   }else if(kind==="event"){
    panel.innerHTML='<label class="muted">Evento</label><select id="god-event-type"><option value="random">🎲 Aleatório</option><option value="harvest">🌾 Colheita abundante</option><option value="drought">☀️ Seca</option><option value="caravan">🛒 Caravana</option><option value="storm">⛈️ Tempestade</option><option value="beasts">🐺 Animais</option></select><div class="row"><button id="god-event-apply">Disparar evento</button></div>';
    $("god-event-apply").onclick=()=>{$("event").value=$("god-event-type").value;$("trigger")?.click();tools("observe")};
@@ -105,15 +130,22 @@
  function toggleModal(force){modalOpen=typeof force==="boolean"?force:!modalOpen;$("god-modal").hidden=!modalOpen;if(modalOpen){worldsCache="";paintWorlds();$("god-close-worlds").focus()}}
  function setup(){
   const headerEl=document.querySelector(".top"),worldBtn=document.createElement("button");worldBtn.id="god-worlds";worldBtn.textContent="☰ Mundos";headerEl.append(worldBtn);worldBtn.onclick=()=>toggleModal();
+  const ribbon=document.createElement("div");ribbon.id="god-survival-ribbon";
+  ribbon.innerHTML='<div><small>🍎 Alimentos</small><strong id="god-ribbon-food">—</strong></div><div><small>❤ Saúde média</small><strong id="god-ribbon-health">—</strong></div><div><small>📦 Depósito</small><strong id="god-ribbon-storage">—</strong></div><div><small>⚠ Bloqueios</small><strong id="god-ribbon-blocked">—</strong></div>';
+  headerEl.after(ribbon);
+  const rosterStrip=document.createElement("div");rosterStrip.id="god-roster-strip";
+  document.querySelector(".layout>main").append(rosterStrip);
+  rosterStrip.addEventListener("click",e=>{const b=e.target.closest("[data-roster-npc]");if(b)select("npc",b.dataset.rosterNpc)});
   const side=document.querySelector(".side"),toolbar=document.createElement("section");toolbar.id="god-tools";toolbar.className="panel";
   toolbar.innerHTML='<h2>Intervir no mundo</h2><div class="god-tools-row">'+
    '<button class="god-tool is-active" data-god-tool="observe"><span class="tool-icon">◉</span>Observar</button>'+
+   '<button class="god-tool" data-god-tool="npc"><span class="tool-icon">👥</span>NPC</button>'+
    '<button class="god-tool" data-god-tool="source"><span class="tool-icon">🌳</span>Recursos</button>'+
    '<button class="god-tool" data-god-tool="event"><span class="tool-icon">⚡</span>Eventos</button>'+
    '<button class="god-tool" data-god-tool="test"><span class="tool-icon">🧪</span>Testes</button></div><div id="god-tool-content"></div>';
-  side.prepend(toolbar);toolbar.addEventListener("click",e=>{const b=e.target.closest("[data-god-tool]");if(b)tools(b.dataset.godTool)});
-  const inspect=document.createElement("section");inspect.className="panel";inspect.id="god-inspector";inspect.innerHTML='<h2>Inspeção contextual</h2><div id="god-inspector-content"></div>';
-  side.append(inspect);inspect.addEventListener("click",e=>{const b=e.target.closest("[data-god-kind]");if(b)select(b.dataset.godKind,b.dataset.godId)});
+  document.querySelector(".layout>main").insertBefore(toolbar,rosterStrip);toolbar.addEventListener("click",e=>{const b=e.target.closest("[data-god-tool]");if(b)tools(b.dataset.godTool)});
+  const inspect=document.createElement("section");inspect.className="panel";inspect.id="god-inspector";inspect.innerHTML='<div class="god-inspector-heading"><h2>Inspeção contextual</h2><small>● Ao vivo</small></div><div id="god-inspector-tabs" class="god-inspector-tabs" hidden><button data-inspect-tab="status" class="active">Status</button><button data-inspect-tab="inventory">Inventário</button><button data-inspect-tab="history">Decisões</button></div><div id="god-inspector-content"></div>';
+  side.append(inspect);inspect.addEventListener("click",e=>{const tab=e.target.closest("[data-inspect-tab]");if(tab){inspectorTab=tab.dataset.inspectTab;inspectCache="";paint();return;}const b=e.target.closest("[data-god-kind]");if(b)select(b.dataset.godKind,b.dataset.godId)});
   const dock=document.createElement("div");dock.id="god-dock";dock.innerHTML='<div class="god-dock-stat"><small>Relógio</small><strong id="god-clock"></strong></div>'+
    '<div class="god-dock-stat"><small>Moradores</small><strong id="god-population"></strong></div>'+
    '<div class="god-dock-stat"><small>Estoque</small><strong id="god-stock"></strong></div>'+

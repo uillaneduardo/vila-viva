@@ -14,7 +14,7 @@ window.VilaLab = (() => {
    if(!w.lab)w.lab={schema:1,resources:{},stats:{},history:[],decisions:[],drops:[],depotCapacity:170,seed:w.seed,board:{x:15,y:7}};
    const L=w.lab; L.resources||={};L.stats||={};L.history||=[];L.decisions||=[];L.drops||=[];L.depotCapacity??=170;L.board||={x:15,y:7};
    for(const s of sites){if(!s.resource)continue;const cap=defaultResources[s.id]||50;L.resources[s.id]??={amount:cap,max:cap,regen:regeneration[s.id]||.015};}
-   for(const n of w.npcs){n.hunger??=72;n.sleepNeed??=15;n.health??=100;n.carryCapacity??=20;n.equipment??=({collector:"axe",farmer:"hoe",mason:"pickaxe",builder:"hammer"})[n.id]||null;n.traits??={initiative:55,prudence:55,sociability:55};n.skills??={};n.known??={};const st=L.stats[n.id]||={tasks:0,deliveries:0,failures:0,interruptions:0,minutes:{},produced:0};L.stats[n.id]=st;st.minutes||={};if(n.lastDecision===undefined)n.lastDecision=null;}
+   for(const n of w.npcs){n.hunger??=72;n.sleepNeed??=15;n.health??=100;n.carryCapacity??=20;n.equipment??=({collector:"axe",farmer:"hoe",mason:"pickaxe",builder:"hammer"})[n.job||n.id]||null;n.traits??={initiative:55,prudence:55,sociability:55};n.skills??={};n.known??={};const st=L.stats[n.id]||={tasks:0,deliveries:0,failures:0,interruptions:0,minutes:{},produced:0};L.stats[n.id]=st;st.minutes||={};if(n.lastDecision===undefined)n.lastDecision=null;}
    return L;
  }
  function used(w){return Object.entries(w.stock).reduce((sum,[key,qty])=>sum+wt(key,qty),0);}
@@ -31,7 +31,7 @@ window.VilaLab = (() => {
    if(n.hunger<32)return null;
    const roleMap={leader:["forest","orchard"],collector:["forest","orchard"],farmer:["farm","orchard"],mason:["quarry","mine"],builder:["build","forest"],merchant:["orchard","forest"]};
    let options=[];
-   if(w.project.stage<4 && ["leader","merchant"].includes(n.id)){
+   if(w.project.stage<4 && ["leader","merchant"].includes(n.job||n.id)){
      const stages=[{wood:20,stone:12},{wood:30,stone:20},{wood:25,stone:10},{wood:10,stone:5}];
      const target=stages[w.project.stage];
      for(const key of ["wood","stone"]){
@@ -44,13 +44,13 @@ window.VilaLab = (() => {
      }
    }
    for(const s of sites){
-     if(s.id==="build"){if(n.id==="builder" && w.project.stage<4 && typeof window.VilaStageReady==="function" && window.VilaStageReady(w)) options.push({id:s.id,score:120});continue;}
+     if(s.id==="build"){if((n.job||n.id)==="builder" && w.project.stage<4 && typeof window.VilaStageReady==="function" && window.VilaStageReady(w)) options.push({id:s.id,score:120});continue;}
      if(!eligible(w,n,s))continue;
      const requiredTool=({forest:"axe",quarry:"pickaxe",mine:"pickaxe",farm:"hoe"})[s.id];if(requiredTool&&n.equipment!==requiredTool)continue;
      const stock=w.stock[s.resource]||0;
      const critical=s.resource==="food"&&stock<20?85:0;
      const base=Math.max(0,70-stock*.8);
-     const specialty=(roleMap[n.id]||[]).includes(s.id)?22:0;
+     const specialty=(roleMap[n.job||n.id]||[]).includes(s.id)?22:0;
      const distance=nearby(n,s)*1.2;
      const score=base+critical+specialty-distance;
      options.push({id:s.id,score:Math.round(score)});
