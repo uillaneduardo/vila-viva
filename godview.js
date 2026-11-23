@@ -127,6 +127,17 @@
   camera.innerHTML='<button type="button" id="god-zoom-out" aria-label="Diminuir zoom" title="Diminuir zoom">−</button><span id="god-map-zoom">100%</span><button type="button" id="god-zoom-in" aria-label="Aumentar zoom" title="Aumentar zoom">+</button><button type="button" id="god-map-center" title="Centralizar mapa">Centrar</button>';
   map.append(camera);
   const cv=$("map"),zoomLabel=$("god-map-zoom");
+  const hover=document.createElement("div");hover.id="god-npc-hover";hover.hidden=true;document.body.append(hover);
+  cv.addEventListener("pointermove",e=>{
+   if(e.pointerType==="touch"||e.buttons){hover.hidden=true;return;}
+   const w=world(),r=cv.getBoundingClientRect();if(!w||!r.width)return;
+   const x=(e.clientX-r.left)*cv.width/r.width,y=(e.clientY-r.top)*cv.height/r.height;
+   const n=w.npcs.find(n=>{const p=window.VilaMotion?.(n)||n;return Math.hypot(p.x*40+20-x,p.y*40+23-y)<25});
+   if(!n){hover.hidden=true;return;}
+   hover.innerHTML="<strong>"+esc(n.name)+"</strong><small>"+esc(n.role)+" · "+esc(n.phase)+"</small><span>❤ "+Math.round(n.health??100)+"% &nbsp; 🍎 "+Math.round(n.hunger??100)+"% &nbsp; ⚡ "+Math.round(n.energy)+"%</span><small>"+esc(n.lastDecision?.action||"Sem decisão recente")+"</small>";
+   hover.style.left=Math.min(innerWidth-230,e.clientX+16)+"px";hover.style.top=Math.max(8,Math.min(innerHeight-116,e.clientY+14))+"px";hover.hidden=false;
+  });
+  cv.addEventListener("pointerleave",()=>hover.hidden=true);
   function syncZoom(){zoomLabel.textContent=Math.round(cv.getBoundingClientRect().width/map.clientWidth*100)+"%";}
   $("god-zoom-out").onclick=()=>{$("lab-zoom-out")?.click();syncZoom()};
   $("god-zoom-in").onclick=()=>{$("lab-zoom-in")?.click();syncZoom()};
