@@ -17,3 +17,9 @@ Todas as mensagens mutáveis precisam de commandId/idempotência, worldId, actor
 
 ## Critérios de aceite de UI
 Player e admin possuem telas separadas; compartilham somente renderer e dados mock neste estágio. O jogador não recebe ferramentas administrativas. Seleção, zoom, toque, navegação e inspetor são testáveis em ambas. Ações futuras não podem aparentar que estão funcionais. Nenhum WebSocket, backend ou persistência é simulado como se fosse real.
+
+## Ações contextuais da seleção (protótipo atual)
+- NPC → jogador: inspecionar; interagir (planejada). Admin: inspecionar, **restaurar saúde (prévia)**, editar atributos (planejada).
+- Recurso → jogador: inspecionar; coletar (planejada). Admin: inspecionar, **reabastecer fonte (prévia)**, editar atributos (planejada).
+- Construção → jogador: inspecionar; trabalhar/entregar (planejadas). Admin: inspecionar, **avançar obra 25% (prévia)**, editar atributos (planejada).
+- Ações desabilitadas exibem motivos; as ações de demonstração alteram apenas as entidades locais mock. Nenhum motor autoritativo ou persistência.

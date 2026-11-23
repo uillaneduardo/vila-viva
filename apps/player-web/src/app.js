@@ -1,11 +1,21 @@
 import {worlds,createDemoState} from "../../../packages/demo-world/src/fixtures.js";
 import {createMap} from "../../../packages/renderer/src/map.js";
+import {contextualActions} from "../../../packages/protocol/src/context-actions.js";
 import {actionsFor} from "../../../packages/protocol/src/actions.js";
 const $=id=>document.getElementById(id);
 let state=createDemoState(),toastTimer;
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const notice=message=>{const el=$("toast");el.textContent=message;el.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove("show"),2500)};
-function inspect(e){state.selected=e;if(!e){$("inspection").textContent="Selecione um NPC, recurso ou construção.";return;}const rows=e.type==="npc"?[["Atividade",e.task],["Saúde",e.health+"%"],["Energia",e.energy+"%"],["Saciedade",e.hunger+"%"]]:e.type==="resource"?[["Quantidade",e.qty+" unidades"],["Regeneração","Ativa"]]:[["Progresso",e.progress+"%"]];$("inspection").innerHTML="<h2>"+escape(e.name)+"</h2>"+rows.map(([k,v])=>'<div class="detail"><span>'+escape(k)+'</span><strong>'+escape(v)+'</strong></div>').join("");}
+function inspect(e){state.selected=e;if(!e){$("inspection").textContent="Selecione um NPC, recurso ou construção.";$("context-actions").replaceChildren();return;}const rows=e.type==="npc"?[["Atividade",e.task],["Saúde",e.health+"%"],["Energia",e.energy+"%"],["Saciedade",e.hunger+"%"]]:e.type==="resource"?[["Quantidade",e.qty+" unidades"],["Regeneração","Ativa"]]:[["Progresso",e.progress+"%"]];$("inspection").innerHTML="<h2>"+escape(e.name)+"</h2>"+rows.map(([k,v])=>'<div class="detail"><span>'+escape(k)+'</span><strong>'+escape(v)+'</strong></div>').join("");
+ const target=$("context-actions");target.replaceChildren();
+ for(const action of contextualActions("player",e)){
+   const button=document.createElement("button");button.className="action";button.type="button";button.disabled=!action.enabled;
+   const label=document.createElement("strong");label.textContent=action.label;
+   const status=document.createElement("span");status.textContent=action.enabled?"Inspecionar":action.reason;
+   button.append(label,status);if(action.enabled)button.addEventListener("click",()=>notice(e.name+" selecionado."));
+   target.append(button);
+ }
+}
 const renderer=createMap($("map"),()=>state,inspect,()=>notice("Criação de entidades é exclusiva do administrador."),()=>{});
 for(const w of worlds){const opt=document.createElement("option");opt.value=w.id;opt.textContent=w.name;$("world").append(opt);}
 $("world").addEventListener("change",e=>{state=createDemoState(worlds.find(w=>w.id===e.target.value));$("title").textContent=state.world.name;inspect(null);renderer.reset();});
