@@ -21,12 +21,14 @@ export function resolveWorldSprite(entity){
  if(entity?.kind==='character')return {id:'entities/human',state:'idle',scale:.79};
  if(entity?.kind!=='resource')return null;
  if(entity.resourceType==='food'){
-  // Prototype food sources use the apple-tree art until explicit species are defined.
-  // A leafless state can later be sent explicitly by the world projection.
+  // Species-specific projection; old generic food sources retain a compatible fallback.
+  if(entity.sourceId&&entity.sourceId!=='apple_tree')return null;
+  const stage=entity.life?.stage;
   const fraction=entity.maximum>0?entity.quantity/entity.maximum:0;
-  const state=entity.visualState==='leafless'?'leafless':
+  const state=stage==='dead'||entity.visualState==='leafless'?'leafless':
    entity.quantity<=0?'foliage':fraction<=.4?'fruit_sparse':'fruit_ripe';
-  return {id:'vegetation/apple_tree',state,scale:2.22};
+  const scale=stage==='seedling'?.52:stage==='young'?.9:stage==='old'?1.45:1.55;
+  return {id:'vegetation/apple_tree',state,scale};
  }
  const visual=SPRITES['resource.'+entity.resourceType];
  return visual?{id:visual.id,state:entity.quantity===0?'exhausted':'available',scale:.79}:null;

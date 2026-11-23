@@ -4,7 +4,7 @@ export type ActionId = "entity.inspect" | "movement.move" | "npc.spawn" | "resou
 export type FailureCode = "UNAUTHORIZED" | "NOT_FOUND" | "INVALID_TARGET" | "INVALID_PAYLOAD" | "OUT_OF_BOUNDS" | "BLOCKED" | "DUPLICATE_COMMAND" | "EXHAUSTED" | "INVENTORY_FULL";
 export interface Position { x: number; y: number }
 import type {ActiveEffect,AttributeId} from "./effects.ts";
-import type {NaturalStage} from "../../content/src/natural-sources.ts";
+export type NaturalStage = "seedling" | "young" | "mature" | "old" | "dead";
 export type Inventory = Record<string,number>;
 export interface Character { id: string; kind: "character"; name: string; position: Position; health: number; energy: number; ownerId?: string; inventory?: Inventory; attributes?: Partial<Record<AttributeId,number>>; effects?: ActiveEffect[] }
 export interface NaturalLife { ageTicks:number; stage:NaturalStage; health:number; productionProgress:number }

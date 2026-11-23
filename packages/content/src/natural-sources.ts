@@ -1,5 +1,5 @@
 /** Content-only definition of a renewable living source. Future berry bushes add one entry, not a new engine. */
-export type NaturalStage = "seedling" | "young" | "mature" | "old" | "dead";
+import type {NaturalStage} from "../../domain/src/contracts.ts";
 export interface NaturalSourceDefinition {
  id:string;
  label:string;
