@@ -1,0 +1,41 @@
+name: vNext isolated core checks
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/**'
+      - 'docs/gameplay/**'
+      - 'docs/architecture/**'
+      - 'docs/ui/**'
+      - 'tests/*.mts'
+      - '.github/workflows/vnext-core-checks.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packages/**'
+      - 'docs/gameplay/**'
+      - 'docs/architecture/**'
+      - 'docs/ui/**'
+      - 'tests/*.mts'
+      - '.github/workflows/vnext-core-checks.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-core:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+      - name: Validate isolated vNext contracts
+        run: |
+          node --experimental-strip-types --test \
+            tests/buildings.test.mts \
+            tests/catalog.test.mts \
+            tests/effects.test.mts \
+            tests/engine.test.mts \
+            tests/inspection.test.mts \
+            tests/i18n-core.test.mts
