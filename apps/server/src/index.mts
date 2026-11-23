@@ -23,6 +23,10 @@ export function makePrototype(){
  init("npc.spawn","player-init",{x:4,y:5},{name:"Meu personagem",ownerId:"local-player"});
  init("npc.spawn","npc-init",{x:13,y:9},{name:"Ayla"});
  init("resource.spawn","wood-init",{x:7,y:8},{resourceType:"wood",quantity:30});
+ // Real food-source entities for visual homologation; inventories remain authoritative.
+ init("resource.spawn","apple-ripe-init",{x:9,y:7},{resourceType:"food",quantity:30});
+ init("resource.spawn","apple-sparse-init",{x:11,y:9},{resourceType:"food",quantity:6});
+ init("resource.spawn","apple-empty-init",{x:10,y:11},{resourceType:"food",quantity:0});
  const playerId="npc-player-init";
  const clock={speed:1 as 0|1|2|4};
  const clockView=()=>({speed:clock.speed,paused:clock.speed===0,tick:world.tick,day:1+Math.floor(world.tick/240),hour:Math.floor(world.tick/10)%24,minute:(world.tick%10)*6});
@@ -103,14 +107,16 @@ export function makePrototype(){
    }
    if(req.method!=="GET"&&req.method!=="HEAD")return json(res,405,{error:"METHOD_NOT_ALLOWED"});
    const path=url.pathname==="/"?"/apps/player-web/index.html":url.pathname==="/admin"?"/apps/admin-web/index.html":url.pathname;
-   // Public UI sprite pack is sandboxed to public/assets/ui; no arbitrary file roots.
-   const assetPath=path.startsWith("/assets/ui/")?"/public"+path:path;
+   // Static binary assets are restricted to approved public UI/world namespaces.
+   const publicAsset=path.startsWith("/assets/ui/")||path.startsWith("/assets/world/");
+   const assetPath=publicAsset?"/public"+path:path;
    const filename=resolve(root,"."+assetPath);
    if(filename!==root&&!filename.startsWith(root+sep))return json(res,403,{error:"FORBIDDEN"});
-   const mime:{[key:string]:string}={".html":"text/html; charset=utf-8",".js":"text/javascript; charset=utf-8",".css":"text/css; charset=utf-8",".svg":"image/svg+xml",".png":"image/png",".webp":"image/webp"};
+   const mime:{[key:string]:string}={".html":"text/html; charset=utf-8",".js":"text/javascript; charset=utf-8",".css":"text/css; charset=utf-8",".svg":"image/svg+xml",".png":"image/png",".webp":"image/webp",".json":"application/json; charset=utf-8"};
    if(!Object.hasOwn(mime,extname(filename)))return json(res,404,{error:"NOT_FOUND"});
-   // Binary images are only served from the UI asset pack.
-   if([".png",".webp"].includes(extname(filename))&&!path.startsWith("/assets/ui/"))return json(res,404,{error:"NOT_FOUND"});
+   // Never expose arbitrary repository binary files or JSON data.
+   if([".png",".webp"].includes(extname(filename))&&!publicAsset)return json(res,404,{error:"NOT_FOUND"});
+   if(extname(filename)===".json"&&!path.startsWith("/assets/world/"))return json(res,404,{error:"NOT_FOUND"});
    const bytes=await readFile(filename);
    res.writeHead(200,{"content-type":mime[extname(filename)],"cache-control":"no-store","x-content-type-options":"nosniff"});
    res.end(req.method==="HEAD"?undefined:bytes);
