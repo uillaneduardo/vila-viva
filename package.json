@@ -1,0 +1,12 @@
+{
+  "name": "vila-viva",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --experimental-strip-types apps/server/src/index.mts",
+    "test": "node --experimental-strip-types --test tests/*.test.mts"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  }
+}

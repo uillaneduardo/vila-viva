@@ -1,0 +1,34 @@
+name: vNext Foundation CI
+on:
+  push:
+    branches: [main, migration/vnext-root-legacy-archive, architecture/gameplay-first]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  foundation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+      - name: Run domain, effects, localization and API tests
+        run: node --experimental-strip-types --test tests/*.test.mts
+      - name: Ensure old deployments are archived
+        run: |
+          test -s .old/Dockerfile
+          test -s .old/compose.yml
+          test -s .old/.github/workflows/deploy.yml
+          test ! -e Dockerfile
+          test ! -e compose.yml
+          test ! -e .github/workflows/deploy.yml
+      - name: Verify browser JavaScript syntax
+        run: |
+          node --check apps/shared-ui/app.js
+          node --check packages/i18n/src/index.js
