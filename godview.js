@@ -120,6 +120,19 @@
    '<div class="god-dock-stat"><small>Obra</small><strong id="god-building"></strong></div>'+
    '<div class="god-dock-stat"><small>Estado</small><strong id="god-live-state"></strong></div><button id="god-history">☷ Histórico</button>';
   document.querySelector(".layout>main").append(dock);
+  // Visible camera controls: the original zoom controls lived in a hidden laboratory panel.
+  const map=document.querySelector(".mapwrap"),camera=document.createElement("div");
+  camera.className="god-map-controls";
+  camera.setAttribute("aria-label","Controles de navegação do mapa");
+  camera.innerHTML='<button type="button" id="god-zoom-out" aria-label="Diminuir zoom" title="Diminuir zoom">−</button><span id="god-map-zoom">100%</span><button type="button" id="god-zoom-in" aria-label="Aumentar zoom" title="Aumentar zoom">+</button><button type="button" id="god-map-center" title="Centralizar mapa">Centrar</button>';
+  map.append(camera);
+  const cv=$("map"),zoomLabel=$("god-map-zoom");
+  function syncZoom(){zoomLabel.textContent=Math.round(cv.getBoundingClientRect().width/map.clientWidth*100)+"%";}
+  $("god-zoom-out").onclick=()=>{$("lab-zoom-out")?.click();syncZoom()};
+  $("god-zoom-in").onclick=()=>{$("lab-zoom-in")?.click();syncZoom()};
+  $("god-map-center").onclick=()=>{cv.style.width="100%";map.scrollTo({left:0,top:0,behavior:"smooth"});syncZoom()};
+  window.addEventListener("resize",syncZoom,{passive:true});syncZoom();
+
   const events=document.createElement("div");events.id="god-events-drawer";events.hidden=true;events.innerHTML='<div class="row" style="justify-content:space-between"><h3>Atividades e decisões</h3><button id="god-close-history">Fechar ×</button></div><div id="god-events-body"></div>';document.body.append(events);
   $("god-history").onclick=()=>{historyOpen=!historyOpen;events.hidden=!historyOpen;historyCache="";paint()};$("god-close-history").onclick=()=>{historyOpen=false;events.hidden=true};
   const modal=document.createElement("div");modal.id="god-modal";modal.className="god-modal-backdrop";modal.hidden=true;
