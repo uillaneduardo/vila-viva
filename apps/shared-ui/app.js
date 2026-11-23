@@ -1,76 +1,147 @@
-import {t,localizeDOM} from "../../packages/i18n/src/index.js";
-const $=id=>document.getElementById(id);
-const isAdmin=document.body.dataset.role==="admin";
-const role=isAdmin?"admin":"player";
-let catalog=null,state=null,selected=null,cursor={x:5,y:5},busy=false;
-const tile=28,canvas=$("map"),ctx=canvas.getContext("2d");
-const reason=code=>{try{return t("error."+code);}catch{return code;}};
-const request=async(path,options)=>{const response=await fetch(path,options);const data=await response.json();if(!response.ok&& !data.result)throw Error(data.error||t("feedback.networkError"));return data;};
-const coordinates=(event)=>{const rect=canvas.getBoundingClientRect(),scale=canvas.width/rect.width;return {x:Math.floor((event.clientX-rect.left)*scale/tile),y:Math.floor((event.clientY-rect.top)*scale/tile)};};
-function paint(){
- if(!state)return;
- const w=state.world;canvas.width=w.width*tile;canvas.height=w.height*tile;
- ctx.fillStyle="#173026";ctx.fillRect(0,0,canvas.width,canvas.height);
- for(let y=0;y<w.height;y++)for(let x=0;x<w.width;x++){
-  ctx.fillStyle=(x+y)%2===0?"#31533b":"#345940";ctx.fillRect(x*tile,y*tile,tile-1,tile-1);
- }
- for(const e of w.entities){
-  ctx.beginPath();ctx.arc((e.position.x+.5)*tile,(e.position.y+.5)*tile,tile*.34,0,Math.PI*2);
-  ctx.fillStyle=e.kind==="resource"?"#a4c783":e.ownerId?"#f5da91":"#98c0fa";ctx.fill();
-  if(e.id===selected){ctx.strokeStyle="#fff";ctx.lineWidth=3;ctx.stroke();}
- }
- ctx.strokeStyle="#fbeb89";ctx.lineWidth=2;ctx.strokeRect(cursor.x*tile+2,cursor.y*tile+2,tile-4,tile-4);
- $("tick").textContent=String(w.tick);
- $("world-name").textContent=w.id;
- $("selected-position").textContent=cursor.x+", "+cursor.y;
+import {Scene} from '../../packages/renderer/src/scene.js';
+import {brushCells} from '../../packages/renderer/src/camera.js';
+import {createHud} from '../../packages/ui/src/hud.js';
+import {createInspector} from '../../packages/ui/src/inspector.js';
+import {icon} from '../../packages/ui/src/icons.js';
+const el=id=>document.getElementById(id),role=document.body.dataset.role;
+const scene=new Scene(el('game')),inspector=createInspector();
+let snapshot=null,catalog=null,selectedId=null,hoverId=null,tool='inspect',brushSize=1;
+let pan=null,painting=new Map(),loading=false,inspection=null,lastSpeed=1;
+const keys=new Set();
+const request=async(path,options)=>{
+ const response=await fetch(path,options),data=await response.json();
+ if(!response.ok)throw Error(data.error||'Falha na comunicação');
+ return data;
+};
+const hud=createHud({
+ role,
+ onTool(id){tool=id;hud.tool(id);scene.setBrush(['npc','wood','stone','food'].includes(id)?{kind:id,size:brushSize}:null);hoverId=null;scene.setHover(null);el('tooltip').hidden=true;},
+ onSize(n){brushSize=n;hud.size(n);if(scene.brush)scene.setBrush({...scene.brush,size:n});},
+ onClock(speed){changeSpeed(speed);}
+});
+hud.tool('inspect');hud.size(1);
+const status=message=>{el('statusMessage').textContent=message;};
+const eventCoordinates=e=>{const rect=scene.canvas.getBoundingClientRect();return {x:e.clientX-rect.left,y:e.clientY-rect.top};};
+function setSelection(entity){
+ selectedId=entity?.id??null;inspector.setSelection(selectedId);scene.setSelection(selectedId);
+ inspection=null;if(entity)refreshInspector(entity);
 }
-function writeInspector(){
- const e=state.world.entities.find(item=>item.id===selected);
- $("selection").replaceChildren();
- if(!e){$("selection").textContent=t("inspector.empty");return;}
- const title=document.createElement("strong");title.textContent=e.kind==="character"?e.name:(catalog?.resources?.[e.resourceType]??e.resourceType);
- const detail=document.createElement("p");detail.textContent=e.kind==="character"?t("inspector.healthEnergy",{health:e.health,energy:e.energy}):t("inspector.resourceQuantity",{quantity:e.quantity,maximum:e.maximum});
- $("selection").append(title,detail);
+async function refreshInspector(entity){
+ if(!entity||entity.id!==selectedId)return;
+ try{
+  const details=await request('/api/inspect?entityId='+encodeURIComponent(entity.id));
+  if(entity.id!==selectedId)return;
+  inspection=details;inspector.render(entity,details,catalog);
+ }catch(error){status('Falha na inspeção: '+error.message);}
+}
+function updateHover(point){
+ if(tool!=='inspect'||pan||!snapshot){el('tooltip').hidden=true;scene.setHover(null);return;}
+ const target=scene.pick(point.x,point.y);
+ const npc=target?.kind==='character'?target:null;
+ if(!npc){hoverId=null;el('tooltip').hidden=true;scene.setHover(null);return;}
+ hoverId=npc.id;scene.setHover(hoverId);
+ el('tooltipName').textContent=npc.name;
+ el('tooltipHealth').textContent='Saúde '+npc.health+'% · Energia '+npc.energy+'%';
+ el('tooltipActivity').textContent='Atividade indisponível · Humor não informado';
+ el('tooltipRoute').textContent='Rota ainda não disponível (pathfinder pendente)';
+ const tip=el('tooltip');
+ tip.style.left=Math.min(scene.camera.width-248,point.x+16)+'px';
+ tip.style.top=Math.min(scene.camera.height-128,point.y+12)+'px';
+ tip.hidden=false;
+}
+function addBrushAt(point){
+ if(!snapshot||!scene.brush)return;
+ const center=scene.camera.tileAt(point.x,point.y);
+ for(const cell of brushCells(center,brushSize,snapshot.world)){
+  if(painting.size>=225)break;
+  const key=cell.x+','+cell.y;
+  if(!painting.has(key)&&!snapshot.world.entities.some(e=>e.position.x===cell.x&&e.position.y===cell.y))painting.set(key,cell);
+ }
+}
+async function submitBrush(){
+ if(!painting.size){status('Nenhuma célula livre para posicionar.');return;}
+ const cells=[...painting.values()],kind=tool,action=kind==='npc'?'npc.spawn':'resource.spawn';
+ const commands=cells.map((position,i)=>({
+  commandId:crypto.randomUUID(),action,position,
+  parameters:kind==='npc'?{name:'Habitante '+(snapshot.world.entities.filter(e=>e.kind==='character').length+i+1)}:{resourceType:kind,quantity:25}
+ }));
+ painting.clear();
+ try{
+  status('Enviando '+commands.length+' comando(s) ao motor...');
+  const result=await request('/api/brush',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({role,commands})});
+  const accepted=result.results.filter(r=>r.ok).length;
+  status(accepted+' elemento(s) criado(s); '+(commands.length-accepted)+' rejeitado(s).');
+  await refresh();
+ }catch(error){status('Falha no pincel: '+error.message);}
+}
+function changeSpeed(speed){
+ if(role!=='admin'||![0,1,2,4].includes(speed))return;
+ request('/api/clock',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({role,speed})})
+ .then(data=>{if(speed)lastSpeed=speed;if(snapshot){snapshot.clock=data.clock;hud.update(snapshot);}status(speed?'Velocidade '+speed+'×':'Simulação pausada');})
+ .catch(error=>status('Falha no relógio: '+error.message));
 }
 async function refresh(){
- if(!catalog)catalog=await request("/api/catalog");
- const newState=await request("/api/world");state=newState;
- if(selected&&!state.world.entities.some(e=>e.id===selected))selected=null;
- paint();writeInspector();await updateActions();
-}
-async function updateActions(){
- if(!state)return;
- const params=new URLSearchParams({role,x:String(cursor.x),y:String(cursor.y)});
- if(selected)params.set("targetId",selected);
- const {actions}=await request("/api/actions?"+params);
- $("actions").replaceChildren();
- for(const a of actions){
-  const button=document.createElement("button");button.type="button";button.disabled=busy||!a.enabled;
-  button.className="action";
-  const label=document.createElement("span");label.textContent=catalog?.actions?.[a.id]??a.label;
-  const small=document.createElement("small");small.textContent=a.enabled?t("actions.available"):a.reason?reason(a.reason):t("actions.unavailable");
-  button.append(label,small);
-  button.addEventListener("click",()=>send(a.id));
-  $("actions").append(button);
- }
-}
-async function send(action){
- if(busy)return;busy=true;$("feedback").textContent=t("feedback.applying");
+ if(loading)return;loading=true;
  try{
-  const parameters=action==="npc.spawn"?{name:$("entity-name").value.trim()||t("form.npcFallback")}:action==="resource.spawn"?{resourceType:$("resource-type").value,quantity:Number($("quantity").value)}:{};
-  const data=await request("/api/commands",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({commandId:crypto.randomUUID(),role,action,position:cursor,parameters,targetId:selected})});
-  $("feedback").textContent=data.result.ok?t("feedback.commandApplied",{tick:data.result.tick}):reason(data.result.error);
-  state={...state,world:data.world};paint();writeInspector();
- }catch(e){$("feedback").textContent=t("feedback.failure",{message:e.message});}
- finally{busy=false;await updateActions();}
+  if(!catalog)catalog=await request('/api/catalog');
+  const data=await request('/api/world');snapshot=data;scene.setWorld(data.world);hud.update(data);
+  const selected=data.world.entities.find(e=>e.id===selectedId);
+  if(selectedId&&!selected)setSelection(null);
+  else if(selected)refreshInspector(selected);
+  el('connection').textContent='Simulação local';
+  el('connection').classList.remove('offline');
+ }catch(error){el('connection').textContent='Sem conexão';el('connection').classList.add('offline');status('Servidor indisponível: '+error.message);}
+ finally{loading=false;}
 }
-canvas.addEventListener("click",async e=>{
- if(!state)return;
- const point=coordinates(e);if(point.x<0||point.y<0||point.x>=state.world.width||point.y>=state.world.height)return;
- cursor=point;
- const hit=[...state.world.entities].reverse().find(entity=>entity.position.x===cursor.x&&entity.position.y===cursor.y);
- selected=hit?.id||null;paint();writeInspector();await updateActions();
+scene.canvas.addEventListener('wheel',e=>{e.preventDefault();const p=eventCoordinates(e);scene.camera.zoomAt(p.x,p.y,e.deltaY<0?1.12:1/1.12);el('zoom').textContent=Math.round(scene.camera.zoom*100)+'%';},{passive:false});
+scene.canvas.addEventListener('pointerdown',e=>{
+ if(e.button!==0&&e.button!==1)return;
+ const point=eventCoordinates(e),target=scene.pick(point.x,point.y);
+ pan={id:e.pointerId,button:e.button,last:point,start:point,entity:target,drag:false,brush:role==='admin'&&!!scene.brush};
+ scene.canvas.setPointerCapture(e.pointerId);
+ if(pan.brush){painting=new Map();addBrushAt(point);}
+ if(e.button===1)e.preventDefault();
 });
-$("refresh").addEventListener("click",()=>refresh().catch(e=>$("feedback").textContent=e.message));
-localizeDOM();
-refresh().catch(e=>$("feedback").textContent=e.message);
+scene.canvas.addEventListener('pointermove',e=>{
+ const point=eventCoordinates(e);scene.pointer=point;
+ const tile=scene.camera.tileAt(point.x,point.y);el('coordinates').textContent='x: '+tile.x+' · y: '+tile.y;
+ if(pan&&pan.id===e.pointerId){
+  if(pan.brush){addBrushAt(point);pan.last=point;return;}
+  const diff=Math.hypot(point.x-pan.start.x,point.y-pan.start.y);
+  if(diff>5&&(pan.button===1||!pan.entity))pan.drag=true;
+  if(pan.drag){scene.camera.pan(point.x-pan.last.x,point.y-pan.last.y);scene.canvas.classList.add('dragging');}
+  pan.last=point;el('tooltip').hidden=true;return;
+ }
+ updateHover(point);
+});
+scene.canvas.addEventListener('pointerup',e=>{
+ if(!pan||pan.id!==e.pointerId)return;
+ const point=eventCoordinates(e),gesture=pan;pan=null;scene.canvas.classList.remove('dragging');
+ if(gesture.brush){void submitBrush();return;}
+ if(gesture.drag||gesture.button===1)return;
+ if(tool==='inspect')setSelection(scene.pick(point.x,point.y));
+});
+scene.canvas.addEventListener('pointercancel',()=>{pan=null;painting.clear();scene.canvas.classList.remove('dragging');});
+scene.canvas.addEventListener('pointerleave',()=>{if(!pan){el('tooltip').hidden=true;scene.setHover(null);}});
+const typing=target=>['INPUT','TEXTAREA','SELECT'].includes(target?.tagName)||target?.isContentEditable;
+addEventListener('keydown',e=>{
+ if(typing(e.target)||e.altKey||e.ctrlKey||e.metaKey)return;
+ const speed={Digit1:1,Digit2:2,Digit3:4}[e.code];
+ if(speed){changeSpeed(speed);e.preventDefault();return;}
+ if(e.code==='Quote'||e.key==="'"){changeSpeed(snapshot?.clock?.speed===0?lastSpeed:0);e.preventDefault();return;}
+ if(e.code==='Escape'){tool='inspect';hud.tool(tool);scene.setBrush(null);if(selectedId)setSelection(null);e.preventDefault();return;}
+ if(['KeyW','KeyA','KeyS','KeyD'].includes(e.code)){keys.add(e.code);e.preventDefault();}
+});
+addEventListener('keyup',e=>keys.delete(e.code));
+addEventListener('blur',()=>keys.clear());
+let last=performance.now();
+function animate(now){
+ const dt=Math.min(.06,(now-last)/1000);last=now;
+ const x=Number(keys.has('KeyD'))-Number(keys.has('KeyA')),y=Number(keys.has('KeyS'))-Number(keys.has('KeyW'));
+ if(x||y){const factor=420*dt/Math.max(1,Math.hypot(x,y));scene.camera.pan(-x*factor,-y*factor);}
+ scene.paint(now);requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+el('worldTick').textContent='Carregando mundo…';
+el('introHint').innerHTML=icon('inspect',15)+' Prévia de desenvolvimento: mundo real em memória, sem IA, depósito ou construção.';
+refresh();setInterval(refresh,650);
