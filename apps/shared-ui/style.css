@@ -84,3 +84,17 @@ button:focus-visible,input:focus-visible,canvas:focus-visible{outline:2px solid 
 @media(min-width:1600px){.context{width:clamp(420px,29vw,540px)}}
 @media(max-width:1190px){.top-center{top:76px}.top-right{display:none}.context{top:143px;height:min(600px,calc(100vh - 250px))}.world-tick{display:none}.bottom-note{display:none}}
 @media(max-width:740px){.brand{top:7px;left:7px;padding:7px}.top-center{top:69px;gap:4px}.top-group{height:46px;padding:3px 5px}.time{min-width:47px;padding:0 3px}.time-btn{height:30px;min-width:29px;padding:0 4px}.upper-label{display:none}.resource{min-width:43px;padding:3px}.resource-icon{width:18px;height:20px;font-size:10px}.resource strong{font-size:10px}.dock{bottom:10px;padding:4px;gap:1px}.dock-button{min-width:43px;height:55px;padding:3px}.glyph{width:26px;height:26px}.glyph svg{width:16px;height:16px}.dock-label{font-size:8px}.context{top:auto;bottom:84px;right:9px;width:calc(100vw - 18px);height:min(430px,58vh)}.context-main{grid-template-columns:66px minmax(0,1fr)}.context-nav{padding:9px 6px}.nav-item{min-height:51px;font-size:8px}.expand{top:132px;right:9px}.brush{bottom:75px;padding:7px;gap:5px}.brush input{width:70px!important}.bottom-left,.bottom-right{display:none}}
+
+/* Semantic UI asset states are presentation-only; never trigger gameplay. */
+[data-visual-state="disabled"]{opacity:.45}
+[data-visual-state="alert"]{color:#e5bb91}
+
+/* Replaceable sprite assets for UI only; fallback geometry stays visible until image loads. */
+.ui-visual{display:inline-grid;position:relative;place-items:center;flex:none;width:var(--ui-visual-size,20px);height:var(--ui-visual-size,20px)}
+.ui-visual-fallback{display:grid;place-items:center;grid-area:1/1}
+.ui-visual-fallback svg{display:block;max-width:100%;max-height:100%}
+.ui-visual-sprite{display:none;grid-area:1/1;width:100%;height:100%;object-fit:contain}
+.ui-visual.sprite-loaded .ui-visual-sprite{display:block}
+.ui-visual.sprite-loaded .ui-visual-fallback{visibility:hidden}
+.ui-visual[data-visual-state="disabled"]{opacity:.45}
+.ui-visual[data-visual-state="alert"]{color:#e5bb91}

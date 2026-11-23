@@ -1,4 +1,4 @@
-import {icon} from './icons.js';
+import {createUiVisual} from '../assets/visual.js';
 const names={overview:'Resumo',health:'Atributos',effects:'Efeitos',box:'Inventário'};
 const safe=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const row=(k,v)=>'<div class="data-row"><span>'+safe(k)+'</span><strong>'+safe(v)+'</strong></div>';
@@ -12,11 +12,11 @@ export function createInspector(){
  const open=()=>{el('panel').hidden=false;el('expand').hidden=true;};
  const close=()=>{el('panel').hidden=true;el('expand').hidden=true;};
  const collapse=()=>{collapsed=true;el('panel').hidden=true;el('expand').hidden=false;};
- el('collapse').innerHTML=icon('collapse',18);
- el('expand').innerHTML=icon('expand',18);
+ el('collapse').replaceChildren(createUiVisual('control.collapse',{size:18}));
+ el('expand').replaceChildren(createUiVisual('control.expand',{size:18}));
  el('collapse').addEventListener('click',collapse);
  el('expand').addEventListener('click',()=>{collapsed=false;open();});
- el('follow').innerHTML=icon('follow',17);el('follow').disabled=true;el('follow').title='Seguir NPC disponível após implementação do movimento';
+ el('follow').replaceChildren(createUiVisual('control.follow',{size:17}));el('follow').disabled=true;el('follow').title='Seguir NPC disponível após implementação do movimento';
  function setSelection(id){
   if(selectedId!==id){selectedId=id;active='overview';sections='';lastContent='';collapsed=false;}
   if(!id)close();else if(collapsed)collapse();else open();
@@ -35,7 +35,8 @@ export function createInspector(){
    for(const id of allowed){
     const b=document.createElement('button');b.type='button';b.dataset.section=id;
     b.className='nav-item';b.title=names[id];b.setAttribute('aria-label',names[id]);
-    b.innerHTML=icon(id,19)+'<span>'+names[id]+'</span>';
+    b.replaceChildren(createUiVisual(({overview:'section.overview',health:'section.attributes',effects:'section.effects'})[id]||'ui.unavailable',{size:19}));
+    const text=document.createElement('span');text.textContent=names[id];b.append(text);
     b.addEventListener('click',()=>{active=id;lastContent='';render(entity,details,catalog);});
     nav.append(b);
    }
@@ -60,7 +61,7 @@ export function createInspector(){
     }else html='<p class="empty">Atributos indisponíveis.</p>';
    } else if(active==='effects'){
     const effects=details?.effects??[];
-    html='<h3>Efeitos ativos</h3>'+(effects.length?effects.map(e=>'<article class="effect">'+icon('effects',18)+'<div><strong>'+safe(e.name)+'</strong><small>Fonte: '+safe(e.sourceId)+' · '+(e.expiresAtTick===null?'Condicional/permanente':'Expira no tick '+safe(e.expiresAtTick))+'</small></div></article>').join(''):'<p class="empty">Nenhum efeito ativo.</p>');
+    html='<h3>Efeitos ativos</h3>'+(effects.length?effects.map(e=>'<article class="effect">'+createUiVisual('section.effects',{size:18}).outerHTML+'<div><strong>'+safe(e.name)+'</strong><small>Fonte: '+safe(e.sourceId)+' · '+(e.expiresAtTick===null?'Condicional/permanente':'Expira no tick '+safe(e.expiresAtTick))+'</small></div></article>').join(''):'<p class="empty">Nenhum efeito ativo.</p>');
    }
   }else html='<h3>Fonte natural</h3>'+row('Tipo',catalog?.resources?.[entity.resourceType]||entity.resourceType)+row('Disponível',entity.quantity+' unidades')+row('Capacidade máxima',entity.maximum+' unidades')+row('Regeneração','Sistema pendente')+row('Posição',entity.position.x+', '+entity.position.y);
   if(lastContent!==html){const scroll=el('panelScroll');const previous=scroll.scrollTop;el('panelBody').innerHTML=html;scroll.scrollTop=previous;lastContent=html;}

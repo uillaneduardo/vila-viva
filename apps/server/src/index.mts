@@ -103,10 +103,14 @@ export function makePrototype(){
    }
    if(req.method!=="GET"&&req.method!=="HEAD")return json(res,405,{error:"METHOD_NOT_ALLOWED"});
    const path=url.pathname==="/"?"/apps/player-web/index.html":url.pathname==="/admin"?"/apps/admin-web/index.html":url.pathname;
-   const filename=resolve(root,"."+path);
+   // Public UI sprite pack is sandboxed to public/assets/ui; no arbitrary file roots.
+   const assetPath=path.startsWith("/assets/ui/")?"/public"+path:path;
+   const filename=resolve(root,"."+assetPath);
    if(filename!==root&&!filename.startsWith(root+sep))return json(res,403,{error:"FORBIDDEN"});
-   const mime:{[key:string]:string}={".html":"text/html; charset=utf-8",".js":"text/javascript; charset=utf-8",".css":"text/css; charset=utf-8",".svg":"image/svg+xml"};
+   const mime:{[key:string]:string}={".html":"text/html; charset=utf-8",".js":"text/javascript; charset=utf-8",".css":"text/css; charset=utf-8",".svg":"image/svg+xml",".png":"image/png",".webp":"image/webp"};
    if(!Object.hasOwn(mime,extname(filename)))return json(res,404,{error:"NOT_FOUND"});
+   // Binary images are only served from the UI asset pack.
+   if([".png",".webp"].includes(extname(filename))&&!path.startsWith("/assets/ui/"))return json(res,404,{error:"NOT_FOUND"});
    const bytes=await readFile(filename);
    res.writeHead(200,{"content-type":mime[extname(filename)],"cache-control":"no-store","x-content-type-options":"nosniff"});
    res.end(req.method==="HEAD"?undefined:bytes);
