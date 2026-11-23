@@ -1,0 +1,32 @@
+name: Admin UI checks
+on:
+  push:
+    branches:
+      - architecture/vnext-foundation
+    paths:
+      - "apps/admin-web/**"
+      - ".github/workflows/admin-ui-checks.yml"
+  pull_request:
+    paths:
+      - "apps/admin-web/**"
+      - ".github/workflows/admin-ui-checks.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  admin-ui:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check JavaScript syntax
+        run: |
+          find apps/admin-web/src apps/admin-web/tests -name '*.js' -print0 | xargs -0 -n 1 node --check
+      - name: Run admin UI unit tests
+        working-directory: apps/admin-web
+        run: npm test
