@@ -32,17 +32,20 @@ npm run dev
 Toda a implementação antiga está em [`.old/`](.old/). A cópia preserva inclusive os antigos Dockerfile, Compose, backend, interface, testes e definição de deploy. **O repositório foi reorganizado, mas os mundos e volumes Docker não foram modificados.**
 
 ## Política de deploy
-- A migração **desativa o antigo deploy automático no nível da raiz**, arquivando o workflow anterior em `.old/.github/workflows/deploy.yml`.
-- O único workflow ativo da nova raiz executa validação e testes; ele **não publica containers nem modifica o homelab2**.
-- A aplicação antiga que já está rodando no homelab2 permanece no estado do último deploy até que uma migração de infraestrutura seja feita separadamente.
-- Antes de expor a nova API, implementar identificação/autorização do Modo Deus, RBAC, persistência e ambientes isolados.
+- O deploy original permanece arquivado em `.old/.github/workflows/deploy.yml`, e a nova raiz possui fluxo de CI, imagem vNext e deploy isolado para homologação no homelab2.
+- O workflow atual valida domínio, renderer e imagem Docker; em push da `main`, publica imagem imutável `vnext-sha-<SHA>` no GHCR e aciona o runner `vila-viva-svr2`. O servidor é um protótipo **sem autenticação**: evite dados reais e não considere o link secreto como proteção.
+- A atualização do serviço HTTP substitui somente o container `web` da mesma stack na porta loopback 8481. O serviço `api` legado e seus volumes permanecem no Docker e não são apagados; rollback de Compose é preparado pelo script de deploy.
+- A homologação pública do Modo Deus sem autenticação é uma exceção temporária solicitada pelo proprietário. Qualquer pessoa com acesso à URL poderá enviar comandos, pois não há verificação de identidade. Recomenda-se Cloudflare Access antes de qualquer uso fora do teste.
 - Não mover ou apagar os volumes persistentes da simulação antiga.
 
 ## Roadmap
 Issues #15 (arquitetura), #17 (ações e fluxos), #19 (Casa Comunitária e família). O próximo marco é o primeiro ciclo jogável real com operações físicas e inspectores, seguido por ambientes de homologação isolados.
 
 ## Nova interface modular (UI-V1)
-A shell sandbox desktop da interface aprovada foi implementada com HUD central superior, dock inferior, inspetor contextual proporcional com navegação vertical, câmera WASD/pan/zoom e pincéis administrativos. O renderer consome entidades reais, sem simular depósitos, IA ou construções. Execute `npm run dev` e abra `http://127.0.0.1:8086/admin` **localmente**. Consulte `docs/ui/UI_V1_INTEGRATION.md`. Nenhum deploy ou exposição pública automática é permitido.
+A shell sandbox desktop da interface aprovada foi implementada com HUD central superior, dock inferior, inspetor contextual proporcional com navegação vertical, câmera WASD/pan/zoom e pincéis administrativos. O renderer consome entidades reais, sem simular depósitos, IA ou construções. Execute `npm run dev` e abra `http://127.0.0.1:8086/admin` **localmente**. Consulte `docs/ui/UI_V1_INTEGRATION.md`. Para homologar no homelab2: `https://vila-viva-svr2.ulln.com.br/admin` ou galeria em `/apps/player-web/assets-preview.html` (quando o job `deploy_homelab2` estiver verde).
 
 ## Assets de UI e handoff para agentes
 Ícones e futuros sprites da interface são resolvidos por IDs semânticos em `packages/ui/assets/`. A HUD e o inspetor não definem geometria SVG própria; usam `createUiVisual` e fallback seguro. O tema inicial `forest-dark` está centralizado. Veja `docs/agents/UI_ASSETS_IMPLEMENTATION.md` para contratos, extensão, testes e limites. Sprites artísticos reais e temas alternativos continuam pendentes.
+
+## Homologação pública (exceção temporária)
+Veja [docs/infra/HOMELAB2_DEPLOY_VNEXT.md](docs/infra/HOMELAB2_DEPLOY_VNEXT.md) para publicação, rollback e limitações. Este ambiente é experimental, público via Tunnel e **não possui autenticação**. Não use credenciais nem dados sensíveis; o estado em memória reinicia com o container.

@@ -1,0 +1,19 @@
+# vNext uses the same .deploy/compose.yml and service 'web' as the legacy
+# release, to replace only the HTTP container on port 8481. Old API/volumes
+# are preserved for rollback and are NEVER removed by this deployment.
+services:
+  web:
+    image: ghcr.io/uillaneduardo/vila-viva:${IMAGE_TAG:?IMAGE_TAG must point to the validated image}
+    restart: unless-stopped
+    init: true
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "8086"
+      SOURCE_SHA: "${SOURCE_SHA:?SOURCE_SHA must be the validated commit}"
+    ports:
+      - "127.0.0.1:8481:8086"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8086/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
