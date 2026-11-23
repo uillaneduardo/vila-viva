@@ -103,12 +103,22 @@
   if(html!==historyCache){$("god-events-body").innerHTML=html;historyCache=html}
  }
  function tools(kind){
+  if(kind==="observe")$("source-cancel")?.click();
   mode=kind;const panel=$("god-tool-content");
   document.querySelectorAll("[data-god-tool]").forEach(b=>b.classList.toggle("is-active",b.dataset.godTool===kind));
   if(kind==="source"){
    panel.innerHTML='<label class="muted" for="god-source-type">Fonte de recursos</label><select id="god-source-type">'+Object.entries(presets).map(([k,n])=>'<option value="'+k+'">'+n+'</option>').join("")+'</select><div class="row"><button id="god-source-start">Posicionar no mapa</button><button id="god-source-cancel">Cancelar</button></div><p class="muted" id="god-source-help">Configure a fonte e escolha sua posição no mapa.</p>';
    $("god-source-start").onclick=()=>{const original=$("source-preset");if(!original){$("god-source-help").textContent="Conecte ao servidor primeiro.";return}original.value=$("god-source-type").value;$("source-place")?.click();$("god-source-help").textContent="Clique num local livre no mapa para criar a fonte."};
    $("god-source-cancel").onclick=()=>{$("source-cancel")?.click();tools("observe")};
+  }else if(kind==="npc"){
+   const choices=[["collector","Coletor"],["farmer","Fazendeiro"],["mason","Pedreiro"],["builder","Construtor"],["merchant","Mercador"],["leader","Líder"]];
+   panel.innerHTML='<label for="god-npc-role">Função</label><select id="god-npc-role">'+choices.map(([id,name])=>'<option value="'+id+'">'+name+'</option>').join("")+'</select><label for="god-npc-name">Nome</label><input id="god-npc-name" maxlength="32" placeholder="Novo morador"><button id="god-npc-add" type="button">Adicionar à vila</button><small id="god-npc-help" class="muted">O NPC entrará no assentamento e tomará decisões sozinho.</small>';
+   $("god-npc-add").onclick=async()=>{if(!window.VilaRemote?.connected){$("god-npc-help").textContent="Aguarde a conexão com o servidor.";return;}
+     const name=$("god-npc-name").value.trim(),role=$("god-npc-role").value;
+     if(!name){$("god-npc-help").textContent="Informe um nome.";return;}
+     $("god-npc-add").disabled=true;const ok=await window.VilaRemote.send({type:"npc",name,role});
+     if(ok)tools("observe");else $("god-npc-add").disabled=false;
+   };
   }else if(kind==="event"){
    panel.innerHTML='<label class="muted">Evento</label><select id="god-event-type"><option value="random">🎲 Aleatório</option><option value="harvest">🌾 Colheita abundante</option><option value="drought">☀️ Seca</option><option value="caravan">🛒 Caravana</option><option value="storm">⛈️ Tempestade</option><option value="beasts">🐺 Animais</option></select><div class="row"><button id="god-event-apply">Disparar evento</button></div>';
    $("god-event-apply").onclick=()=>{$("event").value=$("god-event-type").value;$("trigger")?.click();tools("observe")};
@@ -129,10 +139,11 @@
   const side=document.querySelector(".side"),toolbar=document.createElement("section");toolbar.id="god-tools";toolbar.className="panel";
   toolbar.innerHTML='<h2>Intervir no mundo</h2><div class="god-tools-row">'+
    '<button class="god-tool is-active" data-god-tool="observe"><span class="tool-icon">◉</span>Observar</button>'+
+   '<button class="god-tool" data-god-tool="npc"><span class="tool-icon">👥</span>NPC</button>'+
    '<button class="god-tool" data-god-tool="source"><span class="tool-icon">🌳</span>Recursos</button>'+
    '<button class="god-tool" data-god-tool="event"><span class="tool-icon">⚡</span>Eventos</button>'+
    '<button class="god-tool" data-god-tool="test"><span class="tool-icon">🧪</span>Testes</button></div><div id="god-tool-content"></div>';
-  side.prepend(toolbar);toolbar.addEventListener("click",e=>{const b=e.target.closest("[data-god-tool]");if(b)tools(b.dataset.godTool)});
+  document.querySelector(".layout>main").insertBefore(toolbar,rosterStrip);toolbar.addEventListener("click",e=>{const b=e.target.closest("[data-god-tool]");if(b)tools(b.dataset.godTool)});
   const inspect=document.createElement("section");inspect.className="panel";inspect.id="god-inspector";inspect.innerHTML='<div class="god-inspector-heading"><h2>Inspeção contextual</h2><small>● Ao vivo</small></div><div id="god-inspector-tabs" class="god-inspector-tabs" hidden><button data-inspect-tab="status" class="active">Status</button><button data-inspect-tab="inventory">Inventário</button><button data-inspect-tab="history">Decisões</button></div><div id="god-inspector-content"></div>';
   side.append(inspect);inspect.addEventListener("click",e=>{const tab=e.target.closest("[data-inspect-tab]");if(tab){inspectorTab=tab.dataset.inspectTab;inspectCache="";paint();return;}const b=e.target.closest("[data-god-kind]");if(b)select(b.dataset.godKind,b.dataset.godId)});
   const dock=document.createElement("div");dock.id="god-dock";dock.innerHTML='<div class="god-dock-stat"><small>Relógio</small><strong id="god-clock"></strong></div>'+
