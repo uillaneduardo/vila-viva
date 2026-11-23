@@ -50,3 +50,11 @@ E0: simulação visual local; E1: motor com testes automatizados; E2: backend co
 
 ## Arte
 Usar sprites próprios/procedurais na primeira versão. Para futuros pacotes, avaliar Kenney e itch.io (licença de cada asset e atribuição antes de incorporar). Phaser pode substituir a renderização Canvas atual quando a jogabilidade exigir.
+
+## Refinamento v0.2 — logística e interface
+- O coletor tem estados explícitos: deslocamento até o ponto, trabalho, retorno ao depósito e entrega. Só na entrega o estoque aumenta.
+- Cada unidade de trabalho consome energia; ao esgotar, o NPC abandona a atividade e procura o descanso. Se estiver carregando itens, devolve-os antes de descansar.
+- Ao recuperar energia suficiente, o NPC retorna às prioridades estabelecidas pelo assentamento.
+- O mapa usa canvas de maior resolução e personagens clicáveis. A seleção abre um painel de inspeção de características e estado atual.
+- O loop visual nunca recria botões; painéis são montados em interações, enquanto indicadores são atualizados diretamente.
+- A versão de armazenamento local v2 cria assentamentos novos para não misturar os estados dos NPCs da versão anterior.
