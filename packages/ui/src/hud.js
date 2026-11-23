@@ -1,13 +1,13 @@
 import {icon} from './icons.js';
 const toolDefs=[
- ['inspect','Inspecionar','inspect'],
- ['npc','Habitante','npc'],
- ['wood','Floresta','wood'],
- ['stone','Pedreira','stone'],
- ['food','Alimento','food'],
- ['house','Construir','house'],
- ['events','Eventos','events'],
- ['stats','Métricas','stats']
+ ['inspect','Inspecionar','action.inspect'],
+ ['npc','Habitante','action.add-npc'],
+ ['wood','Floresta','action.add-wood'],
+ ['stone','Pedreira','action.add-stone'],
+ ['food','Alimento','action.add-food'],
+ ['house','Construir','action.build'],
+ ['events','Eventos','action.events'],
+ ['stats','Métricas','action.metrics']
 ];
 export function createHud({role,onTool,onClock,onSize}){
  const el=id=>document.getElementById(id);
@@ -24,7 +24,7 @@ export function createHud({role,onTool,onClock,onSize}){
  }
  const speedButtons=[0,1,2,4].map(n=>el('speed'+n));
  speedButtons.forEach((b,i)=>{
-  const speed=[0,1,2,4][i];if(speed===0)b.innerHTML=icon('pause',16);
+  const speed=[0,1,2,4][i];if(speed===0)b.innerHTML=icon('control.pause',16);
   if(role!=='admin'){b.disabled=true;b.title='Controle do mundo indisponível para jogador';}
   b.addEventListener('click',()=>onClock(speed));
  });
@@ -50,7 +50,7 @@ export function createHud({role,onTool,onClock,onSize}){
    el('day').textContent='Dia '+String(clock.day).padStart(2,'0');
    el('clockTime').textContent=String(clock.hour).padStart(2,'0')+':'+String(clock.minute).padStart(2,'0');
    speedButtons.forEach((b,i)=>b.classList.toggle('active',[0,1,2,4][i]===clock.speed));
-   speedButtons[0].innerHTML=icon(clock.speed===0?'play':'pause',16);
+   speedButtons[0].innerHTML=icon(clock.speed===0?'control.resume':'control.pause',16);
    el('population').textContent=world.entities.filter(e=>e.kind==='character').length+' habitantes';
    for(const resource of ['wood','food','stone']){
     el(resource+'Count').textContent=storageSummary?.[resource]??'—';

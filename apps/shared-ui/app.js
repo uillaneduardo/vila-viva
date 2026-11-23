@@ -1,9 +1,11 @@
+import {applyUiTheme} from '../../packages/ui/assets/themes/index.js';
 import {Scene} from '../../packages/renderer/src/scene.js';
 import {brushCells} from '../../packages/renderer/src/camera.js';
 import {createHud} from '../../packages/ui/src/hud.js';
 import {createInspector} from '../../packages/ui/src/inspector.js';
 import {icon} from '../../packages/ui/src/icons.js';
 const el=id=>document.getElementById(id),role=document.body.dataset.role;
+applyUiTheme(document.documentElement);
 const scene=new Scene(el('game')),inspector=createInspector();
 let snapshot=null,catalog=null,selectedId=null,hoverId=null,tool='inspect',brushSize=1;
 let pan=null,painting=new Map(),loading=false,inspection=null,lastSpeed=1;
@@ -155,5 +157,5 @@ function animate(now){
 }
 requestAnimationFrame(animate);
 el('worldTick').textContent='Carregando mundo…';
-el('introHint').innerHTML=icon('inspect',15)+' Prévia de desenvolvimento: mundo real em memória, sem IA, depósito ou construção.';
+el('introHint').innerHTML=icon('action.inspect',15)+' Prévia de desenvolvimento: mundo real em memória, sem IA, depósito ou construção.';
 refresh();setInterval(refresh,650);
