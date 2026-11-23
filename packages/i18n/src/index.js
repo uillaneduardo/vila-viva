@@ -41,7 +41,8 @@ export const UI_MESSAGES=Object.freeze({
   "error.NOT_FOUND":"Entidade não encontrada",
   "notice.unsafe":"Prévia local sem autenticação/persistência. Não publicar na internet.",
   "footer.prototype":"G1 · Motor e contratos novos · Sem código legado",
-  "footer.local":"LOCAL / DESENVOLVIMENTO"
+  "footer.local":"LOCAL / DESENVOLVIMENTO",
+  "feedback.networkError":"Erro na comunicação com o servidor"
  })
 });
 export function createTranslator(locale=DEFAULT_LOCALE){

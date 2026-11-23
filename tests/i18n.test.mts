@@ -20,3 +20,12 @@ test("every data-i18n key referenced in UI has a translation",async()=>{
   for(const [,key] of source.matchAll(/data-i18n(?:-aria|-placeholder|-value)?="([^"]+)"/g))assert.equal(typeof UI_MESSAGES["pt-BR"][key],"string",file+": "+key);
  }
 });
+
+test("form control labels remain separate from localized text nodes",async()=>{
+ const {readFile}=await import("node:fs/promises");
+ const html=await readFile(new URL("../apps/admin-web/index.html",import.meta.url),"utf8");
+ assert.doesNotMatch(html,/<label\s+data-i18n=/);
+ assert.match(html,/<label><span data-i18n="form.npcName">/);
+ assert.match(html,/<label><span data-i18n="form.resourceType">/);
+ assert.match(html,/<label><span data-i18n="form.quantity">/);
+});

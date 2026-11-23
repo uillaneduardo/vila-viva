@@ -5,7 +5,7 @@ const role=isAdmin?"admin":"player";
 let catalog=null,state=null,selected=null,cursor={x:5,y:5},busy=false;
 const tile=28,canvas=$("map"),ctx=canvas.getContext("2d");
 const reason=code=>{try{return t("error."+code);}catch{return code;}};
-const request=async(path,options)=>{const response=await fetch(path,options);const data=await response.json();if(!response.ok&& !data.result)throw Error(data.error||"Falha de rede");return data;};
+const request=async(path,options)=>{const response=await fetch(path,options);const data=await response.json();if(!response.ok&& !data.result)throw Error(data.error||t("feedback.networkError"));return data;};
 const coordinates=(event)=>{const rect=canvas.getBoundingClientRect(),scale=canvas.width/rect.width;return {x:Math.floor((event.clientX-rect.left)*scale/tile),y:Math.floor((event.clientY-rect.top)*scale/tile)};};
 function paint(){
  if(!state)return;
