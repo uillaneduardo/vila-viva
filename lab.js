@@ -63,6 +63,7 @@ window.VilaLab = (() => {
  }
  function needsAction(w,n,approachFn){
    ensure(w,[]);
+   if(n.phase==="dead"||n.health<=0){n.phase="dead";return true;}
    if(n.phase==="sleep"){n.energy=Math.min(100,n.energy+.85);n.sleepNeed=Math.max(0,n.sleepNeed-.32);if(n.sleepNeed<12){n.phase="idle";record(w,n,"Acordou","Necessidade de sono satisfeita");}return true;}
    if(n.energy<=0 && n.phase!=="rest" && n.phase!=="sleep"){n.phase="rest";n.site=null;n.workLeft=0;record(w,n,"Descanso emergencial","Energia esgotada; interrompeu ação voluntária");return true;}
    if(n.phase==="toForage"){
@@ -77,6 +78,7 @@ window.VilaLab = (() => {
    }
    if(n.phase==="toSleep"){const shelter={x:14,y:9};if(n.energy<8){n.phase="sleep";record(w,n,"Dormiu ao relento","Energia insuficiente para alcançar abrigo");return true;}if(approachFn(n,shelter)){n.phase="sleep";record(w,n,"Iniciou sono","Chegou ao abrigo da vila");}return true;}
    if(n.energy<=0&&n.phase!=="rest"&&n.phase!=="toRest"){n.phase="rest";n.site=null;n.workLeft=0;n.cargo&&record(w,n,"Interrompeu atividade","Exaustão; carga mantida");return true;}
+   if(n.phase==="waitStorage"&&n.hunger<34){n.phase=w.stock.food>0?"toFood":"toForage";record(w,n,"Sobrevivência prioritária","Interrompeu espera no depósito para comer; carga preservada");return true;}
    if(n.phase==="waitStorage"){if(n.cargo && free(w)>=wt(n.cargo.key,n.cargo.qty)){n.phase="toDepot";record(w,n,"Retomar entrega","Espaço no depósito voltou a ficar disponível");}else{n.energy=Math.min(100,n.energy+.1);}return true;}
    if(n.phase==="toDepot"&&n.cargo&&free(w)<wt(n.cargo.key,n.cargo.qty)){n.phase="waitStorage";n.site=null;record(w,n,"Entrega suspensa","Depósito sem capacidade suficiente; carga preservada");return true;}
    if(n.phase==="idle"&&n.cargo){n.phase="toDepot";return true;}
@@ -97,7 +99,10 @@ window.VilaLab = (() => {
    for(const n of w.npcs){
      n.hunger=Math.max(0,n.hunger-(n.phase==="work"?.024:.009));
      if(n.phase!=="sleep")n.sleepNeed=Math.min(100,n.sleepNeed+.028);
-     if(n.hunger===0)n.health=Math.max(1,n.health-.015);
+     if(n.phase==="dead")continue;
+     if(n.hunger===0)n.health=Math.max(0,n.health-.06);
+     else if(n.hunger>60 && n.health<100 && ["rest","sleep","idle"].includes(n.phase))n.health=Math.min(100,n.health+.025);
+     if(n.health<=0){n.health=0;n.phase="dead";n.site=null;n.workLeft=0;record(w,n,"Morreu","Saúde esgotada após privação prolongada");if(typeof w.logs?.unshift==="function")w.logs.unshift({day:w.day,minute:Math.floor(w.minute),text:"☠ "+n.name+" morreu."});}
      const st=L.stats[n.id];st.minutes[n.phase]=(st.minutes[n.phase]||0)+1;
      
      const old=n._labPrevious||{};if(n.phase!==old.phase){
