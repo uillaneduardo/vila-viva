@@ -85,7 +85,7 @@ window.VilaLab = (() => {
      if(n.phase!=="sleep")n.sleepNeed=Math.min(100,n.sleepNeed+.028);
      if(n.hunger===0)n.health=Math.max(1,n.health-.015);
      const st=L.stats[n.id];st.minutes[n.phase]=(st.minutes[n.phase]||0)+1;
-     if(n.phase==="toDepot"&&n.cargo && wt(n.cargo.key,n.cargo.qty)>free(w)){ /* Existing cargo remains physical; delivery may wait for storage. */ }
+     
      const old=n._labPrevious||{};if(n.phase!==old.phase){
        if(n.phase==="rest"||n.phase==="toRest")st.interruptions++;
        if(n.phase==="work")record(w,n,"Iniciou trabalho","Local "+n.site);
@@ -101,8 +101,9 @@ window.VilaLab = (() => {
    const side=document.querySelector(".side");
    if(!side)return;
    const section=document.createElement("section");section.className="panel";section.id="lab-panel";
-   section.innerHTML='<div class="row" style="justify-content:space-between"><h2>🔎 Laboratório ao vivo</h2><button id="lab-export" type="button">Exportar JSON</button></div><div class="row" style="margin:8px 0"><label for="lab-scenario">Cenário</label><select id="lab-scenario"><option value="food">Escassez de alimentos</option><option value="forest">Floresta exaurida</option><option value="storage">Depósito lotado</option><option value="fatigue">Exaustão coletiva</option><option value="normal">Condições normais</option></select><button id="lab-apply">Aplicar</button></div><div class="row" style="margin-bottom:8px"><button id="lab-zoom-in">Zoom +</button><button id="lab-zoom-out">Zoom −</button><button id="lab-follow">Seguir NPC</button></div><div id="lab-summary" class="notice"></div><div id="lab-inspection"></div><div id="lab-history" class="log" style="max-height:160px"></div>';
+   section.innerHTML='<div class="row" style="justify-content:space-between"><h2>🔎 Laboratório ao vivo</h2><button id="lab-export" type="button">Exportar JSON</button></div><div class="row" style="margin:8px 0"><label for="lab-scenario">Cenário</label><select id="lab-scenario"><option value="food">Escassez de alimentos</option><option value="forest">Floresta exaurida</option><option value="storage">Depósito lotado</option><option value="fatigue">Exaustão coletiva</option><option value="normal">Condições normais</option></select><button id="lab-apply">Aplicar</button></div><div class="row" style="margin-bottom:8px"><button id="lab-zoom-in">Zoom +</button><button id="lab-zoom-out">Zoom −</button><button id="lab-follow">Seguir NPC</button></div><div id="lab-summary" class="notice"></div><div id="lab-roster" class="lab-roster" aria-label="Selecionar moradores"></div><div id="lab-inspection"></div><div id="lab-history" class="log" style="max-height:160px"></div>';
    side.prepend(section);panel=section;
+   panel.querySelector("#lab-roster").addEventListener("click",e=>{const b=e.target.closest("[data-lab-npc]");if(!b)return;selected={kind:"npc",id:b.dataset.labNpc};following=false;panel.querySelector("#lab-follow").textContent="Seguir NPC";refresh(cur(),selected,window.VilaSites||[]);});
    panel.querySelector("#lab-apply").onclick=()=>scenario(cur(),panel.querySelector("#lab-scenario").value);
    panel.querySelector("#lab-export").onclick=()=>{const w=cur();const data=JSON.stringify({version:1,seed:w.seed,world:w,exportedAt:new Date().toISOString()},null,2);const url=URL.createObjectURL(new Blob([data],{type:"application/json"}));const a=document.createElement("a");a.href=url;a.download="vila-viva-lab-dia-"+w.day+".json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
    panel.querySelector("#lab-zoom-in").onclick=()=>zoom(.2);
@@ -127,10 +128,26 @@ window.VilaLab = (() => {
    const total=w.lab.stats;const completed=Object.values(total).reduce((v,t)=>v+t.tasks,0);const delivered=Object.values(total).reduce((v,t)=>v+t.deliveries,0);const interruptions=Object.values(total).reduce((v,t)=>v+t.interruptions,0);
    panel.querySelector("#lab-summary").innerHTML="<b>Vila · "+w.npcs.length+" NPCs</b><p>Tarefas: "+completed+" · Entregas: "+delivered+" · Interrupções: "+interruptions+"</p><p>Estoque: "+used(w).toFixed(1)+"/"+w.lab.depotCapacity+" kg · Fontes regenerativas: "+Object.keys(w.lab.resources).length+"</p>";
    if(following && selected.kind==="npc"){const n=w.npcs.find(z=>z.id===selected.id);if(n){const cv=document.getElementById("map"),wrap=cv.parentElement;wrap.scrollLeft=n.x*40*camera-wrap.clientWidth/2;wrap.scrollTop=n.y*40*camera-wrap.clientHeight/2;}}
+   const roster=panel.querySelector("#lab-roster");
+   if(roster.dataset.world!==w.id||roster.children.length!==w.npcs.length){roster.dataset.world=w.id;roster.innerHTML=w.npcs.map(n=>'<button type="button" data-lab-npc="'+esc(n.id)+'">'+esc(n.name)+'</button>').join("");}
+   for(const b of roster.querySelectorAll("button"))b.classList.toggle("selected",selected.kind==="npc"&&selected.id===b.dataset.labNpc);
    const ins=panel.querySelector("#lab-inspection");let out="";
    if(selected.kind==="npc"||selected.kind==="player"){
      const n=selected.kind==="player"?w.player:w.npcs.find(z=>z.id===selected.id);
-     if(n){const st=w.lab.stats[n.id]||{tasks:0,deliveries:0,interruptions:0,minutes:{}};out='<h3>'+esc(n.name||"Aventureiro")+' · '+esc(n.role||"Jogador")+'</h3><p class="muted">'+esc(n.phase)+' · Energia '+Math.round(n.energy)+'% · Fome '+Math.round(n.hunger??100)+'% · Sono '+Math.round(n.sleepNeed??0)+'%</p><div class="item"><b>Carga</b><span>'+esc(itemText(n.cargo))+'</span></div><div class="item"><b>Trabalhos / Entregas</b><span>'+st.tasks+' / '+st.deliveries+'</span></div><div class="item"><b>Interrupções</b><span>'+st.interruptions+'</span></div><div class="notice"><b>Última decisão:</b> '+esc(n.lastDecision?.action||"Aguardando")+'<p>'+esc(n.lastDecision?.reason||"Nenhuma registrada")+'</p></div>';}
+     if(n){const st=w.lab.stats[n.id]||{tasks:0,deliveries:0,interruptions:0,minutes:{}};const minutes=Object.entries(st.minutes||{}).sort((a,b)=>b[1]-a[1]).slice(0,5);
+       const recent=w.lab.decisions.filter(e=>e.npc===n.id).slice(0,6);
+       out='<h3>'+esc(n.name||"Aventureiro")+' · '+esc(n.role||"Jogador")+'</h3>'+
+       '<p class="muted">'+esc(n.phase)+' · Energia '+Math.round(n.energy)+'% · Saciedade '+Math.round(n.hunger??100)+'% · Sono pendente '+Math.round(n.sleepNeed??0)+'% · Saúde '+Math.round(n.health??100)+'%</p>'+
+       '<div class="item"><b>Inventário / carga</b><span>'+esc(itemText(n.cargo))+'</span></div>'+
+       '<div class="item"><b>Ferramenta</b><span>'+esc(n.equipment||"Nenhuma")+'</span></div>'+
+       '<div class="item"><b>Capacidade da mochila</b><span>'+esc(n.carryCapacity||20)+' kg</span></div>'+
+       '<div class="item"><b>Trabalhos / Entregas</b><span>'+st.tasks+' / '+st.deliveries+'</span></div>'+
+       '<div class="item"><b>Interrupções</b><span>'+st.interruptions+'</span></div>'+
+       '<div class="notice"><b>Última decisão:</b> '+esc(n.lastDecision?.action||"Aguardando")+'<p>'+esc(n.lastDecision?.reason||"Nenhuma registrada")+'</p></div>'+
+       '<h3>Atividades acumuladas (minutos de mundo)</h3>'+
+       (minutes.length?minutes.map(([phase,time])=>'<div class="item"><b>'+esc(phase)+'</b><span>'+time+'</span></div>').join(""):'<p class="muted">Nenhum dado ainda.</p>')+
+       '<h3>Histórico individual de decisões</h3>'+
+       (recent.length?recent.map(e=>'<div class="lab-decision"><small>Dia '+e.day+' · '+Math.floor(e.minute/60)+':'+String(e.minute%60).padStart(2,"0")+'</small><b>'+esc(e.action)+'</b><small>'+esc(e.reason)+'</small></div>').join(""):'<p class="muted">Aguardando primeiras decisões.</p>');}
    }else if(selected.kind==="site"){
      const s=sites.find(z=>z.id===selected.id);if(s){const r=source(w,s.id);out='<h3>'+esc(s.icon+" "+s.name)+'</h3><p class="muted">Recurso: '+(r?Math.floor(r.amount)+' / '+r.max:'Canteiro')+'</p><p class="muted">Regeneração: '+(r?r.regen.toFixed(3)+' / min':'não aplicável')+'</p>';}
    }else if(selected.kind==="depot")out='<h3>📦 Depósito</h3><p>'+used(w).toFixed(1)+' / '+w.lab.depotCapacity+' kg</p><p>Capacidade livre: '+free(w).toFixed(1)+' kg</p>'+Object.entries(w.stock).map(([k,v])=>'<div class="item"><b>'+esc(k)+'</b><span>'+v+'</span></div>').join("");
