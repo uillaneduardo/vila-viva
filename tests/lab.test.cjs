@@ -79,6 +79,6 @@ test("zero energy stops movement and preserves cargo",()=>{
 });
 test("builder material transport is chosen when construction needs materials",()=>{
  const L=lab(),w=world();w.project={stage:0,delivered:{wood:0,stone:0}};
- w.npcs[0].id="merchant";w.npcs[0].name="Nilo";L.ensure(w,sites);
+ w.npcs[0].id="merchant";w.npcs[0].name="Nilo";w.stock.food=60;L.ensure(w,sites);
  assert.equal(L.choose(w,w.npcs[0],sites),"supply:wood");
 });
