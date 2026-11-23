@@ -1,0 +1,91 @@
+/* Vila Viva · observatório de simulações */
+:root{color-scheme:dark;--bg:#0b1514;--panel:#152421;--panel2:#1d302b;--border:#34483f;--faint:#91a99b;--ink:#eff4e8;--accent:#b9d98c;--accent-ink:#18271b}
+html,body{height:100%;min-height:100%;background:var(--bg);overflow-x:hidden}
+body{margin:0}
+.shell{max-width:none;padding:0;min-height:100vh;display:flex;flex-direction:column}
+button,select{transition:background .15s,border-color .15s,color .15s}
+button:focus-visible,select:focus-visible{outline:2px solid #d9eab2;outline-offset:2px}
+.top{z-index:20;position:relative;min-height:66px;padding:10px 20px;background:#101d1a;border-bottom:1px solid #30423b;gap:11px}
+.top h1{font-family:Georgia,serif;font-size:24px;white-space:nowrap}
+.top .stretch{display:none}
+.top #settlements{max-width:230px;min-width:140px;flex:0 1 205px;margin-left:auto}
+.top #rename,.top #delete{display:none}
+.top #new{display:none}
+.top .pill{border:1px solid #365649;background:#233a31;max-width:270px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#god-worlds{padding:9px 13px}
+.layout{max-width:none;margin:0;display:grid;grid-template-columns:minmax(0,1fr) 352px;gap:0;flex:1;min-height:0}
+.layout>main{min-width:0;display:flex;flex-direction:column}
+.layout>main>.panel:first-child{background:transparent;border:0;border-radius:0;padding:0;display:flex;flex-direction:column;min-height:0}
+.layout .maphead{background:#15221e;padding:11px 18px;min-height:56px;border-bottom:1px solid #30443a}
+.layout .maphead h2{font-size:14px;margin:0;letter-spacing:.01em;font-weight:600}
+.layout .maphead .row{gap:5px}
+.layout .maphead .row button{min-width:43px;font-size:12px;padding:7px 9px;border-radius:7px}
+#nextday{display:none}
+.mapwrap{margin:0;border:none;border-radius:0;min-height:400px;height:calc(100vh - 210px);max-height:none;overflow:auto;background:#314c3d;position:relative;flex:1;overscroll-behavior:contain}
+.mapwrap canvas{display:block;width:100%;height:auto;max-height:none!important;max-width:none;image-rendering:auto;object-fit:initial!important}
+.mapwrap .hint{left:16px;bottom:16px;font-size:11px;background:#0f1d19e8;color:#d4e4d1;border:1px solid #53705c;max-width:calc(100% - 32px);z-index:4}
+.layout>main>.panel:first-child>.stats{display:none}
+.layout>main>section:nth-child(2){display:none}
+.side{min-height:0;max-height:calc(100vh - 66px);overflow-y:auto;background:#101e1a;border-left:1px solid #364d40;padding:0;display:flex;flex-direction:column;gap:0}
+.side>.panel{background:transparent;border:0;border-radius:0;border-bottom:1px solid #32453b;margin:0;padding:16px}
+.side>.panel:not(#god-inspector):not(#god-tools):not(#lab-panel){display:none}
+.side #lab-panel{display:none}
+.side #god-tools{order:0}
+.side #god-inspector{order:1;display:flex;flex-direction:column;gap:12px;flex:1;border-bottom:0}
+#god-tools h2,#god-inspector h2{font-size:13px;color:#b5c8b8;letter-spacing:.03em;text-transform:uppercase;margin:0 0 11px}
+.god-tools-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.god-tool{display:flex;align-items:center;justify-content:center;gap:5px;flex-direction:column;min-height:61px;padding:7px 3px;font-size:11px;border-radius:10px;background:#1e332b;border:1px solid #47604f}
+.god-tool .tool-icon{font-size:19px;line-height:1.2}
+.god-tool.is-active{background:#406448;color:#fff;border-color:#a9d18a}
+.god-tool:disabled{opacity:.45}
+#god-tool-content:empty{display:none}
+#god-tool-content{padding-top:12px}
+#god-tool-content select{width:100%}
+#god-tool-content .row{margin-top:9px}
+#god-tool-content button{padding:8px 10px}
+#god-inspector .god-header{display:flex;align-items:center;gap:10px}
+.god-header-icon{font-size:27px;background:#294536;border:1px solid #466951;width:46px;height:46px;display:grid;place-items:center;border-radius:12px;flex:0 0 auto}
+.god-header h3{font-size:19px;margin:0 0 3px;font-weight:650;color:var(--ink)}
+.god-header p{font-size:12px;margin:0;color:var(--faint)}
+.god-line{height:1px;background:#344a3d}
+.god-section-title{font-size:11px;font-weight:750;text-transform:uppercase;letter-spacing:.08em;color:#b4c6b6;margin:2px 0 0}
+.god-metric{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;border-bottom:1px solid #2a4035;padding:8px 0}
+.god-metric strong{font-size:13px;font-variant-numeric:tabular-nums;text-align:right}
+.god-metric .muted{font-size:11px}
+.god-progress{height:7px;background:#30453a;overflow:hidden;border-radius:30px;margin:0}
+.god-progress>i{display:block;height:100%;background:#a8cd8d;border-radius:30px;transition:width .3s}
+.god-note{font-size:12px;line-height:1.5;background:#22372d;padding:11px;border-radius:10px;border:1px solid #365445;color:#dce8d6}
+.god-list{display:flex;flex-direction:column;gap:4px}
+.god-list button{background:transparent;text-align:left;padding:9px 10px;border:1px solid transparent;border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.god-list button:hover,.god-list button.active{background:#294237;border-color:#50745b}
+.god-list button small{font-size:11px}
+.god-empty{text-align:center;color:#a8bfae;padding:45px 10px;line-height:1.6}
+.god-pill{font-size:11px;background:#345442;color:#d3eabd;border:1px solid #4d7053;border-radius:20px;padding:3px 8px}
+#god-dock{display:flex;align-items:center;gap:12px;min-height:54px;padding:8px 17px;border-top:1px solid #405548;background:#101d18;overflow-x:auto;flex-shrink:0}
+.god-dock-stat{display:flex;align-items:center;gap:7px;padding:0 12px 0 0;border-right:1px solid #3d5345;white-space:nowrap}
+.god-dock-stat:last-child{border-right:0}
+.god-dock-stat small{font-size:11px}
+.god-dock-stat strong{font-size:14px;font-variant-numeric:tabular-nums}
+#god-dock button{margin-left:auto;white-space:nowrap}
+.god-floating{position:absolute;top:12px;left:12px;z-index:5;background:#10201cdd;border:1px solid #54715b;padding:7px 10px;border-radius:8px;color:#e8f0de;font-size:12px}
+.god-modal-backdrop{position:fixed;inset:0;background:#050e0bc9;z-index:99;display:grid;place-items:center;padding:18px;backdrop-filter:blur(5px)}
+.god-modal{width:min(650px,100%);max-height:min(85vh,750px);overflow:auto;border-radius:18px;border:1px solid #5c7761;background:#14241f;box-shadow:0 25px 70px #0008;padding:22px}
+.god-modal h2{margin:0;font-size:21px}
+.god-modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:15px;gap:10px}
+.god-world-card{border:1px solid #344f40;border-radius:12px;padding:13px;display:flex;align-items:center;gap:12px;margin:8px 0;background:#1b3027}
+.god-world-card.active{border-color:#9ec38c;background:#284431}
+.god-world-card>div{min-width:0;flex:1}
+.god-world-card b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.god-world-card small{font-size:11px}
+.god-world-card button{font-size:12px;padding:7px 10px}
+.god-modal .god-new-world{width:100%;margin-top:10px;background:#365b40}
+#god-events-drawer{position:fixed;left:18px;bottom:72px;width:min(590px,calc(100vw - 36px));max-height:50vh;overflow:auto;z-index:15;padding:14px;border:1px solid #47614f;background:#142620f3;border-radius:14px;box-shadow:0 12px 38px #0007}
+#god-events-drawer[hidden],#god-modal[hidden]{display:none}
+#god-events-drawer h3{margin:0 0 10px;font-size:14px}
+.god-event{font-size:12px;border-bottom:1px solid #30493b;padding:7px 0}
+.god-event small{color:#a5bca9}
+.god-scenario-select{min-width:100%}
+.footer{display:none}
+@media(max-width:1040px){.layout{grid-template-columns:minmax(0,1fr) 308px}.top{padding:9px 12px}.top .pill{max-width:180px}.mapwrap{height:calc(100vh - 180px)}}
+@media(max-width:760px){.top{min-height:58px;gap:8px}.top h1{font-size:21px}.top #settlements{min-width:0;flex:1;max-width:none;margin:0}.top .pill{display:none}.layout{display:flex;flex-direction:column}.layout>main{min-height:0}.layout .maphead{padding:9px 10px;gap:7px}.layout .maphead h2{font-size:13px}.layout .maphead .row button{font-size:11px;padding:6px;min-width:37px}.mapwrap{height:calc(100dvh - 235px);min-height:350px;max-height:none;flex:none}.side{display:flex;max-height:none;overflow:visible;border-left:0;border-top:1px solid #425a48}.side #god-tools{padding:12px}.god-tools-row{display:flex}.god-tool{flex:1;min-height:53px;flex-direction:row;font-size:12px}.god-tool .tool-icon{font-size:17px}.side #god-inspector{padding:15px}.mapwrap .hint{font-size:10px}.god-dock-stat{padding-right:8px}.god-dock-stat small{display:none}#god-dock{padding:8px;min-height:46px;gap:8px}.god-world-card{flex-wrap:wrap}.god-world-card button{flex:1}}
+@media(max-width:430px){.top h1{font-size:18px}.top #settlements{width:100px}.top #god-worlds{font-size:11px;padding:7px}.layout .maphead h2{font-size:12px}.layout .maphead .row{gap:3px}.layout .maphead .row button{min-width:30px;padding:5px}#god-dock .god-dock-stat:nth-child(n+4){display:none}}
