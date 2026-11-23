@@ -163,8 +163,41 @@ window.VilaLab = (() => {
        '<h3>Histórico individual de decisões</h3>'+
        (recent.length?recent.map(e=>'<div class="lab-decision"><small>Dia '+e.day+' · '+Math.floor(e.minute/60)+':'+String(e.minute%60).padStart(2,"0")+'</small><b>'+esc(e.action)+'</b><small>'+esc(e.reason)+'</small></div>').join(""):'<p class="muted">Aguardando primeiras decisões.</p>');}
    }else if(selected.kind==="site"){
-     const s=sites.find(z=>z.id===selected.id);if(s){const r=source(w,s.id);out='<h3>'+esc(s.icon+" "+s.name)+'</h3><p class="muted">Recurso: '+(r?Math.floor(r.amount)+' / '+r.max:'Canteiro')+'</p><p class="muted">Regeneração: '+(r?r.regen.toFixed(3)+' / min':'não aplicável')+'</p>';}
-   }else if(selected.kind==="depot")out='<h3>📦 Depósito</h3><p>'+used(w).toFixed(1)+' / '+w.lab.depotCapacity+' kg</p><p>Capacidade livre: '+free(w).toFixed(1)+' kg</p>'+Object.entries(w.stock).map(([k,v])=>'<div class="item"><b>'+esc(k)+'</b><span>'+v+'</span></div>').join("");
+     const s=sites.find(z=>z.id===selected.id);
+     if(s){
+       const r=source(w,s.id);
+       if(s.id==="build"){
+         const p=w.project,stages=[{label:"Fundação",wood:20,stone:12,time:80},{label:"Estrutura",wood:30,stone:20,time:120},{label:"Telhado",wood:25,stone:10,time:100},{label:"Acabamento",wood:10,stone:5,time:70}];
+         if(p.stage>=stages.length)out='<h3>🏠 Casa comunitária concluída</h3><p>4/4 etapas · 6 vagas de moradia</p>';
+         else{
+           const st=stages[p.stage],carriers=w.npcs.filter(n=>n.phase==="toBuildDelivery"&&n.cargo);
+           const moving=k=>carriers.filter(n=>n.cargo.key===k).reduce((total,n)=>total+n.cargo.qty,0);
+           const mat=k=>'<div class="item"><div><b>'+esc(window.VilaNames?.[k]||k)+'</b><small>Entregue '+p.delivered[k]+'/'+st[k]+' · A caminho '+moving(k)+'</small></div><strong>Falta '+Math.max(0,st[k]-p.delivered[k])+'</strong></div>';
+           const workers=w.npcs.filter(n=>n.site==="build"&&["work","travel"].includes(n.phase));
+           out='<h3>🏗 Casa comunitária</h3><p class="muted">Etapa '+(p.stage+1)+'/4 · '+st.label+'</p>'+mat("wood")+mat("stone")+
+             '<div class="item"><b>Trabalho</b><strong>'+p.work+'/'+st.time+'</strong></div><div class="bar"><i style="width:'+Math.min(100,Math.round(p.work/st.time*100))+'%"></i></div>'+
+             '<div class="item"><b>Trabalhadores no canteiro</b><strong>'+workers.length+'/'+s.cap+'</strong></div>'+
+             '<p class="muted">'+(p.delivered.wood>=st.wood&&p.delivered.stone>=st.stone?"Materiais completos; aguardando trabalho":"Aguardando materiais transportados pelos NPCs")+'</p>';
+         }
+       }else{
+         const workers=w.npcs.filter(n=>n.site===s.id&&["work","travel"].includes(n.phase));
+         out='<h3>'+esc(s.icon+" "+s.name)+'</h3><div class="item"><b>Disponível</b><strong>'+(r?Math.floor(r.amount)+'/'+r.max:'—')+'</strong></div>'+
+           '<div class="item"><b>Regeneração</b><span>'+(r?r.regen.toFixed(3)+'/min':'—')+'</span></div>'+
+           '<div class="item"><b>Vagas</b><span>'+workers.length+'/'+s.cap+'</span></div>'+
+           '<div class="item"><b>Produção/ciclo</b><span>'+s.qty+' · '+s.work+' min</span></div>'+
+           '<p class="muted">Trabalhadores: '+esc(workers.map(n=>n.name).join(", ")||"Nenhum")+'</p>';
+       }
+     }
+   }else if(selected.kind==="depot"){
+     const loads=w.npcs.filter(n=>n.cargo&&n.phase==="toDepot");
+     const moving=k=>loads.filter(n=>n.cargo.key===k).reduce((total,n)=>total+n.cargo.qty,0);
+     out='<h3>📦 Depósito comunitário</h3>'+
+       '<div class="item"><b>Ocupado</b><strong>'+used(w).toFixed(1)+'/'+w.lab.depotCapacity+' kg</strong></div>'+
+       '<div class="bar"><i style="width:'+Math.min(100,100*used(w)/Math.max(1,w.lab.depotCapacity))+'%"></i></div>'+
+       '<div class="item"><b>Livre</b><strong>'+free(w).toFixed(1)+' kg</strong></div>'+
+       '<div class="item"><b>Cargas chegando</b><strong>'+loads.length+'</strong></div>'+
+       Object.entries(w.stock).map(([k,v])=>'<div class="item"><div><b>'+esc(window.VilaNames?.[k]||k)+'</b><small>A caminho: '+moving(k)+'</small></div><strong>'+v+'</strong></div>').join("");
+   }
    else if(selected.kind==="board")out='<h3>📋 Quadro comunitário</h3><p class="muted">Demandas atuais observadas</p><p>Alimento: '+w.stock.food+' · Madeira: '+w.stock.wood+' · Pedra: '+w.stock.stone+'</p>';
    else if(selected.kind==="drop"){const d=w.lab.drops[selected.id];out=d?'<h3>📦 Carga abandonada</h3><p>'+esc(itemText(d))+'</p>':'';}
    ins.innerHTML=out;
