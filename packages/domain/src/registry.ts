@@ -4,7 +4,7 @@ import type {EntityKind, ActionId, Role} from "./contracts.ts";
 
 export type ComponentId =
  | "position" | "identity" | "ownership" | "health" | "energy" | "needs"
- | "inventory" | "resourceSource" | "regeneration" | "storage" | "construction"
+ | "inventory" | "resourceSource" | "regeneration" | "lifecycle" | "production" | "collision" | "storage" | "construction"
  | "movement" | "ai" | "knowledge" | "renderable";
 export interface EntityDefinition {
  id: string;

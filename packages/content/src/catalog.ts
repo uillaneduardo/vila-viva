@@ -4,8 +4,9 @@ export function createBaseRegistry():DefinitionRegistry {
  for(const definition of [
   {id:"character.human",displayName:{"pt-BR":"Personagem humano"},kind:"character",components:["identity","position","ownership","health","energy","needs","inventory","movement","renderable"],description:"Pessoa física, jogador ou NPC"},
   {id:"resource.wood",displayName:{"pt-BR":"Fonte de madeira"},kind:"resource",components:["position","resourceSource","regeneration","renderable"],description:"Fonte regenerável de madeira"},
-  {id:"resource.food",displayName:{"pt-BR":"Fonte de alimento"},kind:"resource",components:["position","resourceSource","regeneration","renderable"],description:"Fonte regenerável de alimentos"},
+  {id:"resource.food",displayName:{"pt-BR":"Macieira"},kind:"resource",components:["position","resourceSource","regeneration","lifecycle","production","collision","renderable"],description:"Macieira renovável com vida, frutos coletáveis e colisão"},
   {id:"resource.stone",displayName:{"pt-BR":"Fonte de pedra"},kind:"resource",components:["position","resourceSource","regeneration","renderable"],description:"Fonte regenerável de pedra"},
+  {id:"obstacle.scenery",displayName:{"pt-BR":"Obstáculo de cenário"},kind:"obstacle",components:["position","collision","renderable"],description:"Elemento sólido e não coletável do cenário"},
   {id:"storage.depot",displayName:{"pt-BR":"Depósito"},kind:"storage",components:["position","storage","inventory","renderable"],description:"Depósito com capacidade e regras de entrega"},
   {id:"construction.site",displayName:{"pt-BR":"Canteiro de obras"},kind:"construction",components:["position","construction","inventory","renderable"],description:"Canteiro por etapas"},
   {id:"item.stack",displayName:{"pt-BR":"Pilha de itens"},kind:"item",components:["position","inventory","renderable"],description:"Pilha de itens físicos no mundo"}
@@ -14,7 +15,9 @@ export function createBaseRegistry():DefinitionRegistry {
   {id:"entity.inspect",displayName:{"pt-BR":"Inspecionar"},roles:["player","npc","admin"],targets:["character","resource","item","storage","construction","terrain"],requires:[],readonly:true,description:"Inspeção autorizada sem alterar o mundo"},
   {id:"movement.move",displayName:{"pt-BR":"Mover"},roles:["player","npc"],targets:["position"],requires:["position","movement","energy"],readonly:false,description:"Mover ator físico"},
   {id:"npc.spawn",displayName:{"pt-BR":"Adicionar NPC"},roles:["admin"],targets:["position"],requires:[],readonly:false,description:"Criar personagem usando definição registrada"},
-  {id:"resource.spawn",displayName:{"pt-BR":"Adicionar fonte"},roles:["admin"],targets:["position"],requires:[],readonly:false,description:"Criar fonte usando definição registrada"}
+  {id:"resource.spawn",displayName:{"pt-BR":"Adicionar fonte"},roles:["admin"],targets:["position"],requires:[],readonly:false,description:"Criar fonte usando definição registrada"},
+  {id:"obstacle.spawn",displayName:{"pt-BR":"Adicionar cenário"},roles:["admin"],targets:["position"],requires:[],readonly:false,description:"Posicionar elemento sólido não coletável"},
+  {id:"resource.harvest",displayName:{"pt-BR":"Colher frutos"},roles:["player","npc"],targets:["resource"],requires:["position","energy","inventory","resourceSource"],readonly:false,description:"Transferir frutos de fonte adjacente ao inventário físico do ator"}
  ] as const)catalog.registerAction(action);
  return catalog;
 }
