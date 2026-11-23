@@ -41,11 +41,14 @@ if(n.id==="farmer")return "farm";
 if(n.id==="collector")return w.stock.food<18?"orchard":"forest";
 if(n.id==="mason")return w.stock.stone<38?"quarry":"mine";
 return null}
-function startJob(w,n,id){let s=sites.find(z=>z.id===id);if(s&&s.resource&&!VilaLab.source(w,id)?.amount)return false;if(!s||n.energy<12||siteOccupancy(w,id,n)>=s.cap||id==="build"&&!stageReady(w))return false;n.site=id;n.phase="travel";n.workLeft=s.work;return true}
+function startJob(w,n,id){if(id.startsWith("supply:")){if(n.cargo)return false;n.supplyKey=id.split(":")[1];n.phase="toBuildPickup";n.site=null;return true;}let s=sites.find(z=>z.id===id);if(s&&s.resource&&!VilaLab.source(w,id)?.amount)return false;if(!s||n.energy<12||siteOccupancy(w,id,n)>=s.cap||id==="build"&&!stageReady(w))return false;n.site=id;n.phase="travel";n.workLeft=s.work;return true}
 function makeRest(n,reason){n.phase="toRest";n.site=null;n.workLeft=0;n.restReason=reason||"Descanso";if(n.cargo){n.phase="toDepot";n.restAfter=true}}
 function approach(n,t){let dx=t.x-n.x,dy=t.y-n.y,d=Math.hypot(dx,dy);if(d<.18){n.x=t.x;n.y=t.y;return true}let step=Math.min(.23,d);n.x+=dx/d*step;n.y+=dy/d*step;return false}
 function personTick(w,n){
 if(VilaLab.needsAction(w,n,approach))return;
+if(n.phase==="toBuildPickup"){if(approach(n,depot)){const key=n.supplyKey,stage=stages[w.project.stage];if(!stage){n.phase="idle";n.supplyKey=null;return;}const amount=Math.min(5,w.stock[key]||0,Math.max(0,stage[key]-w.project.delivered[key]));if(amount>0){w.stock[key]-=amount;n.cargo={key,qty:amount};n.phase="toBuildDelivery";}else{n.phase="idle";n.supplyKey=null;}}return;}
+if(n.phase==="toBuildDelivery"){if(approach(n,sites.find(s=>s.id==="build"))){const key=n.supplyKey,stage=stages[w.project.stage],needed=stage?Math.max(0,stage[key]-w.project.delivered[key]):0;const delivered=Math.min(needed,n.cargo?.qty||0);if(delivered){w.project.delivered[key]+=delivered;log(w,(n.name||"Aventureiro")+" entregou "+delivered+" "+R[key]+" à construção.");}const leftover=(n.cargo?.qty||0)-delivered;n.cargo=leftover?{key,qty:leftover}:null;n.supplyKey=null;n.phase=n.cargo?"toDepot":"idle";invalidate();}return;}
+
 if(n.phase==="toDepot"){if(approach(n,depot)){if(n.cargo){if(VilaLab.free(w)<({wood:2,stone:3,food:.5,ore:3,coins:.01}[n.cargo.key]||1)*n.cargo.qty){n.phase="waitStorage";return;}w.stock[n.cargo.key]+=n.cargo.qty;w.stats.delivered+=n.cargo.qty;log(w,(n.name||"Aventureiro")+" entregou "+n.cargo.qty+" "+R[n.cargo.key].toLowerCase()+" no depósito.");n.cargo=null;invalidate()}n.site=null;n.phase=n.restAfter?"toRest":"idle";n.restAfter=false}return}
 if(n.phase==="toRest"){if(approach(n,rest))n.phase="rest";return}
 if(n.phase==="rest"){n.energy=Math.min(100,n.energy+1.25);if(n.energy>=85){n.phase="idle";n.restReason=null}return}
