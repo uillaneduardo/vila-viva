@@ -76,6 +76,16 @@
   $("god-clock").textContent=tm(w);$("god-population").textContent=w.npcs.filter(n=>n.phase!=="dead").length;
   $("god-stock").textContent=used(w).toFixed(1)+" kg";$("god-food").textContent=(w.stock?.food||0)+" un.";const alive=w.npcs.filter(n=>n.phase!=="dead");$("god-health").textContent=Math.round(alive.reduce((sum,n)=>sum+(n.health??100),0)/Math.max(1,alive.length))+"%";$("god-blocked").textContent=w.npcs.filter(n=>n.phase==="waitStorage"||["idle","social"].includes(n.phase)&&n.lastDecision?.action==="Sem tarefa viável").length;$("god-building").textContent=Math.min(w.project?.stage||0,4)+"/4";
   $("god-live-state").textContent=w.run?.paused?"⏸ Pausada":window.VilaRemote?.connected?"● Ao vivo":"○ Local";
+  const rFood=$("god-ribbon-food");if(rFood){
+   const alive=w.npcs.filter(n=>n.phase!=="dead");
+   rFood.textContent=(w.stock?.food||0)+" un.";
+   $("god-ribbon-health").textContent=Math.round(alive.reduce((v,n)=>v+(n.health??100),0)/Math.max(1,alive.length))+"%";
+   $("god-ribbon-storage").textContent=used(w).toFixed(0)+"/"+(w.lab?.depotCapacity||170)+" kg";
+   $("god-ribbon-blocked").textContent=alive.filter(n=>n.phase==="waitStorage"||["idle","social"].includes(n.phase)&&n.lastDecision?.action==="Sem tarefa viável").length;
+   const roster=$("god-roster-strip");
+   const markup=alive.map(n=>'<button type="button" data-roster-npc="'+esc(n.id)+'" class="god-roster-unit '+(selection.kind==="npc"&&selection.id===n.id?"active":"")+'"><span class="god-roster-face">'+esc(n.name.slice(0,1))+'</span><span class="god-roster-info"><b>'+esc(n.name)+'</b><small>'+esc(n.phase==="waitStorage"?"Depósito cheio":n.phase==="toFood"?"Buscando alimento":n.phase==="work"?"Trabalhando":n.phase==="social"?"Socializando":n.phase)+'</small></span><span class="god-roster-health"><i style="width:'+Math.max(0,n.health??100)+'%"></i></span></button>').join("");
+   if(roster.dataset.markup!==markup){roster.innerHTML=markup;roster.dataset.markup=markup;}
+  }
   if(modalOpen)paintWorlds();if(historyOpen)paintHistory(w);
  }
  function paintWorlds(){
@@ -105,6 +115,12 @@
  function toggleModal(force){modalOpen=typeof force==="boolean"?force:!modalOpen;$("god-modal").hidden=!modalOpen;if(modalOpen){worldsCache="";paintWorlds();$("god-close-worlds").focus()}}
  function setup(){
   const headerEl=document.querySelector(".top"),worldBtn=document.createElement("button");worldBtn.id="god-worlds";worldBtn.textContent="☰ Mundos";headerEl.append(worldBtn);worldBtn.onclick=()=>toggleModal();
+  const ribbon=document.createElement("div");ribbon.id="god-survival-ribbon";
+  ribbon.innerHTML='<div><small>🍎 Alimentos</small><strong id="god-ribbon-food">—</strong></div><div><small>❤ Saúde média</small><strong id="god-ribbon-health">—</strong></div><div><small>📦 Depósito</small><strong id="god-ribbon-storage">—</strong></div><div><small>⚠ Bloqueios</small><strong id="god-ribbon-blocked">—</strong></div>';
+  headerEl.after(ribbon);
+  const rosterStrip=document.createElement("div");rosterStrip.id="god-roster-strip";
+  document.querySelector(".layout>main").append(rosterStrip);
+  rosterStrip.addEventListener("click",e=>{const b=e.target.closest("[data-roster-npc]");if(b)select("npc",b.dataset.rosterNpc)});
   const side=document.querySelector(".side"),toolbar=document.createElement("section");toolbar.id="god-tools";toolbar.className="panel";
   toolbar.innerHTML='<h2>Intervir no mundo</h2><div class="god-tools-row">'+
    '<button class="god-tool is-active" data-god-tool="observe"><span class="tool-icon">◉</span>Observar</button>'+
