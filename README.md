@@ -28,7 +28,7 @@ echo 'IMAGE=ghcr.io/uillaneduardo/vila-viva:main' > .env
 docker compose pull && docker compose up -d
 ```
 
-O acesso local é pela porta 8480 (loopback). Configurar Cloudflare Tunnel ou proxy para `http://localhost:8480` no próprio homelab2. O runner precisa poder executar Docker, autenticar-se no GHCR (pacote público ou login autorizado) e estar sob controle do operador. **Deploy não estará ativo até o runner ser configurado e o primeiro job concluir.**
+O acesso local é pela porta 8481 (loopback). Configurar Cloudflare Tunnel ou proxy para `http://localhost:8481` no próprio homelab2. O runner precisa poder executar Docker, autenticar-se no GHCR (pacote público ou login autorizado) e estar sob controle do operador. **Deploy não estará ativo até o runner ser configurado e o primeiro job concluir.**
 
 ## Arquitetura
 O protótipo mantém a simulação no navegador. A futura versão multiplayer moverá o motor para um processo autoritativo e armazenará o estado no PostgreSQL. Eventos de tempo e mutações econômicas não podem ser confiados ao cliente na versão online.
