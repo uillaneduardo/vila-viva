@@ -1,3 +1,4 @@
+import {createLayeredRenderAdapter} from '../../packages/renderer/src/layered-render-adapter.js';
 import {createTickRenderAdapter} from '../../packages/renderer/src/tick-render-adapter.js';
 import {connectWorld} from '../../packages/client-sdk/src/world-stream.js';
 import {createUiVisual} from '../../packages/ui/assets/visual.js';
@@ -13,7 +14,8 @@ import {createNpcActivityMonitor} from '../../packages/ui/src/npc-activity-monit
 const el=id=>document.getElementById(id),role=document.body.dataset.role;
 applyUiTheme(document.documentElement);
 const surface=new Scene(el('game'),{spriteLibrary:new SpriteLibrary({pack:getWorldVisualPack(new URLSearchParams(location.search).get('visualPack')??undefined)})});
-const scene=new URLSearchParams(location.search).get('renderer')==='legacy'?surface:createTickRenderAdapter(surface);
+const rendererMode=new URLSearchParams(location.search).get('renderer');
+const scene=rendererMode==='legacy'?surface:rendererMode==='tick'?createTickRenderAdapter(surface):createLayeredRenderAdapter(surface);
 const inspector=createInspector({
  onHarvest:(id)=>void harvestSelected(id),
  onConstruction:(id,action,parameters)=>void executeConstruction(id,action,parameters)
