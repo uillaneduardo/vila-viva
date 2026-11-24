@@ -28,6 +28,13 @@ export function validateWorld(value:unknown):asserts value is World {
    !safeInt(entity.energy,100)||
    entity.nextMoveTick!==undefined&&(typeof entity.nextMoveTick!=="number"||!Number.isFinite(entity.nextMoveTick)||entity.nextMoveTick<0)||entity.satiety!==undefined&&!safeInt(entity.satiety,100)))
    throw Error("INVALID_WORLD");
+  if(entity.kind==="character"&&entity.movementSegment!==undefined){
+   const m=entity.movementSegment;
+   if(!object(m)||!position(m.from,value.width,value.height)||!position(m.to,value.width,value.height)||
+    !safeInt(m.startTick,value.tick)||typeof m.endTick!=="number"||!Number.isFinite(m.endTick)||m.endTick<=m.startTick||
+    m.endTick!==entity.nextMoveTick||
+    Math.abs(m.from.x-m.to.x)+Math.abs(m.from.y-m.to.y)!==1)throw Error("INVALID_WORLD");
+  }
   if(entity.kind==="construction"||entity.kind==="planting_zone"){
    if(!object(entity.footprint)||!safeInt(entity.footprint.width,12)||entity.footprint.width<1||
     !safeInt(entity.footprint.height,12)||entity.footprint.height<1||
