@@ -3,6 +3,7 @@ import {createUiVisual} from '../../packages/ui/assets/visual.js';
 import {applyUiTheme} from '../../packages/ui/assets/themes/index.js';
 import {Scene} from '../../packages/renderer/src/scene.js';
 import {brushCells} from '../../packages/renderer/src/camera.js';
+import {createTouchGestures} from '../../packages/ui/src/touch-gestures.js';
 import {createHud} from '../../packages/ui/src/hud.js';
 import {createInspector} from '../../packages/ui/src/inspector.js';
 import {createNpcActivityMonitor} from '../../packages/ui/src/npc-activity-monitor.js';
@@ -318,9 +319,46 @@ if(role==='admin'&&el('worldManagerToggle')){
  }));
 }
 
+// Touch navigation uses the same camera and command callbacks, never a second world stream.
+const clearTouchPreview=()=>{painting.clear();scene.pointer=null;el('tooltip').hidden=true;scene.setHover(null);};
+const touch=createTouchGestures({
+ pan:(dx,dy)=>{scene.camera.pan(dx,dy);clearTouchPreview();},
+ zoom:(x,y,factor)=>{scene.camera.zoomAt(x,y,factor);el('zoom').textContent=Math.round(scene.camera.zoom*100)+'%';},
+ cancel:clearTouchPreview,
+ tap:point=>{
+  scene.pointer=point;
+  if(role==='admin'&&scene.brush){painting=new Map();addBrushAt(point);void submitBrush();}
+  else if(tool==='inspect')setSelection(scene.pick(point.x,point.y));
+ }
+});
+const touchPointer=e=>e.pointerType==='touch';
+scene.canvas.addEventListener('pointerdown',e=>{
+ if(!touchPointer(e))return;
+ e.preventDefault();scene.canvas.setPointerCapture(e.pointerId);
+ clearTouchPreview();touch.down(e.pointerId,eventCoordinates(e));
+});
+scene.canvas.addEventListener('pointermove',e=>{
+ if(touchPointer(e))touch.move(e.pointerId,eventCoordinates(e));
+});
+scene.canvas.addEventListener('pointerup',e=>{
+ if(touchPointer(e))touch.up(e.pointerId,eventCoordinates(e));
+});
+scene.canvas.addEventListener('pointercancel',e=>{if(touchPointer(e))touch.abort();});
+scene.canvas.addEventListener('lostpointercapture',e=>{
+ if(touchPointer(e)&&touch.active) {
+  // A normal release has already removed this ID. Only abort unexpected loss.
+  if(e.buttons!==0)touch.abort();
+ }
+});
+addEventListener('blur',()=>touch.abort());
+const compactUi=matchMedia('(max-width: 740px), (pointer: coarse) and (max-height: 600px)');
+const activityToggle=el('npcActivityToggle');
+const collapseActivities=()=>{if(compactUi.matches&&activityToggle?.getAttribute('aria-expanded')==='true')activityToggle.click();};
+collapseActivities();compactUi.addEventListener('change',collapseActivities);
+
 scene.canvas.addEventListener('wheel',e=>{e.preventDefault();const p=eventCoordinates(e);scene.camera.zoomAt(p.x,p.y,e.deltaY<0?1.12:1/1.12);el('zoom').textContent=Math.round(scene.camera.zoom*100)+'%';},{passive:false});
 scene.canvas.addEventListener('pointerdown',e=>{
- if(e.button!==0&&e.button!==1)return;
+ if(touchPointer(e)||touch.active||(e.button!==0&&e.button!==1))return;
  const point=eventCoordinates(e),target=scene.pick(point.x,point.y);
  pan={id:e.pointerId,button:e.button,last:point,start:point,entity:target,drag:false,brush:role==='admin'&&!!scene.brush};
  scene.canvas.setPointerCapture(e.pointerId);
@@ -328,6 +366,7 @@ scene.canvas.addEventListener('pointerdown',e=>{
  if(e.button===1)e.preventDefault();
 });
 scene.canvas.addEventListener('pointermove',e=>{
+ if(touchPointer(e)||touch.active)return;
  const point=eventCoordinates(e);scene.pointer=point;
  const tile=scene.camera.tileAt(point.x,point.y);el('coordinates').textContent='x: '+tile.x+' · y: '+tile.y;
  if(pan&&pan.id===e.pointerId){
@@ -350,14 +389,14 @@ scene.canvas.addEventListener('pointermove',e=>{
  updateHover(point);
 });
 scene.canvas.addEventListener('pointerup',e=>{
- if(!pan||pan.id!==e.pointerId)return;
+ if(touchPointer(e)||!pan||pan.id!==e.pointerId)return;
  const point=eventCoordinates(e),gesture=pan;pan=null;scene.canvas.classList.remove('dragging');
  if(gesture.brush){void submitBrush();return;}
  if(gesture.drag||gesture.button===1)return;
  if(tool==='inspect')setSelection(scene.pick(point.x,point.y));
 });
-scene.canvas.addEventListener('pointercancel',()=>{pan=null;painting.clear();scene.canvas.classList.remove('dragging');});
-scene.canvas.addEventListener('pointerleave',()=>{if(!pan){el('tooltip').hidden=true;scene.setHover(null);}});
+scene.canvas.addEventListener('pointercancel',e=>{if(touchPointer(e))return;pan=null;painting.clear();scene.canvas.classList.remove('dragging');});
+scene.canvas.addEventListener('pointerleave',e=>{if(touchPointer(e))return;if(!pan){el('tooltip').hidden=true;scene.setHover(null);}});
 const typing=target=>['INPUT','TEXTAREA','SELECT'].includes(target?.tagName)||target?.isContentEditable;
 addEventListener('keydown',e=>{
  if(typing(e.target)||e.altKey||e.ctrlKey||e.metaKey)return;
