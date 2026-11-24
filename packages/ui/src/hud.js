@@ -12,7 +12,7 @@ const toolDefs=[
  ['events','Eventos','action.events'],
  ['stats','Métricas','action.metrics']
 ];
-export function createHud({role,onTool,onClock,onSize,onPreset=()=>{},onBuildMode=()=>{}}){
+export function createHud({role,onTool,onClock,onSize,onShape=()=>{},onPreset=()=>{},onBuildMode=()=>{}}){
  const el=id=>document.getElementById(id);
  const dock=el('dock'),submenu=el('godSubmenu'),choices=el('godSubmenuChoices'),
   submenuLabel=el('godSubmenuLabel'),modes=el('godBuildModes'),
@@ -21,7 +21,21 @@ export function createHud({role,onTool,onClock,onSize,onPreset=()=>{},onBuildMod
   apple_tree:{label:'Macieira'},carrot:{label:'Cenoura'},potato:{label:'Batata'}
  };
  const selectedByTool=new Map();
- const range=el('brushSize'),minus=el('brushMinus'),plus=el('brushPlus');
+ const range=el('brushSize'),minus=el('brushMinus'),plus=el('brushPlus'),shapeButton=el('brushShape');
+ let brushShape='square';
+ const updateBrushCount=n=>{
+  const world={width:100,height:100};
+  let count=0;
+  for(let y=0;y<n;y++)for(let x=0;x<n;x++)
+   if(brushShape!=='circle'||Math.hypot(x-(n-1)/2,y-(n-1)/2)<=n/2)count++;
+  el('brushCount').textContent=count+' célula'+(count===1?'':'s');
+ };
+ const renderShape=()=>{
+  shapeButton.textContent=brushShape==='circle'?'◯':'□';
+  shapeButton.title=brushShape==='circle'?'Formato circular':'Formato quadrado';
+  shapeButton.setAttribute('aria-label','Formato do pincel: '+(brushShape==='circle'?'circular':'quadrado'));
+  shapeButton.setAttribute('aria-pressed',String(brushShape==='circle'));
+ };
  const brushTools=['npc','wood','stone','food','farm','scenery','house'];
  const brushTitles={npc:'Pincel · Habitante',wood:'Pincel · Floresta',stone:'Pincel · Pedreira',
   food:'Pincel · Macieira',farm:'Pincel · Plantio',scenery:'Pincel · Cenário',house:'Pincel · Construir'};
@@ -110,6 +124,8 @@ export function createHud({role,onTool,onClock,onSize,onPreset=()=>{},onBuildMod
  range.addEventListener('input',()=>onSize(Number(range.value)));
  minus.addEventListener('click',()=>onSize(Math.max(1,Number(range.value)-1)));
  plus.addEventListener('click',()=>onSize(Math.min(15,Number(range.value)+1)));
+ shapeButton.addEventListener('click',()=>onShape(brushShape==='circle'?'square':'circle'));
+ renderShape();
  return {
   setFarmingSpecies(species){
    farmingSpecies=species??{};
@@ -126,6 +142,7 @@ export function createHud({role,onTool,onClock,onSize,onPreset=()=>{},onBuildMod
    const brush=brushTools.includes(id)&&role==='admin';
    const isHouse=id==='house';
    range.disabled=isHouse;minus.disabled=isHouse;plus.disabled=isHouse;
+   shapeButton.hidden=isHouse||id==='farm';
    if(isHouse)range.value='1';
    el('brushPanel').hidden=!brush;
    el('brushName').textContent=brushTitles[id]??'';
@@ -133,10 +150,11 @@ export function createHud({role,onTool,onClock,onSize,onPreset=()=>{},onBuildMod
    renderSubmenu();
    if(isHouse)updateHouseArea();
   },
+  shape(value){brushShape=value==='circle'?'circle':'square';renderShape();updateBrushCount(Number(range.value));},
   size(n){
    if(range.disabled)return;
    range.value=String(n);el('brushValue').textContent=n+' × '+n;
-   el('brushCount').textContent=n*n+' célula'+(n===1?'':'s');
+   updateBrushCount(n);
   },
   update(data){
    if(!data)return;
