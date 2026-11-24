@@ -1,3 +1,4 @@
+import {buildingBlueprint} from "../../content/src/buildings/registry.ts";
 import {isItem} from "../../content/src/items.ts";
 import {WORLD_FORMAT_VERSION} from "../../domain/src/activity.ts";
 import type {WorldSnapshot} from "../../domain/src/activity.ts";
@@ -46,6 +47,14 @@ export function validateWorld(value:unknown):asserts value is World {
    typeof entity.blueprintId!=="string"||
    !["site","completed","destroyed"].includes(String(entity.status))||
    !safeInt(entity.stageIndex,50)||!safeInt(entity.workDone,100000)))throw Error("INVALID_WORLD");
+  if(entity.kind==="construction"&&(entity.level!==undefined||entity.upgrade!==undefined)){
+   const def=typeof entity.blueprintId==="string"?buildingBlueprint(entity.blueprintId):undefined;
+   const level=entity.level??1;
+   if(!safeInt(level,1+(def?.upgrades?.length??0))||level<1||!def||def.version!==entity.blueprintVersion)throw Error("INVALID_WORLD");
+   if(entity.upgrade!==undefined){const u=entity.upgrade,next=def.upgrades?.find(x=>x.level===level+1);
+    if(!object(u)||!next||entity.status!=="completed"||entity.availability!=="available"||u.targetLevel!==next.level||!safeInt(u.startedTick,value.tick)||!safeInt(entity.workDone,next.stage.workUnits-1)||!object(entity.delivered)||Object.entries(entity.delivered).some(([id,n])=>!Object.hasOwn(next.stage.materials,id)||!safeInt(n,next.stage.materials[id])))throw Error("INVALID_WORLD");
+   }
+  }
   if(entity.kind==="item"&&(typeof entity.itemId!=="string"||!isItem(entity.itemId)||!safeInt(entity.quantity,1e9)||entity.quantity<1||!safeInt(entity.createdTick,value.tick)))throw Error("INVALID_WORLD");
   if(entity.kind==="resource"&&(!safeInt(entity.quantity,1e9)||!safeInt(entity.maximum,1e9)))throw Error("INVALID_WORLD");
  }

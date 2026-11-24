@@ -11,7 +11,17 @@ export function createConstructionSite(id:string,position:Position,blueprint:Bui
   ...(blueprint.cemetery?{burials:[]}: {}),
   ...(blueprint.production?{productionOrders:[]}: {})};
 }
+export const buildingLevel=(site:Construction)=>site.level??1;
+export function nextUpgrade(site:Construction){
+ const def=buildingBlueprint(site.blueprintId);
+ return site.status==="completed"&&site.availability==="available"&&def?.version===site.blueprintVersion?def.upgrades?.find(u=>u.level===buildingLevel(site)+1):undefined;
+}
+export function startUpgrade(site:Construction,tick:number):boolean{
+ const next=nextUpgrade(site);if(!next||site.upgrade)return false;
+ site.upgrade={targetLevel:next.level,startedTick:tick};site.delivered={};site.workDone=0;return true;
+}
 export function currentStage(site:Construction):Readonly<BuildingStage>|undefined {
+ if(site.upgrade)return nextUpgrade(site)?.level===site.upgrade.targetLevel?nextUpgrade(site)?.stage:undefined;
  if(site.status!=="site")return undefined;
  return buildingBlueprint(site.blueprintId)?.stages[site.stageIndex];
 }
@@ -27,7 +37,9 @@ export function buildingCapabilities(site:Construction):Readonly<Record<string,n
  if(site.status!=="completed"||site.availability!=="available")return {};
  const blueprint=buildingBlueprint(site.blueprintId);
  if(!blueprint||blueprint.version!==site.blueprintVersion)return {};
- return Object.fromEntries(blueprint.effects.map(e=>[e.capability,e.value]));
+ const values=Object.fromEntries(blueprint.effects.map(e=>[e.capability,e.value]));
+ for(const upgrade of blueprint.upgrades??[])if(upgrade.level<=buildingLevel(site))Object.assign(values,upgrade.capacities);
+ return values;
 }
 export function nearFootprint(point:Position,site:Construction):boolean {
  const {x,y}=site.position;
@@ -42,13 +54,14 @@ export function acceptMaterial(site:Construction,materialId:string,amount:number
  site.delivered[materialId]=(site.delivered[materialId]??0)+amount;
  return true;
 }
-export type WorkTransition={stageCompleted?:string;buildingCompleted:boolean};
+export type WorkTransition={stageCompleted?:string;buildingCompleted:boolean;upgraded?:number};
 /** Consume stage deliveries on transition; stage work cannot advance without all required materials. */
 export function applyConstructionWork(site:Construction,amount:number,tick:number):WorkTransition {
  const stage=currentStage(site);
  if(!stage||!hasMaterials(site)||!Number.isSafeInteger(amount)||amount<1||!Number.isSafeInteger(tick))throw Error("Invalid construction work");
  site.workDone=Math.min(stage.workUnits,site.workDone+amount);
  if(site.workDone<stage.workUnits)return {buildingCompleted:false};
+ if(site.upgrade){const level=site.upgrade.targetLevel;site.level=level;delete site.upgrade;site.workDone=0;site.delivered={};return {stageCompleted:stage.id,buildingCompleted:false,upgraded:level};}
  site.stageIndex++;
  site.workDone=0;site.delivered={};
  const blueprint=buildingBlueprint(site.blueprintId)!;
@@ -69,7 +82,8 @@ export function createCompletedBuilding(id:string,position:Position,blueprint:Bu
 export function storageDefinition(site:Construction) {
  if(site.status!=="completed"||site.availability!=="available")return undefined;
  const def=buildingBlueprint(site.blueprintId);
- return def?.version===site.blueprintVersion?def.storage:undefined;
+ if(def?.version!==site.blueprintVersion||!def.storage)return undefined;
+ return {...def.storage,capacity:buildingCapabilities(site)["storage.capacity"]??def.storage.capacity};
 }
 export const storedTotal=(site:Construction):number=>
  Object.values(site.stock??{}).reduce((total,quantity)=>total+Math.max(0,quantity),0);

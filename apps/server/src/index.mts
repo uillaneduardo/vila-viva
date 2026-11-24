@@ -6,7 +6,7 @@ import {baseRegistry,RESOURCE_PRESETS} from "../../../packages/content/src/catal
 import {EFFECTS} from "../../../packages/content/src/effects/catalog.ts";
 import {COMMUNITY_HOUSE} from "../../../packages/content/src/buildings/community-house.ts";
 import {BUILDING_BLUEPRINTS,buildingBlueprint} from "../../../packages/content/src/buildings/registry.ts";
-import {currentStage,materialsRemaining,hasMaterials,buildingCapabilities,storageDefinition,storedTotal,storageFree} from "../../../packages/systems/construction/src/index.ts";
+import {currentStage,materialsRemaining,hasMaterials,buildingCapabilities,storageDefinition,storedTotal,storageFree,buildingLevel,nextUpgrade} from "../../../packages/systems/construction/src/index.ts";
 import {NATURAL_SOURCES} from "../../../packages/content/src/natural-sources.ts";
 import {FOOD_ITEMS} from "../../../packages/content/src/foods.ts";
 import {countZoneCrops} from "../../../packages/systems/farming/src/index.ts";
@@ -355,6 +355,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string;asyncPersist
       }:null,
       construction:entity.kind==="construction"?{
        blueprintId:entity.blueprintId,blueprintVersion:entity.blueprintVersion,
+       level:buildingLevel(entity),upgrade:entity.upgrade??null,nextUpgrade:nextUpgrade(entity)??null,
        stage:currentStage(entity)?.id??null,remaining:materialsRemaining(entity),
        materialsReady:hasMaterials(entity),capabilities:buildingCapabilities(entity),
        mining:entity.mineRemaining?{remaining:entity.mineRemaining,stock:entity.stock??{}}:null,
