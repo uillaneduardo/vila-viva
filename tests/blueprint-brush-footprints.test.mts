@@ -7,7 +7,7 @@ test("UI footprint contract derives from blueprint instead of fixed construction
  const hud=await readFile(new URL("../packages/ui/src/hud.js",import.meta.url),"utf8");
  const app=await readFile(new URL("../apps/shared-ui/app.js",import.meta.url),"utf8");
  const scene=await readFile(new URL("../packages/renderer/src/scene.js",import.meta.url),"utf8");
- assert.match(hud,/blueprints\[preset\.value\]\?\.footprint/);
+ assert.match(hud,/blueprints\[selected\]\?\.footprint/);
  assert.match(app,/catalog\?\.buildingBlueprints\?\.\[preset\]\?\.footprint/);
  assert.match(scene,/this\.brush\.footprint\?\.width/);
  assert.match(scene,/this\.brush\.footprint\?\.height/);
