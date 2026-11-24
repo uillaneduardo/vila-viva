@@ -372,6 +372,7 @@ export function applyCommand(world: World, command: Command,
   const prior=character.nextMoveTick??world.tick;
   const base=world.tick-prior<interval?prior:world.tick;
   character.nextMoveTick=Math.max(world.tick+1,base+interval*cost);
+  character.movementSegment={from:{...character.position},to:{...command.position},startTick:world.tick,endTick:character.nextMoveTick};
   character.position={...command.position};character.energy=Math.max(0,character.energy-1);
   for(const body of world.entities)if(body.kind==="character"&&body.bodyCarriedBy===character.id)
    body.position={...character.position};

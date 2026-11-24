@@ -36,3 +36,17 @@ test("a player cannot issue movement commands for an NPC",()=>{
  assert.equal(res.ok,false);
  assert.equal(w.entities[0].position.x,1);
 });
+
+test("accepted movement records actual charged duration; rejection leaves record unchanged",()=>{
+ const world=createWorld("motion");
+ applyCommand(world,{commandId:"n",worldId:"motion",actorRole:"admin",action:"npc.spawn",position:{x:2,y:2},parameters:{name:"NPC"}});
+ const actor=world.entities[0];assert.equal(actor.kind,"character");if(actor.kind!=="character")throw Error("NPC");
+ const start=world.tick,energy=actor.energy;
+ const move={commandId:"move",worldId:"motion",actorRole:"npc" as const,actorId:actor.id,targetId:actor.id,action:"movement.move" as const,position:{x:3,y:2}};
+ assert.equal(applyCommand(world,move,{internal:true}).ok,true);
+ assert.deepEqual(actor.movementSegment,{from:{x:2,y:2},to:{x:3,y:2},startTick:start,endTick:actor.nextMoveTick});
+ assert.equal(actor.energy,energy-1);assert.equal(world.tick,start);
+ const before=structuredClone(actor.movementSegment);
+ assert.equal(applyCommand(world,{...move,commandId:"blocked",position:{x:4,y:2}},{internal:true}).ok,false);
+ assert.deepEqual(actor.movementSegment,before);
+});
