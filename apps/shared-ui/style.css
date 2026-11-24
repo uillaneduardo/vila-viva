@@ -342,3 +342,56 @@ button:focus-visible,input:focus-visible,canvas:focus-visible{outline:2px solid 
 @media (prefers-reduced-motion:reduce){
  .dock-button,.god-submenu-tile,.npc-monitor-chevron{transition:none}
 }
+
+
+/* #69: compact HUD also for short desktop windows; canvas remains independent. */
+.brand{max-width: min(280px, 40vw)}
+.hud-toggle{border:1px solid var(--line);background:var(--glass);border-radius:10px;min-width:44px;min-height:44px;color:var(--text)}
+.hud-tools{position:absolute;top:64px;left:8px;display:flex;gap:4px;z-index:9}
+.hud-tools button[aria-expanded="true"]{background:#45664d}
+.top-right .badge:has(#connection){position:relative}
+.top-right .badge:has(#connection.offline) .status-dot{background:#e1b76f;box-shadow:none}
+.top-right .badge:has(#connection[data-state="disconnected"]) .status-dot{background:#df8c80}
+#connection{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.top-right .badge:has(#connection){padding:8px;min-width:28px;justify-content:center}
+@media(max-width:1190px),(max-height:650px){
+ #game,#interface{height:100dvh}
+ .glass{backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:0 3px 10px #0003}
+ .brand{top:8px;left:8px;min-height:44px;padding:5px 8px;max-width:calc(100% - 170px)}
+ .brand .logo{width:26px;height:26px;flex:none}.brand small{display:none}
+ .brand strong{max-width:clamp(65px,32vw,220px);font-size:12px}
+ .top-right{top:8px;right:8px;display:flex;max-width:none;align-items:center}
+ .top-right #population{display:none}
+ .top-center{top:8px;left:50%;right:auto;transform:translateX(-50%);gap:4px;z-index:9;flex-wrap:nowrap}
+ .top-group{height:44px;padding:3px 5px;border-radius:12px}
+ .time{min-width:48px;padding:0 3px}.time-btn{min-width:34px;height:36px}
+ .top-center .resources{display:none}
+ #interface.hud-stock-open .resources{display:flex;position:absolute;top:50px;left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100vw - 16px)}
+ .hud-tools{top:60px;left:8px}
+ .tool-badge,.bottom-note,.bottom-left,.bottom-right,.world-tick{display:none!important}
+ .npc-monitor{top:112px;left:8px;width:min(280px,calc(100vw - 16px));max-height: min(42dvh,calc(100dvh - 180px))}
+ .npc-monitor-collapsed{width:max-content;max-height:none}
+ .npc-monitor-collapsed .npc-monitor-title{display:none}
+ .npc-monitor-collapsed .npc-monitor-head{padding:0}
+ .npc-monitor-head button{width:44px;height:44px}
+ .dock{bottom:8px;max-width:calc(100% - 16px);padding:4px;gap:2px;border-radius:14px;overflow-x:auto;justify-content:flex-start;scrollbar-width:none}
+ .dock-button{flex:0 0 48px;min-width:48px;height:48px;padding:3px}
+ .dock-label{display:none}.glyph{width:30px;height:30px}
+ .god-action-stack{bottom:68px;max-width:calc(100vw - 16px)}
+ .god-submenu{max-height:32dvh;overflow-y:auto}
+ .context{top:60px;bottom:68px;right:8px;height:auto;max-height:calc(100dvh - 128px)}
+ .expand{top:60px;right:8px;bottom:auto;width:44px;height:44px}
+ .world-mgr{top:60px;right:8px;max-height:calc(100dvh - 130px)}
+ .status{bottom:68px;z-index:13;max-width:90%}
+ #interface:has(.context:not([hidden])) .god-action-stack{visibility:hidden}
+}
+@media(max-width:700px){
+ .top-center{top:60px;left:auto;right:8px;transform:none}
+ .top-center .time-btn{min-width:44px;height:40px}
+ .top-center .divider{display:none}
+ .top-center .resources{top:50px;right:0;left:auto;transform:none!important}
+ .context{top:auto;bottom:68px;width:calc(100% - 16px);height:min(52dvh,430px)}
+ .expand{top:112px}
+ .npc-monitor{top:112px}
+}
+@media(min-width:1191px) and (min-height:651px){.hud-tools{display:none}}
