@@ -196,6 +196,27 @@ test("active workshop queue is completed by autonomous NPC and leader can order 
  assert.equal(leader.leadership.lastRecipeId,"smelt_iron");
  assert.ok(productionNeeds(other).some(x=>x.item==="axe"));
 });
+test("autonomous NPC converts nearby raw iron and wood into ingots for a queued recipe",()=>{
+ const w=createWorld("auto-ore",17,14);
+ const npc=worker(w,"worker",{x:7,y:4});npc.traits=["artisan"];
+ god(w,"shop","construction.place",{position:{x:8,y:4},parameters:{
+  blueprintId:"building.workshop",mode:"completed"
+ }});
+ god(w,"ore","resource.spawn",{position:{x:4,y:4},parameters:{
+  resourceType:"iron_ore",quantity:30
+ }});
+ god(w,"tree","resource.spawn",{position:{x:4,y:7},parameters:{
+  resourceType:"wood",quantity:30
+ }});
+ const shop=w.entities.find(e=>e.id==="construction-shop");
+ assert.equal(god(w,"batch","production.order",{targetId:shop.id,
+  parameters:{recipeId:"smelt_iron",quantity:1}}).ok,true);
+ for(let i=0;i<160;i++)advanceTick(w);
+ assert.equal(shop.stock.iron_ingot,2,"ingots require physical mining, delivery and crafting work");
+ assert.equal(shop.stock.iron_ore,0);
+ assert.ok(w.entities.find(e=>e.id==="resource-ore").quantity<30);
+ assert.equal(activeOrder(shop),undefined);
+});
 test("API lists all storage categories, workshop queue, tool needs, traits and ores",async()=>{
  const {server}=makePrototype();
  await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));

@@ -212,7 +212,8 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
     items:ITEMS,itemCategories:ITEM_CATEGORIES,recipes:RECIPES
    });
    if(url.pathname==="/api/world"&&req.method==="GET"){
-    const depots=world.entities.filter(e=>e.kind==="construction"&&!!storageDefinition(e));
+    const depots=world.entities.filter(e=>e.kind==="construction"&&
+     e.blueprintId==="building.depot"&&!!storageDefinition(e));
     const storageSummary=depots.length?
      Object.fromEntries(Object.keys(ITEMS).map(
       item=>[item,depots.reduce((sum,d)=>sum+(d.stock?.[item]??0),0)])):null;

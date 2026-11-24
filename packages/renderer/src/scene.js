@@ -139,6 +139,15 @@ export class Scene {
      if(phase===4){
       c.fillStyle='#594737';c.fillRect(-s*.17,top+height*.49,s*.34,height*.42);
       c.fillStyle='#d9c89b';c.fillRect(-s*.06,top+height*.59,s*.06,s*.09);
+      if(e.blueprintId==='building.workshop'){
+       // Temporary top-down forge/bellows marker; later replace with a sprite atlas.
+       c.fillStyle='#52635a';c.fillRect(left+s*.32,top+height*.18,s*.9,s*.75);
+       c.strokeStyle='#a8b4a0';c.lineWidth=Math.max(1,s*.04);
+       c.strokeRect(left+s*.32,top+height*.18,s*.9,s*.75);
+       c.fillStyle='#e8a868';c.fillRect(left+s*.52,top+height*.37,s*.48,s*.28);
+       c.fillStyle='#d9c39a';c.fillRect(left+width-s*.95,top+height*.19,s*.67,s*.25);
+       c.fillStyle='#9d8670';c.fillRect(left+width-s*.78,top+height*.41,s*.38,s*.52);
+      }
       if(e.blueprintId==='building.depot'){
        c.fillStyle='#d8b277';c.fillRect(left+s*.12,top+height*.65,s*.32,s*.32);
        c.fillRect(left+width-s*.44,top+height*.65,s*.32,s*.32);
