@@ -13,6 +13,7 @@ export class PersistenceWorker{
  private sequence=0;
  private failed:Error|null=null;
  private closing=false;
+ private closePromise:Promise<void>|null=null;
  private ready:Promise<WorldSnapshot|null>;
  constructor(root:string){
   this.worker=new Worker(new URL('./persistence-worker-thread.mts',import.meta.url),{workerData:{root}});
@@ -46,7 +47,7 @@ export class PersistenceWorker{
   });
  }
  commit(world:World,seed?:string,actions:AcceptedAction[]=[]){return this.submit<WorldSnapshot>('commit',{world,seed,actions});}
- switchWorld(world:World,seed?:string){return this.submit<WorldSnapshot>('switch',{world,seed});}
+ switchWorld(world:World,seed?:string,actions:AcceptedAction[]=[]){return this.submit<WorldSnapshot>('switch',{world,seed,actions});}
  saveNamed(name:string,world:World,seed?:string){return this.submit<WorldSnapshot>('saveNamed',{name,world,seed});}
  loadNamed(name:string){return this.submit<WorldSnapshot>('loadNamed',{name});}
  listSaves(){return this.submit<ReturnType<FileWorldStore['listSaves']>>('listSaves');}
@@ -54,5 +55,5 @@ export class PersistenceWorker{
  recentLog(limit=80){return this.submit<ActivityTick[]>('recentLog',{limit});}
  listLogs(){return this.submit<ReturnType<FileWorldStore['listLogs']>>('listLogs');}
  snapshot(world:World,seed?:string){return this.submit<WorldSnapshot>('snapshot',{world,seed});}
- async close(){if(this.pending)throw Error('PERSISTENCE_BUSY');if(this.closing)return;this.closing=true;await this.worker.terminate();}
+ close():Promise<void>{if(this.pending)return Promise.reject(Error('PERSISTENCE_BUSY'));if(!this.closePromise){this.closing=true;this.closePromise=this.worker.terminate().then(()=>{});}return this.closePromise;}
 }
