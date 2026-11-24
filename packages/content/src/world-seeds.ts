@@ -9,7 +9,6 @@ export function starterCommands(seed:string,world:World):StarterCommand[]{
  if(world.width<24||world.height<16)throw Error("WORLD_TOO_SMALL_FOR_SEED");
  const mirror=HASH(seed)%2===1;
  const entries:Array<[Command["action"],string,number,number,Record<string,unknown>] >=[
-  ["npc.spawn","player",4,5,{name:"Meu personagem",ownerId:"local-player"}],
   ["npc.spawn","leader",10,7,{communityRole:"leader"}],
   ["npc.spawn","settler-a",11,7,{}],
   ["npc.spawn","settler-b",12,7,{}],
