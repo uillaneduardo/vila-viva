@@ -3,7 +3,7 @@ import {SpriteLibrary,resolveWorldSprite} from './sprites.js';
 export class Scene {
  constructor(canvas){
   this.canvas=canvas;this.ctx=canvas.getContext('2d');this.camera=new Camera();
-  this.sprites=new SpriteLibrary();this.sprites.preload();this.world=null;this.selected=null;this.hover=null;this.hoverRoute=null;this.pointer=null;this.brush=null;
+  this.sprites=new SpriteLibrary();this.sprites.preload();this.world=null;this.motion=new Map();this.selected=null;this.hover=null;this.hoverRoute=null;this.pointer=null;this.brush=null;
   this.resize();this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(canvas);
  }
  resize(){
@@ -11,7 +11,24 @@ export class Scene {
   this.camera.setViewport(width,height);this.canvas.width=Math.round(width*dpr);this.canvas.height=Math.round(height*dpr);
   this.ctx.setTransform(dpr,0,0,dpr,0,0);this.dpr=dpr;
  }
- setWorld(world){if(!this.world)this.camera.centerOnWorld(world);this.world=world;}
+ setWorld(world){
+  if(!this.world)this.camera.centerOnWorld(world);
+  const oldById=new Map(this.world?.entities.map(e=>[e.id,e])??[]);
+  const now=performance.now();
+  for(const entity of world.entities){
+   if(entity.kind!=='character')continue;
+   const previous=oldById.get(entity.id);
+   if(!previous||previous.position.x===entity.position.x&&previous.position.y===entity.position.y)continue;
+   const active=this.motion.get(entity.id);
+   const progress=active?Math.min(1,(now-active.startedAt)/420):1;
+   const from=active&&progress<1?{
+    x:active.from.x+(active.to.x-active.from.x)*progress,
+    y:active.from.y+(active.to.y-active.from.y)*progress
+   }:previous.position;
+   this.motion.set(entity.id,{from,to:{...entity.position},startedAt:now});
+  }
+  this.world=world;
+ }
  setSelection(id){this.selected=id;}
  setHover(id){this.hover=id;}
  setRoute(waypoints){this.hoverRoute=Array.isArray(waypoints)?waypoints:null;}
@@ -31,8 +48,19 @@ export class Scene {
   }
   // Only real entities from /api/world are visualized. No fake houses, stocks or paths.
   for(const e of [...this.world.entities].sort((a,b)=>(a.position.y+(a.kind==='construction'?a.footprint.height:1))-(b.position.y+(b.kind==='construction'?b.footprint.height:1)))){
-   const p=k.worldToScreen((e.position.x+(e.kind==='construction'?e.footprint.width/2:.5))*t,
-     (e.position.y+(e.kind==='construction'?e.footprint.height/2:.5))*t),s=t*k.zoom;
+   let pos=e.position;
+   if(e.kind==='character'){
+    const animation=this.motion.get(e.id);
+    if(animation){
+     const alpha=Math.min(1,(now-animation.startedAt)/420);
+     const eased=alpha*alpha*(3-2*alpha);
+     pos={x:animation.from.x+(animation.to.x-animation.from.x)*eased,
+      y:animation.from.y+(animation.to.y-animation.from.y)*eased};
+     if(alpha>=1)this.motion.delete(e.id);
+    }
+   }
+   const p=k.worldToScreen((pos.x+(e.kind==='construction'?e.footprint.width/2:.5))*t,
+     (pos.y+(e.kind==='construction'?e.footprint.height/2:.5))*t),s=t*k.zoom;
    if(p.x<-s||p.y<-s||p.x>w+s||p.y>h+s)continue;
    const visual=resolveWorldSprite(e);
    const drawn=visual&&this.sprites.draw(c,visual.id,p.x,p.y,s*visual.scale,visual.state);
@@ -68,6 +96,15 @@ export class Scene {
      if(phase===4){
       c.fillStyle='#594737';c.fillRect(-s*.17,top+height*.49,s*.34,height*.42);
       c.fillStyle='#d9c89b';c.fillRect(-s*.06,top+height*.59,s*.06,s*.09);
+      if(e.blueprintId==='building.depot'){
+       c.fillStyle='#d8b277';c.fillRect(left+s*.12,top+height*.65,s*.32,s*.32);
+       c.fillRect(left+width-s*.44,top+height*.65,s*.32,s*.32);
+       c.strokeStyle='#6a4b36';c.lineWidth=Math.max(1,s*.035);
+       c.strokeRect(left+s*.12,top+height*.65,s*.32,s*.32);
+       c.strokeRect(left+width-s*.44,top+height*.65,s*.32,s*.32);
+       c.strokeRect(left+s*.17,top+height*.7,s*.22,s*.22);
+       c.strokeRect(left+width-s*.39,top+height*.7,s*.22,s*.22);
+      }
      }
     }else if(e.kind==='character'){
      c.beginPath();c.arc(0,0,Math.max(7,s*.28),0,Math.PI*2);c.fillStyle=e.ownerId?'#e5d19e':'#d6c091';c.fill();

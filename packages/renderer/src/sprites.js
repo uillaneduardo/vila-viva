@@ -4,7 +4,8 @@ export const SPRITES=Object.freeze({
  'resource.wood':{id:'resources/tree',states:['available','exhausted']},
  'resource.food':{id:'vegetation/apple_tree',states:['leafless','foliage','fruit_sparse','fruit_ripe']},
  'resource.stone':{id:'resources/stone',states:['available','exhausted']},
- 'building.community_house':{id:'buildings/community_house',states:['site','foundation','structure','roof','completed']}
+ 'building.community_house':{id:'buildings/community_house',states:['site','foundation','structure','roof','completed']},
+ 'building.depot':{id:'buildings/depot',states:['site','foundation','structure','completed']}
 });
 
 /** Atlas source is local, transparent, and deliberately independent of UI icons. */
@@ -21,9 +22,10 @@ export const WORLD_ATLASES=Object.freeze({
 export function resolveWorldSprite(entity){
  if(entity?.kind==='character')return {id:'entities/human',state:'idle',scale:.79};
  if(entity?.kind==='construction'){
-  const state=entity.status==='completed'?'completed':
-   ['site','foundation','structure','roof'][Math.min(3,entity.stageIndex)];
-  return {id:'buildings/community_house',state,scale:1};
+  const states=entity.blueprintId==='building.depot'?
+   ['site','foundation','structure']:['site','foundation','structure','roof'];
+  const state=entity.status==='completed'?'completed':states[Math.min(states.length-1,entity.stageIndex)];
+  return {id:entity.blueprintId==='building.depot'?'buildings/depot':'buildings/community_house',state,scale:1};
  }
  if(entity?.kind!=='resource')return null;
  if(entity.resourceType==='food'){

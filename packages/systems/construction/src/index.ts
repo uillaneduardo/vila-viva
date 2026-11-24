@@ -6,7 +6,7 @@ import {buildingBlueprint} from "../../../content/src/buildings/registry.ts";
 export function createConstructionSite(id:string,position:Position,blueprint:BuildingBlueprint):Construction {
  return {id,kind:"construction",blueprintId:blueprint.id,blueprintVersion:blueprint.version,
   position:{...position},footprint:{...blueprint.footprint},status:"site",availability:"unavailable",
-  stageIndex:0,delivered:{},workDone:0};
+  stageIndex:0,delivered:{},workDone:0,...(blueprint.storage?{stock:{}}:{})};
 }
 export function currentStage(site:Construction):Readonly<BuildingStage>|undefined {
  if(site.status!=="site")return undefined;
@@ -55,3 +55,20 @@ export function applyConstructionWork(site:Construction,amount:number,tick:numbe
  }
  return {stageCompleted:stage.id,buildingCompleted:false};
 }
+
+/** God Mode may spawn a completed building, but no items/occupants are invented. */
+export function createCompletedBuilding(id:string,position:Position,blueprint:BuildingBlueprint,tick:number):Construction {
+ const entity=createConstructionSite(id,position,blueprint);
+ entity.status="completed";entity.availability="available";
+ entity.stageIndex=blueprint.stages.length;entity.completedTick=tick;
+ return entity;
+}
+export function storageDefinition(site:Construction) {
+ if(site.status!=="completed"||site.availability!=="available")return undefined;
+ const def=buildingBlueprint(site.blueprintId);
+ return def?.version===site.blueprintVersion?def.storage:undefined;
+}
+export const storedTotal=(site:Construction):number=>
+ Object.values(site.stock??{}).reduce((total,quantity)=>total+Math.max(0,quantity),0);
+export const storageFree=(site:Construction):number=>
+ Math.max(0,(storageDefinition(site)?.capacity??0)-storedTotal(site));

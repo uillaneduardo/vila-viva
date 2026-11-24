@@ -3,7 +3,7 @@ import {baseRegistry,RESOURCE_PRESETS} from "../../../packages/content/src/catal
 import {EFFECTS} from "../../../packages/content/src/effects/catalog.ts";
 import {COMMUNITY_HOUSE} from "../../../packages/content/src/buildings/community-house.ts";
 import {BUILDING_BLUEPRINTS} from "../../../packages/content/src/buildings/registry.ts";
-import {currentStage,materialsRemaining,hasMaterials,buildingCapabilities} from "../../../packages/systems/construction/src/index.ts";
+import {currentStage,materialsRemaining,hasMaterials,buildingCapabilities,storageDefinition,storedTotal,storageFree} from "../../../packages/systems/construction/src/index.ts";
 import {NATURAL_SOURCES} from "../../../packages/content/src/natural-sources.ts";
 import {SCENERY_PRESETS} from "../../../packages/content/src/scenery.ts";
 import {resolveAttributes} from "../../../packages/systems/effects/src/resolver.ts";
@@ -56,21 +56,27 @@ export function makePrototype(){
     actions:Object.fromEntries([...baseRegistry.actions].map(([id,d])=>[id,displayText(d.displayName)])),
     resources:Object.fromEntries(Object.values(RESOURCE_PRESETS).map(p=>[p.resourceType,displayText(baseRegistry.entity(p.definitionId).displayName)])),
     effects:Object.fromEntries(Object.values(EFFECTS).map(e=>[e.id,displayText(e.displayName)])),
-    buildings:{[COMMUNITY_HOUSE.id]:displayText(COMMUNITY_HOUSE.displayName)},
+    buildings:Object.fromEntries(Object.values(BUILDING_BLUEPRINTS).map(b=>[b.id,displayText(b.displayName)])),
     buildingBlueprints:Object.fromEntries(Object.values(BUILDING_BLUEPRINTS).map(b=>[b.id,{
       id:b.id,label:displayText(b.displayName),footprint:b.footprint,version:b.version,
       stages:b.stages.map(s=>({id:s.id,label:displayText(s.displayName),materials:s.materials,workUnits:s.workUnits})),
-      effects:b.effects
+      effects:b.effects,storage:b.storage??null
     }])),
     naturalSources:Object.fromEntries(Object.values(NATURAL_SOURCES).map(s=>[s.id,{label:s.label,productId:s.productId,production:s.production,stages:s.stages}])),
     scenery:Object.fromEntries(Object.values(SCENERY_PRESETS).map(s=>[s.id,s.label]))
    });
-   if(url.pathname==="/api/world"&&req.method==="GET")return json(res,200,{world,clock:clockView(),storageSummary:null,
+   if(url.pathname==="/api/world"&&req.method==="GET"){
+    const depots=world.entities.filter(e=>e.kind==="construction"&&!!storageDefinition(e));
+    const storageSummary=depots.length?
+     Object.fromEntries(["wood","stone","food","apple"].map(item=>[item,depots.reduce((sum,d)=>sum+(d.stock?.[item]??0),0)])):null;
+    return json(res,200,{world,clock:clockView(),storageSummary,
     npcViews:Object.fromEntries(world.entities.filter(e=>e.kind==="character").map(e=>[e.id,{
      mood:resolveAttributes({...e,attributes:{...e.attributes,health:e.health,energy:e.energy}},world.tick).values.mood,
-     activity:null,route:null
+     activity:e.ai?.activity??null,reason:e.ai?.reason??"Sem tarefa",route:e.ai?.route??null,
+     targetId:e.ai?.targetId??null
     }])),
     playerId,mode:"local-prototype",persistent:false});
+   }
    if(url.pathname==="/api/inspect"&&req.method==="GET"){
     const entity=world.entities.find(e=>e.id===url.searchParams.get("entityId"));
     if(!entity)return json(res,404,{error:"NOT_FOUND"});
@@ -80,7 +86,10 @@ export function makePrototype(){
        id:e.instanceId,name:EFFECTS[e.definitionId]?.displayName["pt-BR"]??e.definitionId,
        sourceId:e.sourceId,stacks:e.stacks,expiresAtTick:e.expiresAtTick??null
       })):[],
-      activity:null,route:null,inventory:entity.kind==="character"?(entity.inventory??{}):null,
+      activity:entity.kind==="character"?entity.ai?.activity??null:null,
+      route:entity.kind==="character"?entity.ai?.route??null:null,
+      reason:entity.kind==="character"?entity.ai?.reason??"Sem tarefa":null,
+      inventory:entity.kind==="character"?(entity.inventory??{}):null,
       natural:entity.kind==="resource"&&entity.sourceId?{
        species:entity.sourceId,productId:entity.productId,life:entity.life??null,
        production:NATURAL_SOURCES[entity.sourceId]?.production??null
@@ -90,9 +99,14 @@ export function makePrototype(){
        blueprintId:entity.blueprintId,blueprintVersion:entity.blueprintVersion,
        stage:currentStage(entity)?.id??null,remaining:materialsRemaining(entity),
        materialsReady:hasMaterials(entity),capabilities:buildingCapabilities(entity),
-       stageIndex:entity.stageIndex,status:entity.status,availability:entity.availability
+       stageIndex:entity.stageIndex,status:entity.status,availability:entity.availability,
+       storage:storageDefinition(entity)?{
+        stock:entity.stock??{},total:storedTotal(entity),free:storageFree(entity),
+        capacity:storageDefinition(entity)!.capacity,accepted:storageDefinition(entity)!.accepted
+       }:null
       }:null,
-      needs:null,social:null,decisions:null
+      needs:null,social:null,
+      decisions:entity.kind==="character"?entity.ai?.history??[]:null
     });
    }
    if(url.pathname==="/api/clock"&&req.method==="POST"){

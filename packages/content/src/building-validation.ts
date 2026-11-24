@@ -10,6 +10,12 @@ export function validateBuildingBlueprint(blueprint:BuildingBlueprint):void{
   const materialEntries=Object.entries(stage.materials);
   if(!materialEntries.length||materialEntries.some(([key,amount])=>!key.trim()||!Number.isSafeInteger(amount)||amount<1))throw Error("Invalid materials");
  }
+ if(blueprint.storage){
+  const storage=blueprint.storage;
+  if(!Number.isSafeInteger(storage.capacity)||storage.capacity<1||!storage.accepted.length||
+    new Set(storage.accepted).size!==storage.accepted.length||
+    storage.accepted.some(id=>!id.trim()))throw Error("Invalid storage");
+ }
  for(const effect of blueprint.effects){
   if(!effect.capability.trim()||!Number.isFinite(effect.value)||!effect.unit.trim())throw Error("Invalid capability");
  }

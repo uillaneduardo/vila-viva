@@ -16,7 +16,7 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
  el('expand').replaceChildren(createUiVisual('control.expand',{size:18}));
  el('collapse').addEventListener('click',collapse);
  el('expand').addEventListener('click',()=>{collapsed=false;open();});
- el('follow').replaceChildren(createUiVisual('control.follow',{size:17}));el('follow').disabled=true;el('follow').title='Seguir NPC disponível após implementação do movimento';
+ el('follow').replaceChildren(createUiVisual('control.follow',{size:17}));el('follow').disabled=true;el('follow').title='Rota do NPC pode ser observada ao passar o mouse';
  function setSelection(id){
   if(selectedId!==id){selectedId=id;active='overview';sections='';lastContent='';collapsed=false;}
   if(!id)close();else if(collapsed)collapse();else open();
@@ -30,7 +30,7 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
    (catalog?.buildingBlueprints?.[entity.blueprintId]?.label||'Construção'):entity.kind==='obstacle'?
    (catalog?.scenery?.[entity.obstacleType]||'Obstáculo'):
    (entity.sourceId?catalog?.naturalSources?.[entity.sourceId]?.label:catalog?.resources?.[entity.resourceType])||'Recurso';
-  el('panelDesc').textContent=isNpc?'Personagem · Sem atividade registrada':entity.kind==='construction'?
+  el('panelDesc').textContent=isNpc?(entity.ownerId?'Personagem jogador · Controle manual':'Habitante · Decisões autônomas'):entity.kind==='construction'?
    (entity.status==='completed'?'Edificação concluída':'Canteiro de obras · Construção em andamento'):entity.kind==='obstacle'?
    'Elemento estático · Não coletável':entity.sourceId?'Fonte viva · Produção renovável':'Fonte de recurso';
   const allowed=isNpc?['overview','health','effects']:['overview'];
@@ -43,7 +43,7 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
     b.className='nav-item';b.title=names[id];b.setAttribute('aria-label',names[id]);
     b.replaceChildren(createUiVisual(({overview:'section.overview',health:'section.attributes',effects:'section.effects'})[id]||'ui.unavailable',{size:19}));
     const text=document.createElement('span');text.textContent=names[id];b.append(text);
-    b.addEventListener('click',()=>{active=id;lastContent='';render(entity,details,catalog);});
+    b.addEventListener('click',()=>{active=id;lastContent='';render(entity,details,catalog,options);});
     nav.append(b);
    }
    sections=signature;
@@ -53,11 +53,20 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
   if(isNpc){
    const values=details?.attributes?.values;
    if(active==='overview'){
-    html='<div class="quick-state"><strong>Sem atividade registrada</strong><small>IA e tarefas ainda não implementadas</small></div>';
+    const ai=entity.ai;
+    html='<div class="quick-state"><strong>'+safe(ai?.activity??'Aguardando')+'</strong><small>'+safe(ai?.reason??'Aguardando atribuição de tarefa')+'</small></div>';
     html+='<h3>Condição do habitante</h3><div class="stat-grid">'+bar('Saúde',entity.health,'#a8cca1')+bar('Energia',entity.energy,'#d9c18b')+
       (values?bar('Humor',values.mood,'#9ec6cd'):'')+'</div>';
-    html+='<h3>Informações</h3>'+row('Posição',entity.position.x+', '+entity.position.y)+row('Atividade','Não disponível')+row('Rota','Pathfinder pendente');
-    html+='<h3>Inventário carregado</h3>'+row('Maçãs',entity.inventory?.apple??0)+row('Capacidade',Object.values(entity.inventory??{}).reduce((a,b)=>a+b,0)+' / 12');
+    html+='<h3>Informações</h3>'+row('Posição',entity.position.x+', '+entity.position.y)+row('Atividade',ai?.activity??'Aguardando')+
+     row('Rota',ai?.route?.length?Math.max(0,ai.route.length-1)+' passos planejados':'Sem rota')+
+     row('Destino',ai?.targetId??'Nenhum');
+    html+='<h3>Últimas decisões</h3>';
+    const decisions=details?.decisions??[];
+    html+=decisions.length?decisions.slice(-6).reverse().map(item=>'<div class="data-row"><span>Tick '+safe(item.tick)+' · '+safe(item.activity)+'</span><strong style="max-width:50%;white-space:normal;text-align:right">'+safe(item.reason)+'</strong></div>').join(''):
+     '<p class="empty">Nenhuma decisão autônoma registrada.</p>';
+    html+='<h3>Inventário carregado</h3>';
+    for(const resourceId of ['wood','stone','apple'])html+=row(({wood:'Madeira',stone:'Pedra',apple:'Maçãs'})[resourceId],entity.inventory?.[resourceId]??0);
+    html+=row('Capacidade',Object.values(entity.inventory??{}).reduce((a,b)=>a+b,0)+' / 12');
    } else if(active==='health'){
     if(values){
      html='<h3>Atributos efetivos</h3>';
@@ -81,7 +90,17 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
    if(completed){
     html+='<h3>Capacidades desbloqueadas</h3>';
     for(const effect of blueprint?.effects??[])html+=row(effect.capability,capabilities[effect.capability]===undefined?'Inativa':capabilities[effect.capability]+' '+effect.unit);
-    html+='<p class="empty">Capacidades disponíveis para sistemas de moradia e convivência. Ainda não existem moradores atribuídos automaticamente.</p>';
+    if(details?.construction?.storage){
+     const storage=details.construction.storage;
+     html+='<h3>Estoque físico</h3>'+row('Ocupação',storage.total+' / '+storage.capacity)+row('Espaço livre',storage.free);
+     for(const item of storage.accepted){
+      const name=({wood:'Madeira',stone:'Pedra',apple:'Maçãs'})[item]||item;
+      html+=row(name,storage.stock?.[item]??0);
+      if(options.role==='admin'&&storage.free>0)
+       html+='<button type="button" class="context-action" data-construction-action="storage.admin_supply" data-material="'+safe(item)+'" data-amount="'+Math.min(12,storage.free)+'">Adicionar '+Math.min(12,storage.free)+' '+name+' (teste)</button>';
+     }
+     html+='<p class="empty">Somente depósitos concluídos recebem itens; NPCs transportam o estoque fisicamente. Botões acima são injeções explícitas de homologação.</p>';
+    }else html+='<p class="empty">Capacidades disponíveis para sistemas de moradia e convivência. Moradores ainda não são atribuídos automaticamente.</p>';
    }else if(stage){
     html+='<h3>Materiais da etapa</h3>';
     for(const [material,required] of Object.entries(stage.materials)){
@@ -123,7 +142,7 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
    el('harvestSelected')?.addEventListener('click',()=>onHarvest(entity.id));
    for(const button of el('panelBody').querySelectorAll('[data-construction-action]')){
     button.addEventListener('click',()=>onConstruction(entity.id,button.dataset.constructionAction,
-     button.dataset.constructionAction==='construction.admin_supply'?
+     ['construction.admin_supply','storage.admin_supply'].includes(button.dataset.constructionAction)?
       {materialId:button.dataset.material,quantity:Number(button.dataset.amount)}:
       {workUnits:Number(button.dataset.amount)}));
    }}
