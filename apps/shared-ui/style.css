@@ -112,3 +112,26 @@ button:focus-visible,input:focus-visible,canvas:focus-visible{outline:2px solid 
  .brush{max-width:calc(100vw - 12px);flex-wrap:wrap;white-space:normal;justify-content:center}
  .brush-preset select{min-width:98px}
 }
+
+/* World control is an independent workspace overlay: no gameplay logic or state in CSS. */
+.world-mgr-trigger{border:1px solid rgba(204,226,198,.18);color:inherit;
+ padding:9px 12px;border-radius:12px;font-size:12px;font-weight:650;cursor:pointer}
+.world-mgr-trigger:hover{background:#3b5844}
+.world-mgr{position:absolute;top:73px;right:16px;z-index:12;width:min(370px,calc(100vw - 32px));
+ max-height:min(75vh,630px);overflow-y:auto;padding:16px;box-sizing:border-box;
+ border-radius:16px;font-size:12px;scrollbar-width:thin}
+.world-mgr[hidden]{display:none}
+.world-mgr h3{margin:0 0 8px;font-size:15px}
+.world-mgr h4{font-size:12px;margin:16px 0 7px}
+.world-mgr p{color:#bbcab7;margin:0 0 12px;line-height:1.5}
+.world-mgr-row{display:flex;gap:7px;align-items:stretch;margin:7px 0}
+.world-mgr-row>input,.world-mgr-row>select{flex:1;min-width:0;border:1px solid #536958;
+ border-radius:9px;color:#f2f6ec;background:#26382d;padding:8px;font:inherit}
+.world-mgr-row>button{border:1px solid #63816a;border-radius:9px;
+ color:#f2f6ec;background:#365540;padding:7px 10px;font:inherit;cursor:pointer}
+.world-mgr-row>button:hover{background:#4d6c51}
+.world-mgr-activity{font-size:11px;max-height:160px;overflow:auto;
+ border:1px solid #455b47;border-radius:10px;padding:7px}
+.world-mgr-activity>div{padding:5px 3px;border-bottom:1px solid #445744;color:#d1decf}
+@media(max-width:780px){.world-mgr{top:92px;right:8px;width:calc(100vw - 16px)}
+ .world-mgr-trigger{font-size:11px;padding:7px}}

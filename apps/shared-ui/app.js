@@ -140,7 +140,7 @@ async function submitBrush(){
   kind==='house'?'construction.place':kind==='farm'?'farming.zone.create':'resource.spawn';
  const commands=cells.map((position,i)=>({
   commandId:crypto.randomUUID(),action,position,
-  parameters:kind==='npc'?{}:
+  parameters:kind==='npc'?(preset==='leader'?{communityRole:'leader'}:{}):
    kind==='scenery'?{obstacleType:preset}:
    kind==='house'?{blueprintId:preset,mode:buildMode}:
    kind==='farm'?{sourceId:preset,width:brushSize,height:brushSize}:

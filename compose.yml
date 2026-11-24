@@ -10,6 +10,10 @@ services:
       HOST: "0.0.0.0"
       PORT: "8086"
       SOURCE_SHA: "${SOURCE_SHA:?SOURCE_SHA must be the validated commit}"
+      OTURO_DATA_DIR: "/opt/oturo/data"
+      OTURO_WORLD_SEED: "oturo-starter-v1"
+    volumes:
+      - oturo_world_data:/opt/oturo/data
     ports:
       - "127.0.0.1:8481:8086"
     healthcheck:
@@ -17,3 +21,7 @@ services:
       interval: 20s
       timeout: 5s
       retries: 5
+
+# Owned by the vNext service. No deploy may remove or reset this volume.
+volumes:
+  oturo_world_data:
