@@ -143,7 +143,7 @@ function storedCargo(world:World,npc:Character):Task|null {
  for(const [item,quantity] of Object.entries(inventory)){
   if(quantity<=0||!ITEMS[item])continue;
   // Keep a small personal food reserve; surplus remains available for collective storage.
-  const reserve=Object.hasOwn(FOOD_ITEMS,item)?Math.min(quantity,Math.ceil(FOOD_RESERVE_SATIETY/FOOD_ITEMS[item].satiety)):0;
+  const reserve=Object.hasOwn(FOOD_ITEMS,item)?Math.min(quantity,Math.ceil(FOOD_RESERVE_SATIETY/FOOD_ITEMS[item as keyof typeof FOOD_ITEMS].satiety)):0;
   if(quantity<=reserve)continue;
   // Keep seeds needed by an existing plot in hand until planting has been attempted.
   if(ITEMS[item].category==="seed"&&world.entities.some(e=>e.kind==="planting_zone"&&
