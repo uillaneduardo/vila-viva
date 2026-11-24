@@ -315,25 +315,35 @@ function record(npc:Character,world:World,activity:string|null,reason:string,tar
 /** Survival outranks construction, with real fruit consumption and no created food. */
 function foodTask(world:World,npc:Character):Task|null {
  const warehouses=depots(world),free=CARRY_LIMIT-load(npc);
- if(free<=0){
-  for(const [item,amount] of Object.entries(npc.inventory??{})){
-   if(amount<=0||Object.hasOwn(FOOD_ITEMS,item))continue;
-   const task=selectTask(world,npc,warehouses.filter(d=>acceptedBy(d,item)&&storageFree(d)>0),
-    "Liberando espaço para alimento","Preciso comer; inventário cheio",
-    "storage.deposit",target=>({materialId:item,quantity:Math.min(amount,storageFree(target as Construction))}));
-   if(task)return task;
+ if(free>0){
+  for(const food of Object.values(FOOD_ITEMS)){
+   const stored=selectTask(world,npc,warehouses.filter(d=>stocked(d,food.id)>0),
+    "Buscando alimento","Saciedade baixa; procurar "+food.label+" no depósito",
+    "storage.withdraw",target=>({materialId:food.id,quantity:Math.min(2,free,stocked(target as Construction,food.id))}));
+   if(stored)return stored;
   }
-  return null;
  }
- for(const food of Object.values(FOOD_ITEMS)){
-  const stored=selectTask(world,npc,warehouses.filter(d=>stocked(d,food.id)>0),
-   "Buscando alimento","Saciedade baixa; procurar "+food.label+" no depósito",
-   "storage.withdraw",target=>({materialId:food.id,quantity:Math.min(2,free,stocked(target as Construction,food.id))}));
-  if(stored)return stored;
- }
- if(free<3)return null;
- return selectTask(world,npc,resources(world).filter(r=>r.sourceId&&naturalSource(r.sourceId)?.growthMode),
+ const edibleSources=resources(world).filter(r=>{
+  const def=r.sourceId?naturalSource(r.sourceId):undefined;
+  return !!def&&Object.hasOwn(FOOD_ITEMS,def.productId)&&r.life?.stage!=="dead";
+ });
+ const harvest=selectTask(world,npc,edibleSources.filter(r=>free>(naturalSource(r.sourceId!)?.seedsPerHarvest??0)),
   "Colhendo alimento","Saciedade baixa; colher alimento pronto para consumo","resource.harvest");
+ if(harvest)return harvest;
+ // Free only cargo that can be physically deposited, and only when a reachable
+ // food source or stocked warehouse can benefit from the extra capacity.
+ const reachable=edibleSources.filter(r=>routeToEntity(world,npc.position,r,npc.id));
+ const required=Math.min(...reachable.map(r=>(naturalSource(r.sourceId!)?.seedsPerHarvest??0)+1),
+  ...(warehouses.some(d=>Object.keys(FOOD_ITEMS).some(id=>stocked(d,id)>0)&&routeToEntity(world,npc.position,d,npc.id))?[1]:[]));
+ if(free>=required||!Number.isFinite(required))return null;
+ for(const [item,amount] of Object.entries(npc.inventory??{})){
+  if(amount<=0||Object.hasOwn(FOOD_ITEMS,item))continue;
+  const task=selectTask(world,npc,warehouses.filter(d=>acceptedBy(d,item)&&storageFree(d)>0),
+   "Liberando espaço para alimento","Preciso comer; liberar capacidade para coleta",
+   "storage.deposit",target=>({materialId:item,quantity:Math.min(amount,storageFree(target as Construction),required-free)}));
+  if(task)return task;
+ }
+ return null;
 }
 function rest(world:World,npc:Character,execute:ActionHandler):boolean {
  const ai=npc.ai;
@@ -424,10 +434,14 @@ export function advanceNpcDecisions(world:World,execute:ActionHandler):void {
      result.ok?"Consumiu "+edible.label+" do próprio inventário":"Não conseguiu se alimentar ("+(result.ok?"":result.error)+")");
     continue;
    }
-   const task=foodTask(world,npc);
+   const task=npc.energy>0?foodTask(world,npc):null;
    if(task){releaseBed(world,npc);npc.ai&&(npc.ai.resting=false);executeTask(world,npc,task,execute);continue;}
   }
   if(rest(world,npc,execute))continue;
+  if((npc.satiety??100)<=10){
+   record(npc,world,null,"Fome crítica: sem alimento acessível; trabalho não essencial suspenso");
+   continue;
+  }
   const task=choose(world,npc);
   if(!task){
    if(idleStep(world,npc,execute))continue;
