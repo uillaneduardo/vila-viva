@@ -39,7 +39,7 @@ test("cafeteria consumes real ingredients, creates meals and replaces raw food e
 test("mine consumes finite underground reserve only with nearby living worker and storage space",()=>{
  const w=createWorld("mine",20,16),mine=place(w,"shaft","building.mine",8,8);
  const n=npc(w,"miner",7,8),far=npc(w,"far",1,1);n.equipment={};
- assert.equal(act(w,far,"far","mine.extract",mine.id,{materialId:"iron_ore"}).error,"BLOCKED");
+ assert.equal(act(w,far,"far-extract","mine.extract",mine.id,{materialId:"iron_ore"}).error,"BLOCKED");
  const before=mine.mineRemaining.iron_ore;
  assert.ok(act(w,n,"first","mine.extract",mine.id,{materialId:"iron_ore"}).ok);
  assert.equal(mine.stock.iron_ore,2);
