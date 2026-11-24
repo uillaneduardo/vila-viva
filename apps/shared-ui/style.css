@@ -324,7 +324,7 @@ button:focus-visible,input:focus-visible,canvas:focus-visible{outline:2px solid 
  #interface:has(.context:not([hidden])) .status{bottom:auto;top:calc(var(--mobile-top) + 135px)}
  body[data-role="player"] .dock-button:disabled{display:none}
 }
-@media (min-width:500px) and (max-width:740px), (pointer:coarse) and (max-height:600px) and (min-width:500px){
+@media (min-width:700px) and (max-width:740px), (pointer:coarse) and (max-height:600px) and (min-width:700px){
  .top-center{top:var(--mobile-top);left:50%;right:auto;transform:translateX(-50%);flex-wrap:nowrap}
  .resources{height:50px}
  .brand{max-width:16%}
