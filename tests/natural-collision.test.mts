@@ -54,6 +54,7 @@ test('physical collection requires adjacency and transfers fruit to actor invent
  applyCommand(w,cmd(w,'npc','npc.spawn',{position:{x:3,y:2},parameters:{name:'Ayla'}}));
  const tree=w.entities.find(e=>e.id==='resource-tree');
  const npc=w.entities.find(e=>e.id==='npc-npc');
+ npc.inventory={}; // isolate harvest accounting from randomized spawn cargo
  const harvest=(commandId)=>applyCommand(w,{worldId:w.id,commandId,actorRole:'npc',actorId:npc.id,
   action:'resource.harvest',targetId:tree.id});
  assert.equal(harvest('h1').ok,true);
