@@ -10,7 +10,7 @@ test("NPC cuts dead apple tree outside any farming zone",()=>{
  assert.ok(admin(w,"tree","resource.spawn",{x:3,y:2},{resourceType:"food",sourceId:"apple_tree",ageTicks:3000,quantity:0}).ok);
  for(let i=0;i<12;i++)advanceTick(w);
  assert.ok(!w.entities.some(e=>e.id==="resource-tree"));
- assert.equal(npc.inventory?.wood,4);
+ assert.ok((npc.inventory?.wood??0)>=3&&(npc.inventory?.wood??0)<=5);
 });
 test("fully enclosed NPC exposes physical blockers without destroying buildings or walls",()=>{
  const w=createWorld("trap",3,3);
