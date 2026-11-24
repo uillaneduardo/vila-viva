@@ -1,3 +1,4 @@
+import {TickScheduler} from "./tick-scheduler.mts";
 import {TimingMetrics} from "./timing-metrics.mts";
 import {displayText} from "../../../packages/domain/src/localization.ts";
 import {baseRegistry,RESOURCE_PRESETS} from "../../../packages/content/src/catalog.ts";
@@ -94,15 +95,12 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
  const clockView=()=>({speed:clock.speed,paused:clock.speed===0,tick:world.tick,day:1+Math.floor(world.tick/240),hour:Math.floor(world.tick/10)%24,minute:(world.tick%10)*6});
  // Tick is independent from browser refresh. Command-triggered ticks remain
  // a known M1 migration debt and are not hidden as a completed gameplay loop.
- let phase=0;
+ const scheduler=new TickScheduler();
  const timer=setInterval(()=>{
-  if(clock.speed===0){phase=0;lastTickAt=null;return;}
-  phase+=clock.speed;
-  if(phase<4)return;
-  phase-=4;
-  try{progressOneTick();}
-  catch(error){clock.speed=0;phase=0;console.error("Simulation paused: persistence failed",error);}
- },62.5);
+  if(clock.speed===0){scheduler.reset();lastTickAt=null;return;}
+  try{scheduler.pulse(clock.speed,progressOneTick);}
+  catch(error){clock.speed=0;scheduler.reset();lastTickAt=null;console.error("Simulation paused: persistence failed",error);}
+ },scheduler.quantumMs);
  timer.unref();
  const json=(res:import("node:http").ServerResponse,status:number,data:unknown)=>{
   res.writeHead(status,{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"});
@@ -191,7 +189,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
     const restoredWorld=structuredClone(loaded.world);
     removeLegacyAvatar(restoredWorld);
     store.switchWorld(restoredWorld,loaded.seed??restoredWorld.seed);
-    world=restoredWorld;generation++;phase=0;publishRevision();
+    world=restoredWorld;generation++;scheduler.reset();lastTickAt=null;publishRevision();
     return json(res,200,{ok:true,worldId:world.id,tick:world.tick,paused:true,
      timelineId:store.timelineId});
    }
@@ -208,7 +206,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
     clock.speed=0;
     const next=createWorld("first-world",width,height);
     if(store)store.switchWorld(next,seed);
-    world=next;generation++;phase=0;
+    world=next;generation++;scheduler.reset();lastTickAt=null;
     initialize(seed);publishRevision();
     return json(res,200,{ok:true,tick:world.tick,paused:true,seed:seed??null,width,height});
    }
@@ -330,7 +328,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
     const input=await readBody(req);
     if(input?.role!=="admin")return json(res,403,{error:"UNAUTHORIZED"});
     if(![0,1,2,4].includes(input.speed))return json(res,422,{error:"INVALID_PAYLOAD"});
-    clock.speed=input.speed;phase=0;
+    clock.speed=input.speed;scheduler.reset();lastTickAt=null;
     store?.commit(world,world.seed);publishRevision();
     return json(res,200,{clock:clockView()});
    }
