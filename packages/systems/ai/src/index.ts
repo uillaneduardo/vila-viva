@@ -311,6 +311,10 @@ function choose(world:World,npc:Character):Task|null{
  if(production?.action==="storage.deposit")return production;
  const equipment=equipmentTask(world,npc);
  if(equipment)return equipment;
+ // Clear a dead tree underfoot before discretionary storage; survival is handled earlier.
+ const underfoot=world.entities.filter(e=>e.kind==="resource"&&e.sourceId==="apple_tree"&&e.life?.stage==="dead"&&e.position.x===npc.position.x&&e.position.y===npc.position.y);
+ const clearing=selectTask(world,npc,underfoot,"Cortando madeira seca","Liberar a célula ocupada por macieira morta","nature.cut");
+ if(clearing)return {...clearing,domain:"woodcutting"};
  const cargo=storedCargo(world,npc);
  if(cargo)return cargo;
  const pickup=groundTask(world,npc);if(pickup)return pickup;
