@@ -16,6 +16,9 @@ const sample=()=>{
  const dead=w.entities.filter(e=>e.kind==="character"&&!e.ownerId&&e.health<=0);
  const buildings=w.entities.filter(e=>e.kind==="construction");
  const burials=buildings.flatMap(e=>e.burials??[]);
+ const temporary=buildings.filter(e=>e.blueprintId==="building.temporary_storage");
+ const conventional=buildings.filter(e=>e.blueprintId==="building.depot"&&e.status==="completed");
+ const stockTotal=e=>Object.values(e.stock??{}).reduce((a,b)=>a+b,0);
  const crops=w.entities.filter(e=>e.kind==="resource"&&e.sourceId);
  const nutrition=(stock)=>Object.values(FOOD_ITEMS).reduce((n,f)=>n+(stock?.[f.id]??0)*f.satiety,0);
  return {tick:w.tick,living:alive.length,dead:dead.length+burials.length,
@@ -27,7 +30,9 @@ const sample=()=>{
   groundSeeds:w.entities.filter(e=>e.kind==='item'&&e.itemId.endsWith('_seed')).reduce((n,e)=>n+e.quantity,0),
   cropFood:crops.reduce((n,e)=>n+e.quantity,0),deadCrops:crops.filter(e=>e.life?.stage==="dead").length,
   completed:buildings.filter(e=>e.status==="completed").length,
-  blocked:alive.filter(e=>e.ai?.activity==="Bloqueado").length};
+  blocked:alive.filter(e=>e.ai?.activity==="Bloqueado").length,
+  temporaryStorage:{count:temporary.length,empty:temporary.filter(e=>stockTotal(e)===0).length,stock:temporary.reduce((a,e)=>a+stockTotal(e),0)},
+  conventionalStorage:{count:conventional.length,stock:conventional.reduce((a,e)=>a+stockTotal(e),0)}};
 };
 samples.push(sample());diagnostics.observe(w);const start=performance.now();
 for(let i=0;i<ticks;i++){
