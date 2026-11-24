@@ -11,6 +11,8 @@ import {SCENERY_PRESETS} from "../../../packages/content/src/scenery.ts";
 import {resolveAttributes} from "../../../packages/systems/effects/src/resolver.ts";
 import {bedsIn,reservationCount} from "../../../packages/systems/housing/src/index.ts";
 import {TOOL_PRESETS,injuryProbability} from "../../../packages/systems/risk/src/index.ts";
+import {TRAITS} from "../../../packages/content/src/characters.ts";
+import {cemeteryCapacity,availableGraves} from "../../../packages/systems/mortality/src/index.ts";
 import {createServer} from "node:http";
 import {readFile} from "node:fs/promises";
 import {resolve,extname,sep} from "node:path";
@@ -61,11 +63,14 @@ export function makePrototype(){
     resources:Object.fromEntries(Object.values(RESOURCE_PRESETS).map(p=>[p.resourceType,displayText(baseRegistry.entity(p.definitionId).displayName)])),
     effects:Object.fromEntries(Object.values(EFFECTS).map(e=>[e.id,displayText(e.displayName)])),
     tools:Object.fromEntries(Object.values(TOOL_PRESETS).map(tool=>[tool.id,tool.label])),
+    traits:Object.fromEntries(Object.entries(TRAITS).map(([id,trait])=>[id,{
+      label:trait.label,description:trait.description
+    }])),
     buildings:Object.fromEntries(Object.values(BUILDING_BLUEPRINTS).map(b=>[b.id,displayText(b.displayName)])),
     buildingBlueprints:Object.fromEntries(Object.values(BUILDING_BLUEPRINTS).map(b=>[b.id,{
       id:b.id,label:displayText(b.displayName),footprint:b.footprint,version:b.version,
       stages:b.stages.map(s=>({id:s.id,label:displayText(s.displayName),materials:s.materials,workUnits:s.workUnits})),
-      effects:b.effects,storage:b.storage??null,housing:b.housing??null
+      effects:b.effects,storage:b.storage??null,housing:b.housing??null,cemetery:b.cemetery??null
     }])),
     naturalSources:Object.fromEntries(Object.values(NATURAL_SOURCES).map(s=>[s.id,{
       label:s.label,productId:s.productId,seedItem:s.seedItem,seedsPerHarvest:s.seedsPerHarvest,
@@ -122,6 +127,10 @@ export function makePrototype(){
        stage:currentStage(entity)?.id??null,remaining:materialsRemaining(entity),
        materialsReady:hasMaterials(entity),capabilities:buildingCapabilities(entity),
        stageIndex:entity.stageIndex,status:entity.status,availability:entity.availability,
+       cemetery:entity.blueprintId==="building.cemetery"?{
+        capacity:cemeteryCapacity(entity),free:availableGraves(entity),
+        burials:entity.burials??[]
+       }:null,
        housing:bedsIn(entity)>0?{
         beds:bedsIn(entity),reserved:reservationCount(entity),
         reservations:Object.entries(entity.bedReservations??{}).map(([npcId,data])=>({

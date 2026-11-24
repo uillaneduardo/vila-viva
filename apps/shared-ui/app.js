@@ -103,9 +103,11 @@ function updateHover(point){
  if(!npc){hoverId=null;el('tooltip').hidden=true;scene.setHover(null);scene.setRoute(null);return;}
  hoverId=npc.id;scene.setHover(hoverId);
  el('tooltipName').textContent=npc.name;
- el('tooltipHealth').textContent='Saúde '+npc.health+'% · Energia '+npc.energy+'% · Saciedade '+(npc.satiety??100)+'%';
+ el('tooltipHealth').textContent=npc.health<=0?'☠ Falecido · '+(npc.causeOfDeath??'Causa não determinada'):
+  'Saúde '+npc.health+'% · Energia '+npc.energy+'% · Saciedade '+(npc.satiety??100)+'%';
  const view=snapshot.npcViews?.[npc.id];
- el('tooltipActivity').textContent=(view?.activity??'Aguardando')+' · Humor '+(view?.mood==null?'—':Math.round(view.mood)+'%');
+ el('tooltipActivity').textContent=npc.health<=0?'Corpo aguardando sepultamento':
+  (view?.activity??'Aguardando')+' · Humor '+(view?.mood==null?'—':Math.round(view.mood)+'%');
  el('tooltipRoute').textContent=view?.route?.length?'Rota: '+Math.max(0,view.route.length-1)+' passos':(view?.reason??'Sem rota ativa');
  scene.setRoute(view?.route??null);
  const tip=el('tooltip');
@@ -138,7 +140,7 @@ async function submitBrush(){
   kind==='house'?'construction.place':kind==='farm'?'farming.zone.create':'resource.spawn';
  const commands=cells.map((position,i)=>({
   commandId:crypto.randomUUID(),action,position,
-  parameters:kind==='npc'?{name:'Habitante '+(snapshot.world.entities.filter(e=>e.kind==='character').length+i+1)}:
+  parameters:kind==='npc'?{}:
    kind==='scenery'?{obstacleType:preset}:
    kind==='house'?{blueprintId:preset,mode:buildMode}:
    kind==='farm'?{sourceId:preset,width:brushSize,height:brushSize}:

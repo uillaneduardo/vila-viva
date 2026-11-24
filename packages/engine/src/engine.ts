@@ -13,6 +13,8 @@ import {advanceNpcDecisions} from "../../systems/ai/src/index.ts";
 import {advanceNeeds,eatFood,updateNeedEffects} from "../../systems/needs/src/index.ts";
 import {TOOL_PRESETS,evaluateActionRisk} from "../../systems/risk/src/index.ts";
 import {clearHouse,pruneBeds} from "../../systems/housing/src/index.ts";
+import {generateCharacterProfile} from "../../content/src/characters.ts";
+import {advanceMortality,isCorpse,carriedCorpse,availableGraves,registerBurial} from "../../systems/mortality/src/index.ts";
 import {inBounds} from "../../domain/src/contracts.ts";
 import type {Command, World, Result, Character, Resource, Position} from "../../domain/src/contracts.ts";
 
@@ -49,10 +51,13 @@ export function applyCommand(world: World, command: Command,options:{internal?:b
   const id=prefix+command.commandId;eventTargetId=id;
   if(command.action==="npc.spawn"){
    const name=command.parameters?.name;
-   if(typeof name!=="string"||!name.trim()||name.length>64)return reject(command,"INVALID_PAYLOAD");
+   if(name!==undefined&&(typeof name!=="string"||!name.trim()||name.length>64))return reject(command,"INVALID_PAYLOAD");
+   const profile=generateCharacterProfile(world.id,command.commandId,world.tick);
    const ownerId=command.parameters?.ownerId;
    if(ownerId!==undefined&&(typeof ownerId!=="string"||!ownerId.trim()))return reject(command,"INVALID_PAYLOAD");
-   const character:Character={kind:"character",id,name,position:{...command.position},health:100,energy:100,satiety:100,inventory:{},equipment:{},injuries:0,
+   const character:Character={kind:"character",id,name:typeof name==="string"?name:profile.name,
+    traits:profile.traits,attributes:profile.attributes,
+    position:{...command.position},health:100,energy:100,satiety:100,inventory:{},equipment:{},injuries:0,
     ...(typeof ownerId==="string"?{ownerId}:{})};
    world.entities.push(character);
   } else if(command.action==="obstacle.spawn"){
@@ -111,6 +116,46 @@ export function applyCommand(world: World, command: Command,options:{internal?:b
   const id="plant-"+command.commandId;eventTargetId=id;
   world.entities.push(plantInZone(world,id,zone,command.position));
   additionalEvents.push({type:"farming.planted",entityId:id});
+ } else if(command.action==="burial.pickup"){
+  if(admin)return reject(command,"UNAUTHORIZED");
+  const corpse=world.entities.find(e=>e.id===command.targetId);
+  if(!corpse)return reject(command,"NOT_FOUND");
+  if(!isCorpse(corpse)||corpse.bodyCarriedBy)return reject(command,"INVALID_TARGET");
+  const actor=actorForCommand(world,command);
+  if(!actor)return reject(command,"UNAUTHORIZED");
+  if(actor.health<=0||actor.energy<=0||carriedCorpse(world,actor.id)||
+    !(orthogonallyAdjacent(actor.position,corpse.position)||
+      (actor.position.x===corpse.position.x&&actor.position.y===corpse.position.y)))
+   return reject(command,"BLOCKED");
+  corpse.deathTick??=world.tick;
+  corpse.causeOfDeath??=(corpse.satiety??100)===0?"Inanição":"Ferimentos ou saúde esgotada";
+  corpse.bodyCarriedBy=actor.id;
+  corpse.position={...actor.position};
+  actor.energy=Math.max(0,actor.energy-1);
+  additionalEvents.push({type:"burial.body_collected",entityId:corpse.id});
+ } else if(command.action==="burial.drop"){
+  if(admin)return reject(command,"UNAUTHORIZED");
+  const actor=actorForCommand(world,command);
+  if(!actor)return reject(command,"UNAUTHORIZED");
+  const corpse=carriedCorpse(world,actor.id);
+  if(!corpse||corpse.id!==command.targetId)return reject(command,"NOT_READY");
+  corpse.position={...actor.position};delete corpse.bodyCarriedBy;
+  additionalEvents.push({type:"burial.body_released",entityId:corpse.id});
+ } else if(command.action==="burial.inter"){
+  if(admin)return reject(command,"UNAUTHORIZED");
+  const cemetery=world.entities.find(e=>e.id===command.targetId);
+  if(!cemetery)return reject(command,"NOT_FOUND");
+  if(cemetery.kind!=="construction")return reject(command,"INVALID_TARGET");
+  const actor=actorForCommand(world,command);
+  if(!actor)return reject(command,"UNAUTHORIZED");
+  if(actor.health<=0||actor.energy<=0||!nearFootprint(actor.position,cemetery))
+   return reject(command,"BLOCKED");
+  if(availableGraves(cemetery)<1)return reject(command,"NOT_READY");
+  const corpse=carriedCorpse(world,actor.id);
+  if(!corpse)return reject(command,"NOT_READY");
+  if(!registerBurial(world,corpse,cemetery))return reject(command,"NOT_READY");
+  actor.energy=Math.max(0,actor.energy-1);
+  additionalEvents.push({type:"burial.interred",entityId:cemetery.id});
  } else if(command.action==="nature.cut"){
   if(admin)return reject(command,"UNAUTHORIZED");
   const index=world.entities.findIndex(e=>e.id===command.targetId);
@@ -224,6 +269,8 @@ export function applyCommand(world: World, command: Command,options:{internal?:b
   if(character.health<=0||resolveAttributes({...character,attributes:{...character.attributes,energy:character.energy,health:character.health}},world.tick).values.energy<=0 ||
     !orthogonallyAdjacent(character.position,command.position)||!canEnter(world,command.position,character.id))return reject(command,"BLOCKED");
   character.position={...command.position};character.energy=Math.max(0,character.energy-1);
+  for(const body of world.entities)if(body.kind==="character"&&body.bodyCarriedBy===character.id)
+   body.position={...character.position};
  } else if(command.action==="resource.harvest"){
   if(admin)return reject(command,"UNAUTHORIZED");
   const source=world.entities.find(e=>e.id===command.targetId);
@@ -296,6 +343,7 @@ export function applyCommand(world: World, command: Command,options:{internal?:b
   // External actions retain legacy tick accounting. Autonomous NPC actions do not accelerate time.
   world.tick+=1;
  }
+ advanceMortality(world);
  const expired=options.internal?[]:world.entities.filter(e=>e.kind==="character").flatMap(e=>expireEffects(e,e.id,world.tick));
  return {ok:true,status:"completed",commandId:command.commandId,tick:world.tick,
   events:[{type:command.action,entityId:eventTargetId},...additionalEvents,...expired.map(e=>({type:e.type,entityId:e.targetId}))]};
@@ -305,7 +353,9 @@ export function advanceTick(world:World){
  world.tick+=1;
  advanceNaturalSources(world);
  advanceNeeds(world);
+ advanceMortality(world);
  pruneBeds(world);
  advanceNpcDecisions(world,(cmd)=>applyCommand(world,cmd,{internal:true}));
+ advanceMortality(world);
  return world.entities.filter(e=>e.kind==="character").flatMap(e=>expireEffects(e,e.id,world.tick));
 }

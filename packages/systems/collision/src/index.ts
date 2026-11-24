@@ -1,6 +1,7 @@
 import type {World,Entity,Position} from "../../../domain/src/contracts.ts";
 import {inBounds} from "../../../domain/src/contracts.ts";
 import {naturalSource} from "../../../content/src/natural-sources.ts";
+import {buildingBlueprint} from "../../../content/src/buildings/registry.ts";
 export const resourceBlocksMovement=(entity:Extract<Entity,{kind:"resource"}>):boolean=>
  entity.sourceId?naturalSource(entity.sourceId)?.blocksMovement??true:entity.quantity>0;
 
@@ -8,7 +9,9 @@ export const resourceBlocksMovement=(entity:Extract<Entity,{kind:"resource"}>):b
 export const blocksMovement=(entity:Entity):boolean=>
  entity.kind==="obstacle"?entity.blocksMovement:
  entity.kind==="resource"?resourceBlocksMovement(entity):
- entity.kind==="planting_zone"?false:entity.kind==="construction"?true:entity.kind==="character";
+ entity.kind==="planting_zone"?false:entity.kind==="construction"?
+  !(entity.status==="completed"&&buildingBlueprint(entity.blueprintId)?.cemetery):
+ entity.kind==="character"?entity.health>0:false;
 export const sameCell=(a:Position,b:Position):boolean=>a.x===b.x&&a.y===b.y;
 export function occupiesCell(entity:Entity,cell:Position):boolean {
  if(entity.kind==="construction"||entity.kind==="planting_zone")return cell.x>=entity.position.x&&cell.y>=entity.position.y&&
@@ -21,7 +24,8 @@ export function blockingEntity(world:World,cell:Position,ignoreId?:string):Entit
 export function canPlaceFootprint(world:World,position:Position,width:number,height:number):boolean {
  if(!Number.isSafeInteger(width)||!Number.isSafeInteger(height)||width<1||height<1)return false;
  for(let y=position.y;y<position.y+height;y++)for(let x=position.x;x<position.x+width;x++)
-  if(!canEnter(world,{x,y}))return false;
+  if(!canEnter(world,{x,y})||
+   world.entities.some(e=>e.kind==="construction"&&occupiesCell(e,{x,y})))return false;
  return true;
 }
 export const canEnter=(world:World,cell:Position,ignoreId?:string):boolean=>

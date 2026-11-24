@@ -20,7 +20,8 @@ export const WORLD_ATLASES=Object.freeze({
 
 /** Map authoritative entity state to an appearance without changing the entity. */
 export function resolveWorldSprite(entity){
- if(entity?.kind==='character')return {id:'entities/human',state:'idle',scale:.79};
+ if(entity?.kind==='character')return entity.health<=0?
+  {id:'entities/human',state:'dead',scale:.79}:{id:'entities/human',state:'idle',scale:.79};
  if(entity?.kind==='construction'){
   const states=entity.blueprintId==='building.depot'?
    ['site','foundation','structure']:['site','foundation','structure','roof'];

@@ -90,7 +90,8 @@ export function createHud({role,onTool,onClock,onSize,onPreset=()=>{},onBuildMod
    el('clockTime').textContent=String(clock.hour).padStart(2,'0')+':'+String(clock.minute).padStart(2,'0');
    speedButtons.forEach((b,i)=>b.classList.toggle('active',[0,1,2,4][i]===clock.speed));
    speedButtons[0].replaceChildren(createUiVisual(clock.speed===0?'control.resume':'control.pause',{size:16}));
-   el('population').textContent=world.entities.filter(e=>e.kind==='character').length+' habitantes';
+   el('population').textContent=world.entities.filter(e=>e.kind==='character'&&e.health>0).length+
+    ' vivos · '+world.entities.filter(e=>e.kind==='character'&&e.health<=0).length+' falecidos';
    for(const resource of ['wood','food','stone']){
     el(resource+'Count').textContent=resource==='food'?(storageSummary?.food??'—'):(storageSummary?.[resource]??'—');
     el(resource+'Count').title=storageSummary?'Quantidade realmente armazenada em depósitos concluídos':'Nenhum depósito concluído';

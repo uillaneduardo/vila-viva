@@ -24,14 +24,15 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
  function render(entity,details,catalog,options={}){
   if(!entity||selectedId!==entity.id)return;
   const isNpc=entity.kind==='character';
-  el('portrait').textContent=isNpc?entity.name?.charAt(0).toUpperCase()||'?':
+  el('portrait').textContent=isNpc?(entity.health<=0?'☠':entity.name?.charAt(0).toUpperCase()||'?'):
    entity.kind==='construction'?'⌂':entity.kind==='planting_zone'?'▦':entity.kind==='obstacle'?'▣':({wood:'♣',stone:'◆',food:'●'})[entity.resourceType]||'■';
   el('panelName').textContent=isNpc?entity.name:entity.kind==='planting_zone'?
    ('Plantio · '+(catalog?.naturalSources?.[entity.sourceId]?.label??entity.sourceId)):entity.kind==='construction'?
    (catalog?.buildingBlueprints?.[entity.blueprintId]?.label||'Construção'):entity.kind==='obstacle'?
    (catalog?.scenery?.[entity.obstacleType]||'Obstáculo'):
    (entity.sourceId?catalog?.naturalSources?.[entity.sourceId]?.label:catalog?.resources?.[entity.resourceType])||'Recurso';
-  el('panelDesc').textContent=isNpc?(entity.ownerId?'Personagem jogador · Controle manual':'Habitante · Decisões autônomas'):entity.kind==='planting_zone'?
+  el('panelDesc').textContent=isNpc?(entity.health<=0?'Falecido · Aguardando sepultamento':
+    entity.ownerId?'Personagem jogador · Controle manual':'Habitante · Decisões autônomas'):entity.kind==='planting_zone'?
    'Área de plantio · Sem bloqueio de passagem':entity.kind==='construction'?
    (entity.status==='destroyed'?'Ruína · Edificação destruída':entity.status==='completed'?'Edificação concluída':'Canteiro de obras · Construção em andamento'):entity.kind==='obstacle'?
    'Elemento estático · Não coletável':entity.sourceId?'Fonte viva · Produção renovável':'Fonte de recurso';
@@ -56,7 +57,11 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
    const values=details?.attributes?.values;
    if(active==='overview'){
     const ai=entity.ai;
-    html='<div class="quick-state"><strong>'+safe(ai?.activity??'Aguardando')+'</strong><small>'+safe(ai?.reason??'Aguardando atribuição de tarefa')+'</small></div>';
+    html='<div class="quick-state"><strong>'+safe(entity.health<=0?'☠ Falecido':ai?.activity??'Aguardando')+
+     '</strong><small>'+safe(entity.health<=0?
+      ('Causa: '+(entity.causeOfDeath??'Indeterminada')+' · Morte no tick '+(entity.deathTick??'—')+
+       (entity.bodyCarriedBy?' · Sendo transportado':' · Corpo no mapa')):
+      ai?.reason??'Aguardando atribuição de tarefa')+'</small></div>';
     html+='<h3>Condição do habitante</h3><div class="stat-grid">'+bar('Saúde',entity.health,'#a8cca1')+bar('Energia',entity.energy,'#d9c18b')+
      bar('Saciedade',entity.satiety??100,'#e4ae81')+
      (values?bar('Humor',values.mood,'#9ec6cd'):'')+'</div>';
@@ -67,6 +72,9 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
     const decisions=details?.decisions??[];
     html+=decisions.length?decisions.slice(-6).reverse().map(item=>'<div class="data-row"><span>Tick '+safe(item.tick)+' · '+safe(item.activity)+'</span><strong style="max-width:50%;white-space:normal;text-align:right">'+safe(item.reason)+'</strong></div>').join(''):
      '<p class="empty">Nenhuma decisão autônoma registrada.</p>';
+    html+='<h3>Identidade e traços</h3>';
+    for(const id of entity.traits??[])html+=row(catalog?.traits?.[id]?.label??id,
+      catalog?.traits?.[id]?.description??'Característica pessoal');
     html+='<h3>Equipamentos e riscos</h3>';
     const gear=entity.equipment?.tool;
     const risk=details?.survival?.risk;
@@ -74,7 +82,7 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
     if(risk)html+=row('Risco madeira',(risk.wood*100).toFixed(1)+'%')+
       row('Risco mineração',(risk.stone*100).toFixed(1)+'%')+
       row('Risco de obra',(risk.building*100).toFixed(1)+'%');
-    if(options.role==='admin'&&!entity.ownerId){
+    if(options.role==='admin'&&!entity.ownerId&&entity.health>0){
      html+='<label class="equipment-label">Equipamento de teste <select id="equipmentChoice" aria-label="Ferramenta do NPC">'+
       '<option value="">Sem ferramenta</option>'+
       Object.entries(catalog?.tools??{}).map(([id,label])=>'<option value="'+safe(id)+'" '+(gear===id?'selected':'')+'>'+safe(label)+'</option>').join('')+
@@ -115,6 +123,14 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
      html+=housing.reservations.length?housing.reservations.map(r=>row(r.name,'Reserva até tick '+r.expiresTick)).join(''):
       '<p class="empty">Nenhuma cama reservada.</p>';
     }
+    if(details?.construction?.cemetery){
+     const graveyard=details.construction.cemetery;
+     html+='<h3>Memorial · sepultamentos</h3>'+row('Vagas',graveyard.capacity)+
+      row('Ocupadas',graveyard.burials.length)+row('Disponíveis',graveyard.free);
+     html+=graveyard.burials.length?graveyard.burials.map(record=>
+      '<div class="data-row"><span>'+safe(record.name)+'</span><strong>Tick '+safe(record.burialTick)+'</strong></div>').join(''):
+      '<p class="empty">Nenhum habitante sepultado.</p>';
+    }
     if(details?.construction?.storage){
      const storage=details.construction.storage;
      html+='<h3>Estoque físico</h3>'+row('Ocupação',storage.total+' / '+storage.capacity)+row('Espaço livre',storage.free);
@@ -126,7 +142,7 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
        html+='<button type="button" class="context-action" data-construction-action="storage.admin_supply" data-material="'+safe(item)+'" data-amount="'+Math.min(12,storage.free)+'">Adicionar '+Math.min(12,storage.free)+' '+name+' (teste)</button>';
      }
      html+='<p class="empty">Somente depósitos concluídos recebem itens; NPCs transportam o estoque fisicamente. Botões acima são injeções explícitas de homologação.</p>';
-    }else html+='<p class="empty">Capacidades disponíveis para sistemas de moradia e convivência. Moradores ainda não são atribuídos automaticamente.</p>';
+    }else html+='<p class="empty">Capacidades ativadas somente após concluir a construção.</p>';
    }else if(stage){
     html+='<h3>Materiais da etapa</h3>';
     for(const [material,required] of Object.entries(stage.materials)){
