@@ -26,12 +26,12 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
   const isNpc=entity.kind==='character';
   el('portrait').textContent=isNpc?(entity.health<=0?'☠':entity.name?.charAt(0).toUpperCase()||'?'):
    entity.kind==='construction'?'⌂':entity.kind==='planting_zone'?'▦':entity.kind==='obstacle'?'▣':({wood:'♣',stone:'◆',food:'●'})[entity.resourceType]||'■';
-  el('panelName').textContent=isNpc?entity.name:entity.kind==='planting_zone'?
+  el('panelName').textContent=entity.kind==='item'?(catalog?.items?.[entity.itemId]?.label??entity.itemId):isNpc?entity.name:entity.kind==='planting_zone'?
    ('Plantio · '+(catalog?.naturalSources?.[entity.sourceId]?.label??entity.sourceId)):entity.kind==='construction'?
    (catalog?.buildingBlueprints?.[entity.blueprintId]?.label||'Construção'):entity.kind==='obstacle'?
    (catalog?.scenery?.[entity.obstacleType]||'Obstáculo'):
    (entity.sourceId?catalog?.naturalSources?.[entity.sourceId]?.label:catalog?.resources?.[entity.resourceType])||'Recurso';
-  el('panelDesc').textContent=isNpc?(entity.health<=0?'Falecido · Aguardando sepultamento':
+  el('panelDesc').textContent=entity.kind==='item'?'Item no chão · Disponível para recolhimento':isNpc?(entity.health<=0?'Falecido · Aguardando sepultamento':
     entity.ownerId?'Personagem jogador · Controle manual':
     entity.communityRole==='leader'?'Líder · Planejamento da comunidade':'Habitante · Decisões autônomas'):entity.kind==='planting_zone'?
    'Área de plantio · Sem bloqueio de passagem':entity.kind==='construction'?
@@ -246,7 +246,8 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
     html+='<button type="button" id="harvestSelected" class="context-action" '+(options.canHarvest?'':'disabled')+'>'+
      (options.role==='admin'?'Testar colheita com NPC adjacente':'Colher alimento')+'</button>'+
      (options.canHarvest?'':'<p class="empty">Requer personagem adjacente, energia e espaço livre.</p>');
-  }else html='<h3>Fonte de recurso</h3>'+row('Tipo',catalog?.resources?.[entity.resourceType]||entity.resourceType)+row('Disponível',entity.quantity+' unidades')+row('Capacidade',entity.maximum+' unidades')+row('Posição',entity.position.x+', '+entity.position.y);
+  }else if(entity.kind==='item')html='<h3>Item físico</h3>'+row('Quantidade',entity.quantity)+row('Posição',entity.position.x+', '+entity.position.y);
+  else html='<h3>Fonte de recurso</h3>'+row('Tipo',catalog?.resources?.[entity.resourceType]||entity.resourceType)+row('Disponível',entity.quantity+' unidades')+row('Capacidade',entity.maximum+' unidades')+row('Posição',entity.position.x+', '+entity.position.y);
   if(lastContent!==html){const scroll=el('panelScroll');const previous=scroll.scrollTop;
    const expanded=new Map([...el('panelBody').querySelectorAll('.stock-category')].map(e=>[e.dataset.category,e.open]));
    el('panelBody').innerHTML=html;
