@@ -142,5 +142,7 @@ test('API presents warehouse blueprints, empty completed stock, NPC activity and
   assert.ok(Array.isArray((await (await fetch(base+'/api/inspect?entityId=npc-npc-init')).json()).decisions));
  }finally{await new Promise(resolve=>server.close(resolve));}
  const hud=await readFile(new URL('../packages/ui/src/hud.js',import.meta.url),'utf8');
- assert.match(hud,/buildMode/);assert.match(hud,/building\.depot/);
+ assert.match(hud,/buildMode/);
+ const menu=await readFile(new URL('../packages/ui/src/god-menu-definitions.js',import.meta.url),'utf8');
+ assert.match(menu,/building\.depot/);
 });

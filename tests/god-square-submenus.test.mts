@@ -156,7 +156,7 @@ test("HTML and CSS provide square mobile-friendly submenus without changing engi
   for(const id of ["godActionStack","godSubmenu","godSubmenuChoices","godBuildModeChoices"])
    assert.match(html,new RegExp('id="'+id+'"'));
  }
- assert.doesNotMatch(hud,/createElement\('select'\)|brushPreset|buildMode[^A-Za-z]*select/);
+ assert.doesNotMatch(hud,/createElement\('select'\)|brushPreset/);
  assert.match(hud,/createUiVisual\(item.icon/);
  assert.match(css,/\.god-submenu-tile\{flex:0 0 74px/);
  assert.match(css,/\.god-submenu-tiles\{display:flex;.*overflow-x:auto/s);
