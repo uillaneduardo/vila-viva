@@ -32,7 +32,7 @@ export function resolveWorldSprite(entity){
   return spriteId?{id:spriteId,state,scale:1}:null;
  }
  if(entity?.kind!=='resource')return null;
- if(entity.sourceId==='carrot'||entity.sourceId==='potato')
+ if(entity.sourceId==='carrot'||entity.sourceId==='potato'||entity.sourceId==='medicinal_herb')
   return {id:'vegetation/'+entity.sourceId,state:entity.life?.stage??'seedling',scale:.82};
  if(entity.resourceType==='food'){
   // Species-specific projection; old generic food sources retain a compatible fallback.
