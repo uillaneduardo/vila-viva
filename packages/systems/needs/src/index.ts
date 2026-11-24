@@ -6,10 +6,11 @@ export const SATIETY_DECAY_INTERVAL=8;
 export const EAT_THRESHOLD=45;
 export const APPLE_SATIETY=35;
 /** Consumes exactly one real food item from character inventory. */
-export function eatFood(npc:Character,itemId:string):boolean {
+export function eatFood(npc:Character,itemId:string,tick=0):boolean {
  const item=foodItem(itemId);
  if(!item||npc.health<=0||(npc.inventory?.[itemId]??0)<1||(npc.satiety??100)>=SATIETY_MAX)return false;
  npc.inventory![itemId]--;npc.satiety=Math.min(SATIETY_MAX,(npc.satiety??100)+item.satiety);
+ applyEffect(npc,itemId==="meal"?"prepared_meal":"raw_meal","food",tick,"food:"+npc.id);
  return true;
 }
 export const eatApple=(npc:Character)=>eatFood(npc,"apple");
