@@ -220,10 +220,10 @@ function equipmentTask(world:World,npc:Character):Task|null{
  return source?{...source,domain:"hauling"}:null;
 }
 function constructionTasks(world:World,npc:Character):{deliver:Task|null;work:Task|null;source:Task|null}{
- const sites=sites(world),warehouses=depots(world);
+ const projects=sites(world),warehouses=depots(world);
  const inventory=npc.inventory??{},free=CARRY_LIMIT-load(npc);
  let deliver:Task|null=null,work:Task|null=null,source:Task|null=null;
- for(const site of sites){
+ for(const site of projects){
   const missing=materialsRemaining(site);
   for(const [item,amount] of Object.entries(missing)){
    if(amount<=0)continue;
