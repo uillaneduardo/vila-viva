@@ -194,10 +194,36 @@ if(role==='admin'&&el('worldManagerToggle')){
   const a=document.createElement('a');a.href=url;a.download='';document.body.append(a);
   a.click();a.remove();
  };
+ const renderEconomy=data=>{
+  const panel=el('worldEconomy');if(!panel)return;
+  panel.replaceChildren();
+  const add=message=>{const node=document.createElement('div');node.textContent=message;panel.append(node);};
+  add('Tick '+data.tick+' · Líder: '+(data.leader?.name??'nenhum'));
+  if(data.leader){
+   add('Construção: '+(data.leader.construction??'sem decisão'));
+   add('Produção: '+(data.leader.production??'sem pedido'));
+  }
+  for(const need of data.productionNeeds??[]){
+   add((catalog?.items?.[need.item]?.label??need.item)+
+    ': '+need.available+' / '+need.desired+' · faltam '+need.missing);
+  }
+  for(const shop of data.workshops??[]){
+   const recipe=catalog?.recipes?.[shop.order?.recipeId];
+   add('Oficina '+shop.id.slice(-8)+': '+(recipe?.label??'sem ordem')+
+    (shop.order?' · '+shop.order.workDone+'/'+recipe?.workUnits+' trabalho':'')+
+    (shop.ready?' · pronta':''));
+   for(const [item,quantity] of Object.entries(shop.missing??{}))
+    if(quantity>0)add('   Falta '+quantity+' '+(catalog?.items?.[item]?.label??item));
+  }
+  for(const depot of data.depots??[])add('Depósito '+depot.id.slice(-8)+
+   ': '+depot.occupied+'/'+depot.capacity+' itens');
+ };
  const refreshManager=async()=>{
-  const [saves,logs,activity]=await Promise.all([
-   request('/api/world/saves'),request('/api/world/logs'),request('/api/world/activity?limit=35')
+  const [saves,logs,activity,economy]=await Promise.all([
+   request('/api/world/saves'),request('/api/world/logs'),
+   request('/api/world/activity?limit=35'),request('/api/economy')
   ]);
+  renderEconomy(economy);
   const saved=el('savedWorlds'),selected=saved.value;
   saved.replaceChildren(...saves.saves.map(save=>{
    const option=document.createElement('option');option.value=save.name;
@@ -229,6 +255,7 @@ if(role==='admin'&&el('worldManagerToggle')){
   try{await operation();await refresh();await refreshManager();}
   catch(error){status('Mundos: '+error.message);}
  };
+ setInterval(()=>{if(!manager.hidden)void request('/api/economy').then(renderEconomy).catch(()=>{});},2000);
  el('worldManagerToggle').addEventListener('click',()=>{
   manager.hidden=!manager.hidden;
   if(!manager.hidden)void attempt(async()=>{});
