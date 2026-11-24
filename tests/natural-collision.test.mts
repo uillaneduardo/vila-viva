@@ -48,31 +48,37 @@ test('life progresses by logical clock; produces fruit, replenishes, ages and di
  assert.equal(w.entities.length,1); // dead trunk persists; never vanishes on depletion
  assert.equal(canEnter(w,tree.position),false);
 });
-test('physical collection requires adjacency and transfers fruit to actor inventory, not depot',()=>{
+test('physical harvest creates bounded ground stacks; pickup transfers fruit to actor inventory',()=>{
  const w=createWorld('w');
  placeApple(w,'tree',{x:3,y:3},120,8);
- applyCommand(w,cmd(w,'npc','npc.spawn',{position:{x:3,y:2},parameters:{name:'Ayla'}}));
+ applyCommand(w,cmd(w,'npc','npc.spawn',{position:{x:3,y:2},parameters:{name:'Ayla',ownerId:'test-owner'}}));
  const tree=w.entities.find(e=>e.id==='resource-tree');
  const npc=w.entities.find(e=>e.id==='npc-npc');
  npc.inventory={}; // isolate harvest accounting from randomized spawn cargo
  const harvest=(commandId)=>applyCommand(w,{worldId:w.id,commandId,actorRole:'npc',actorId:npc.id,
   action:'resource.harvest',targetId:tree.id});
- assert.equal(harvest('h1').ok,true);
- assert.equal(tree.quantity,5);
- assert.equal(npc.inventory.apple,3);
- assert.equal(npc.energy,99);
- assert.equal(harvest('h2').ok,true);
- assert.equal(tree.quantity,2);
- assert.equal(npc.inventory.apple,6);
- assert.equal(harvest('h3').ok,true);
- assert.equal(tree.quantity,0);
- assert.equal(npc.inventory.apple,8);
- assert.deepEqual(harvest('h4').error,'EXHAUSTED');
+ let count=0;
+ while(tree.quantity>0){
+  const before=tree.quantity;
+  assert.equal(harvest('h'+(++count)).ok,true);
+  assert.ok(before-tree.quantity>=1&&before-tree.quantity<=3);
+  const pile=w.entities.find(e=>e.kind==='item'&&e.itemId==='apple');
+  assert.equal(pile.quantity+tree.quantity,8);
+  assert.equal(npc.inventory.apple??0,0);
+ }
+ assert.equal(npc.energy,100-count);
+ assert.equal(harvest('exhausted').error,'EXHAUSTED');
  assert.equal(harvest('h1').error,'DUPLICATE_COMMAND');
+ const fruit=w.entities.find(e=>e.kind==='item'&&e.itemId==='apple');
+ const seeds=w.entities.find(e=>e.kind==='item'&&e.itemId==='apple_seed');
+ assert.ok(seeds.quantity>=count&&seeds.quantity<=count*2);
+ assert.equal(applyCommand(w,{worldId:w.id,commandId:'pickup-fruit',actorRole:'npc',actorId:npc.id,action:'item.pickup',targetId:fruit.id}).ok,true);
+ assert.equal(npc.inventory.apple,8);
+ assert.ok(!w.entities.some(e=>e.id===fruit.id));
  assert.equal(tree.maximum,30);
  for(let i=0;i<40;i++)advanceTick(w);
- assert.equal(tree.quantity,3); // same tree regenerates
- assert.equal(npc.inventory.apple,8); // never credited to a global stock
+ assert.equal(tree.quantity,3);
+ assert.equal(npc.inventory.apple,8);
 });
 test('disconnected, tired, impersonated and nonadjacent actors cannot harvest',()=>{
  const w=createWorld('w');
