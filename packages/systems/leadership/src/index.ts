@@ -19,6 +19,9 @@ const buildings=(world:World):Construction[]=>world.entities.filter((e):e is Con
 const isProjectNeeded=(world:World,id:string):boolean=>{
  const existing=buildings(world);
  if(id==="building.depot"||id==="building.workshop")return !existing.some(b=>b.blueprintId===id);
+ if(id==="building.family_house")return existing.filter(b=>b.blueprintId===id).length<Math.floor(living(world).length/2);
+ if(id==="building.cafeteria")return living(world).length>=3&&!existing.some(b=>b.blueprintId===id);
+ if(id==="building.mine")return !existing.some(b=>b.blueprintId===id)&&!world.entities.some(e=>e.kind==="resource"&&e.resourceType==="iron_ore"&&e.quantity>0);
  if(id==="building.community_house"){
   const capacity=existing.filter(b=>b.blueprintId===id).reduce((sum,b)=>sum+
    (b.status==="site"?(buildingBlueprint(id)?.housing?.adultBeds??0):bedsIn(b)),0);
@@ -163,7 +166,7 @@ export function advanceLeaderDecisions(world:World,execute:(cmd:Command)=>Result
  const productionIntent=planProduction(world);
  if(productionIntent){
   const workshop=world.entities.find((e):e is Construction=>e.kind==="construction"&&
-   !!productionDefinition(e)&&!(e.productionOrders?.length));
+   e.blueprintId==="building.workshop"&&!!productionDefinition(e)&&!(e.productionOrders?.length));
   if(workshop){
    const outcome=execute({worldId:world.id,commandId:"leader-production-"+world.tick+"-"+leader.id,
     actorRole:"npc",actorId:leader.id,action:"production.order",targetId:workshop.id,
