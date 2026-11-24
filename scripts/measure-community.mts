@@ -2,6 +2,8 @@ import {performance} from "node:perf_hooks";
 import {createWorld,applyCommand,advanceTick} from "../packages/engine/src/engine.ts";
 import {bootstrapSeededWorld} from "../packages/content/src/world-seeds.ts";
 import {FOOD_ITEMS} from "../packages/content/src/foods.ts";
+import {createCommunityDiagnostics} from "./community-diagnostics.mts";
+const diagnostics=createCommunityDiagnostics();
 const seed=process.argv[2]??"oturo-starter-v1";
 const ticks=Number(process.argv[3]??15000);
 if(!Number.isSafeInteger(ticks)||ticks<1||ticks>100000)throw Error("Invalid tick count");
@@ -27,10 +29,11 @@ const sample=()=>{
   completed:buildings.filter(e=>e.status==="completed").length,
   blocked:alive.filter(e=>e.ai?.activity==="Bloqueado").length};
 };
-samples.push(sample());const start=performance.now();
+samples.push(sample());diagnostics.observe(w);const start=performance.now();
 for(let i=0;i<ticks;i++){
  advanceTick(w,a=>{actions[a.action]=(actions[a.action]??0)+1;});
+ diagnostics.observe(w);
  if((i+1)%1000===0||i+1===ticks)samples.push(sample());
 }
 const elapsedMs=performance.now()-start;
-console.log(JSON.stringify({seed,ticks,elapsedMs,msPerTick:elapsedMs/ticks,actions,samples},null,2));
+console.log(JSON.stringify({seed,ticks,elapsedMs,msPerTick:elapsedMs/ticks,actions,samples,diagnostics:diagnostics.report(),timingIncludesDiagnostics:true},null,2));
