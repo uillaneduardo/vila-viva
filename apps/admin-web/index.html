@@ -36,11 +36,23 @@
   </section>
   <span class="glass tool-badge" id="toolBadge">Modo observar</span>
  <nav id="dock" class="dock glass" aria-label="Ferramentas do Modo Deus"></nav>
- <div id="brushPanel" class="brush glass" hidden>
-  <strong id="brushName">Pincel</strong><span class="sep"></span><span>Tamanho</span>
-  <button id="brushMinus" title="Diminuir pincel">−</button><output id="brushValue">1 × 1</output><button id="brushPlus" title="Aumentar pincel">+</button>
-  <input id="brushSize" type="range" min="1" max="15" value="1" step="1" aria-label="Tamanho do pincel">
-  <span id="brushCount">1 célula</span>
+ <div id="godActionStack" class="god-action-stack">
+  <div id="brushPanel" class="brush glass" hidden>
+   <strong id="brushName">Pincel</strong><span class="sep"></span><span>Tamanho</span>
+   <button id="brushMinus" title="Diminuir pincel">−</button><output id="brushValue">1 × 1</output><button id="brushPlus" title="Aumentar pincel">+</button>
+   <input id="brushSize" type="range" min="1" max="15" value="1" step="1" aria-label="Tamanho do pincel">
+   <span id="brushCount">1 célula</span>
+  </div>
+  <section id="godSubmenu" class="god-submenu glass" hidden aria-label="Submenu de opções do Modo Deus">
+   <div class="god-submenu-section">
+    <span class="god-submenu-caption" id="godSubmenuLabel">Tipo</span>
+    <div id="godSubmenuChoices" class="god-submenu-tiles" role="group" aria-label="Tipo de elemento"></div>
+   </div>
+   <div id="godBuildModes" class="god-submenu-section god-submenu-modes" hidden>
+    <span class="god-submenu-caption">Estado inicial</span>
+    <div id="godBuildModeChoices" class="god-submenu-tiles" role="group" aria-label="Fase da construção"></div>
+   </div>
+  </section>
  </div>
  <section id="npcActivityMonitor" class="npc-monitor glass" aria-label="Atividades dos habitantes">
   <header class="npc-monitor-head">

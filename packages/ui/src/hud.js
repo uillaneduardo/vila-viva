@@ -1,4 +1,5 @@
 import {createUiVisual} from '../assets/visual.js';
+import {godMenuOptions,BUILD_MODES,HAS_GOD_SUBMENU} from './god-menu-definitions.js';
 const toolDefs=[
  ['inspect','Inspecionar','action.inspect'],
  ['npc','Habitante','action.add-npc'],
@@ -13,7 +14,20 @@ const toolDefs=[
 ];
 export function createHud({role,onTool,onClock,onSize,onPreset=()=>{},onBuildMode=()=>{}}){
  const el=id=>document.getElementById(id);
- const dock=el('dock');
+ const dock=el('dock'),submenu=el('godSubmenu'),choices=el('godSubmenuChoices'),
+  submenuLabel=el('godSubmenuLabel'),modes=el('godBuildModes'),
+  modeChoices=el('godBuildModeChoices');
+ let currentTool='inspect',buildMode='site',blueprints={},farmingSpecies={
+  apple_tree:{label:'Macieira'},carrot:{label:'Cenoura'},potato:{label:'Batata'}
+ };
+ const selectedByTool=new Map();
+ const range=el('brushSize'),minus=el('brushMinus'),plus=el('brushPlus');
+ const brushTools=['npc','wood','stone','food','farm','scenery','house'];
+ const brushTitles={npc:'Pincel · Habitante',wood:'Pincel · Floresta',stone:'Pincel · Pedreira',
+  food:'Pincel · Macieira',farm:'Pincel · Plantio',scenery:'Pincel · Cenário',house:'Pincel · Construir'};
+ const tips={inspect:'Modo observar',npc:'Adicionar habitantes ou líder',wood:'Adicionar fontes de madeira',
+  stone:'Adicionar pedra ou jazidas minerais',food:'Plantar macieiras',farm:'Demarcar zona de cultivo',
+  scenery:'Posicionar obstáculos sólidos',house:'Posicionar canteiro de obras'};
  for(const [id,label,glyph] of toolDefs){
   const b=document.createElement('button');b.type='button';b.dataset.tool=id;
   b.className='dock-button'+(id==='inspect'?' active':'');
@@ -32,74 +46,97 @@ export function createHud({role,onTool,onClock,onSize,onPreset=()=>{},onBuildMod
   if(role!=='admin'){b.disabled=true;b.title='Controle do mundo indisponível para jogador';}
   b.addEventListener('click',()=>onClock(speed));
  });
- const range=el('brushSize'),minus=el('brushMinus'),plus=el('brushPlus');
- const label=document.createElement('label');label.className='brush-preset';label.textContent='Tipo';
- const preset=document.createElement('select');preset.id='brushPreset';preset.setAttribute('aria-label','Tipo de elemento');
- label.append(preset);
- el('brushPanel').insertBefore(label,el('brushName').nextSibling);
- preset.addEventListener('change',()=>{
-  onPreset(preset.value);
-  if(dock.querySelector('[data-tool="house"].active'))thisUpdateHouseArea();
- });
- const modeLabel=document.createElement('label');modeLabel.className='brush-preset';modeLabel.textContent='Fase';
- const modeSelect=document.createElement('select');modeSelect.id='buildMode';modeSelect.setAttribute('aria-label','Estado inicial da construção');
- for(const [value,name] of [['site','Projeto (fase 1)'],['completed','Concluída']]){
-  const option=document.createElement('option');option.value=value;option.textContent=name;modeSelect.append(option);
- }
- modeLabel.append(modeSelect);el('brushPanel').insertBefore(modeLabel,label.nextSibling);
- modeSelect.addEventListener('change',()=>onBuildMode(modeSelect.value));
- let buildingChoices=[['building.community_house','Casa Comunitária'],['building.depot','Depósito']];
- let blueprints={};
- const thisUpdateHouseArea=()=>{
-  const area=blueprints[preset.value]?.footprint??{width:2,height:2};
+ const updateHouseArea=()=>{
+  const selected=selectedByTool.get('house');
+  const area=blueprints[selected]?.footprint??{width:2,height:2};
   el('brushValue').textContent=area.width+' × '+area.height;
-  el('brushCount').textContent=(area.width*area.height)+' células ocupadas';
+  el('brushCount').textContent=area.width*area.height+' células ocupadas';
  };
- let farmingChoices=[['apple_tree','Macieira'],['carrot','Cenoura'],['potato','Batata']];
- const inhabitantChoices=[['settler','Habitante'],['leader','Líder']];
+ const makeTile=(item,kind,onClick)=>{
+  const button=document.createElement('button');button.type='button';
+  button.className='god-submenu-tile';button.dataset[kind]=item.id;
+  button.title=item.label+(item.description?' · '+item.description:'');
+  button.setAttribute('aria-label',button.title);
+  const glyph=document.createElement('span');glyph.className='glyph';
+  glyph.append(createUiVisual(item.icon,{size:20}));
+  const label=document.createElement('span');label.className='god-submenu-tile-label';
+  label.textContent=item.label;
+  button.append(glyph,label);
+  if(item.description){
+   const meta=document.createElement('small');meta.className='god-submenu-tile-meta';
+   meta.textContent=item.description;
+   button.append(meta);
+  }
+  button.addEventListener('click',()=>onClick(item.id));
+  return button;
+ };
+ const applySelection=(container,kind,value)=>{
+  for(const button of container.children){
+   const active=button.dataset[kind]===value;
+   button.classList.toggle('active',active);
+   button.setAttribute('aria-pressed',String(active));
+  }
+ };
+ const selectPreset=value=>{
+  if(![...choices.children].some(button=>button.dataset.preset===value))return;
+  selectedByTool.set(currentTool,value);
+  applySelection(choices,'preset',value);
+  onPreset(value);
+  if(currentTool==='house')updateHouseArea();
+ };
+ const selectMode=value=>{
+  if(!BUILD_MODES.some(item=>item.id===value))return;
+  buildMode=value;
+  applySelection(modeChoices,'buildMode',value);
+  onBuildMode(value);
+ };
+ const renderSubmenu=()=>{
+  const options=godMenuOptions(currentTool,{blueprints,farmingSpecies});
+  if(role!=='admin'||!options.length||!HAS_GOD_SUBMENU.includes(currentTool)){
+   submenu.hidden=true;choices.replaceChildren();return;
+  }
+  const selected=selectedByTool.get(currentTool);
+  const chosen=options.some(item=>item.id===selected)?selected:options[0].id;
+  submenuLabel.textContent=currentTool==='house'?'Construção':currentTool==='farm'?'Cultivo':'Tipo';
+  choices.replaceChildren(...options.map(item=>makeTile(item,'preset',selectPreset)));
+  modes.hidden=currentTool!=='house';
+  if(currentTool==='house'){
+   modeChoices.replaceChildren(...BUILD_MODES.map(item=>makeTile(item,'buildMode',selectMode)));
+   selectMode(buildMode);
+  }
+  submenu.hidden=false;
+  selectPreset(chosen);
+ };
  range.addEventListener('input',()=>onSize(Number(range.value)));
  minus.addEventListener('click',()=>onSize(Math.max(1,Number(range.value)-1)));
  plus.addEventListener('click',()=>onSize(Math.min(15,Number(range.value)+1)));
  return {
   setFarmingSpecies(species){
-   farmingChoices=Object.entries(species??{}).map(([id,def])=>[id,def.label]);
-   if(dock.querySelector('[data-tool="farm"].active'))this.tool('farm');
+   farmingSpecies=species??{};
+   if(currentTool==='farm')renderSubmenu();
   },
   setBlueprints(definitions){
    blueprints=definitions??{};
-   buildingChoices=Object.entries(blueprints).map(([id,definition])=>[id,definition.label]);
-   // Keep geometry from the content blueprint, never from a hard-coded 2×2 visual.
-   if(dock.querySelector('[data-tool="house"].active'))this.tool('house');
+   if(currentTool==='house')renderSubmenu();
   },
   tool(id){
-   for(const button of dock.querySelectorAll('[data-tool]'))button.classList.toggle('active',button.dataset.tool===id);
-   const brush=['npc','wood','stone','food','farm','scenery','house'].includes(id);
+   currentTool=id;
+   for(const button of dock.querySelectorAll('[data-tool]'))
+    button.classList.toggle('active',button.dataset.tool===id);
+   const brush=brushTools.includes(id)&&role==='admin';
    const isHouse=id==='house';
    range.disabled=isHouse;minus.disabled=isHouse;plus.disabled=isHouse;
    if(isHouse)range.value='1';
-   label.hidden=id!=='food'&&id!=='scenery'&&id!=='house'&&id!=='farm'&&id!=='npc'&&id!=='stone';
-   modeLabel.hidden=id!=='house';
-   if(id==='food'||id==='scenery'||id==='house'||id==='farm'||id==='npc'||id==='stone'){
-    const items=id==='food'?[['apple_adult','Adulta'],['apple_seedling','Muda']]:
-     id==='house'?buildingChoices:id==='farm'?farmingChoices:id==='npc'?inhabitantChoices:
-     id==='stone'?[['stone','Pedra'],['iron_ore','Minério de ferro'],['copper_ore','Minério de cobre']]:
-     [['boulder','Pedra sólida'],['wall','Muro'],['statue','Estátua']];
-    preset.replaceChildren(...items.map(([value,name])=>{const option=document.createElement('option');option.value=value;option.textContent=name;return option;}));
-    onPreset(preset.value);
-    if(id==='house'){
-     const area=blueprints[preset.value]?.footprint??{width:2,height:2};
-     el('brushValue').textContent=area.width+' × '+area.height;
-     el('brushCount').textContent=(area.width*area.height)+' células ocupadas';
-     onBuildMode(modeSelect.value);
-    }
-   }
    el('brushPanel').hidden=!brush;
-   el('brushName').textContent=({npc:'Pincel · Habitante',wood:'Pincel · Floresta',stone:'Pincel · Pedreira',food:'Pincel · Macieira',farm:'Pincel · Plantio',scenery:'Pincel · Cenário',house:'Pincel · Construir'})[id]||'';
-   el('toolBadge').textContent=({inspect:'Modo observar',npc:'Adicionar habitantes ou líder',wood:'Adicionar fontes de madeira',stone:'Adicionar pedra ou jazidas minerais',food:'Plantar macieiras',farm:'Demarcar zona de cultivo',scenery:'Posicionar obstáculos sólidos',house:'Posicionar canteiro de obras'})[id]||id;
+   el('brushName').textContent=brushTitles[id]??'';
+   el('toolBadge').textContent=tips[id]??id;
+   renderSubmenu();
+   if(isHouse)updateHouseArea();
   },
   size(n){
    if(range.disabled)return;
-   range.value=String(n);el('brushValue').textContent=n+' × '+n;el('brushCount').textContent=(n*n)+' célula'+(n===1?'':'s');
+   range.value=String(n);el('brushValue').textContent=n+' × '+n;
+   el('brushCount').textContent=n*n+' célula'+(n===1?'':'s');
   },
   update(data){
    if(!data)return;
