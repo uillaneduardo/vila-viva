@@ -394,6 +394,7 @@ export function applyCommand(world: World, command: Command,
   if(!command.position||!inBounds(world,command.position))return reject(command,"OUT_OF_BOUNDS");
   if(character.health<=0||resolveAttributes({...character,attributes:{...character.attributes,energy:character.energy,health:character.health}},world.tick).values.energy<=0 ||
     !orthogonallyAdjacent(character.position,command.position)||!canEnter(world,command.position,character.id))return reject(command,"BLOCKED");
+  if(character.sleepingInId)return reject(command,"BLOCKED");
   if(world.tick<(character.nextMoveTick??0))return reject(command,"NOT_READY");
   const cost=movementCost(world,command.position,character.id);
   const interval=command.actorRole==="npc"&&options.internal?NPC_ACTION_INTERVAL:1;
@@ -401,7 +402,6 @@ export function applyCommand(world: World, command: Command,
   const prior=character.nextMoveTick??world.tick;
   const base=world.tick-prior<interval?prior:world.tick;
   character.nextMoveTick=Math.max(world.tick+1,base+interval*cost);
-  if(character.sleepingInId)return reject(command,"BLOCKED");
   character.movementSegment={from:{...character.position},to:{...command.position},startTick:world.tick,endTick:character.nextMoveTick};
   character.position={...command.position};character.energy=Math.max(0,character.energy-1);
   for(const body of world.entities)if(body.kind==="character"&&body.bodyCarriedBy===character.id)
