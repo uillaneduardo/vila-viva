@@ -19,7 +19,7 @@ export function createHud({role,onTool,onClock,onSize,onShape=()=>{},onPreset=()
   submenuLabel=el('godSubmenuLabel'),modes=el('godBuildModes'),
   modeChoices=el('godBuildModeChoices');
  let currentTool='inspect',buildMode='site',blueprints={},farmingSpecies={
-  apple_tree:{label:'Macieira'},carrot:{label:'Cenoura'},potato:{label:'Batata'}
+  apple_tree:{label:'Macieira'},carrot:{label:'Cenoura'},potato:{label:'Batata'},medicinal_herb:{label:'Erva medicinal'}
  };
  const selectedByTool=new Map();
  const range=el('brushSize'),minus=el('brushMinus'),plus=el('brushPlus'),shapeButton=el('brushShape');
