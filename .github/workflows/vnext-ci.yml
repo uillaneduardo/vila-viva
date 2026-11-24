@@ -20,6 +20,8 @@ jobs:
           node-version: '22.18.0'
       - name: Run domain, effects, localization, renderer and API tests
         run: node --experimental-strip-types --test tests/*.test.mts
+      - name: Measure deterministic community baseline (15000 ticks)
+        run: node --experimental-strip-types scripts/measure-community.mts oturo-starter-v1 15000
       - name: Ensure archived deployment and new deployment contracts coexist
         run: |
           test -s .old/Dockerfile
