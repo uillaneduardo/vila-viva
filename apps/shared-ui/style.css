@@ -395,3 +395,33 @@ button:focus-visible,input:focus-visible,canvas:focus-visible{outline:2px solid 
  .npc-monitor{top:112px}
 }
 @media(min-width:1191px) and (min-height:651px){.hud-tools{display:none}}
+
+/* Reserve separate rows in the compact header; no fixed-width collision. */
+@media(max-width:1190px),(max-height:650px){
+ .top-center{top:8px;left:auto;right:135px;transform:none}
+ .brand{max-width:calc(100% - 410px)}
+ .brand strong{max-width:100%}.brand>span:last-child{min-width:0}
+ .hud-tools{top:60px}
+ .npc-monitor{top:112px}
+}
+@media(max-width:700px){
+ .brand{max-width:calc(100% - 125px)}
+ .top-center{top:60px;right:8px}
+ .top-center .time{min-width:43px}
+ .top-center .time-btn{min-width:44px}
+ .npc-monitor{top:112px}
+ .context{max-height:calc(100dvh - 180px)}
+}
+@media(max-width:360px){
+ .brand strong{max-width:130px}
+ .top-center .time-btn{min-width:40px}
+ .top-center .top-group{gap:1px}
+ .hud-tools{top:112px}
+ .npc-monitor{top:164px}
+}
+@media(max-width:1190px),(max-height:650px){
+ .brand{top:calc(8px + env(safe-area-inset-top,0px));left:calc(8px + env(safe-area-inset-left,0px))}
+ .top-right{top:calc(8px + env(safe-area-inset-top,0px));right:calc(8px + env(safe-area-inset-right,0px))}
+ .dock{bottom:calc(8px + env(safe-area-inset-bottom,0px))}
+ .god-action-stack,.status{bottom:calc(68px + env(safe-area-inset-bottom,0px))}
+}
