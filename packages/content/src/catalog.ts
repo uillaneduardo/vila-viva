@@ -26,7 +26,11 @@ export function createBaseRegistry():DefinitionRegistry {
   {id:"construction.admin_work",displayName:{"pt-BR":"Aplicar trabalho para teste"},roles:["admin"],targets:["construction"],requires:["construction"],readonly:false,description:"Comando explícito de homologação sem trabalhador"},
   {id:"storage.deposit",displayName:{"pt-BR":"Guardar recursos"},roles:["player","npc"],targets:["construction"],requires:["inventory","storage","position"],readonly:false,description:"Depositar itens fisicamente carregados em depósito concluído"},
   {id:"storage.withdraw",displayName:{"pt-BR":"Retirar recursos"},roles:["player","npc"],targets:["construction"],requires:["inventory","storage","position"],readonly:false,description:"Retirar itens do depósito para transporte físico"},
-  {id:"storage.admin_supply",displayName:{"pt-BR":"Adicionar estoque de teste"},roles:["admin"],targets:["construction"],requires:["storage"],readonly:false,description:"Injeção explícita de estoque para homologação"}
+  {id:"storage.admin_supply",displayName:{"pt-BR":"Adicionar estoque de teste"},roles:["admin"],targets:["construction"],requires:["storage"],readonly:false,description:"Injeção explícita de estoque para homologação"},
+  {id:"construction.remove",displayName:{"pt-BR":"Remover construção"},roles:["admin"],targets:["construction"],requires:[],readonly:false,description:"Remover elemento e seu conteúdo do mundo, sem reembolso"},
+  {id:"construction.destroy",displayName:{"pt-BR":"Destruir construção"},roles:["admin"],targets:["construction"],requires:[],readonly:false,description:"Desabilitar prédio e deixar ruína sólida no mapa"},
+  {id:"npc.admin_equip",displayName:{"pt-BR":"Equipar ferramenta de teste"},roles:["admin"],targets:["character"],requires:[],readonly:false,description:"Definir ferramenta de NPC para homologação de riscos"},
+  {id:"npc.eat",displayName:{"pt-BR":"Comer maçã"},roles:["player","npc"],targets:["character"],requires:["inventory"],readonly:false,description:"Consumir maçã carregada, aumentando saciedade"}
  ] as const)catalog.registerAction(action);
  return catalog;
 }
