@@ -9,6 +9,8 @@ import {planProduction,productionNeeds} from "./production.ts";
 import {NATURAL_SOURCES} from "../../../content/src/natural-sources.ts";
 import {FOOD_ITEMS} from "../../../content/src/foods.ts";
 import {availablePlots,canCreateZone} from "../../farming/src/index.ts";
+import {storageFree,storageDefinition} from "../../construction/src/index.ts";
+import {isTemporaryStorage} from "../../storage/src/temporary.ts";
 import {productionDefinition} from "../../production/src/index.ts";
 export type ProposedConstruction={blueprintId:string;position:Position;score:number;reason:string};
 const manhattan=(a:Position,b:Position)=>Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
@@ -18,7 +20,18 @@ const buildings=(world:World):Construction[]=>world.entities.filter((e):e is Con
  e.kind==="construction"&&e.status!=="destroyed");
 const isProjectNeeded=(world:World,id:string):boolean=>{
  const existing=buildings(world);
- if(id==="building.depot"||id==="building.workshop")return !existing.some(b=>b.blueprintId===id);
+ if(id==="building.depot"){
+  const permanent=existing.filter(b=>b.blueprintId===id);
+  if(!permanent.length)return true;
+  if(permanent.some(b=>b.status==="site"))return false;
+  const capacity=permanent.reduce((n,b)=>n+(storageDefinition(b)?.capacity??0),0);
+  const free=permanent.reduce((n,b)=>n+storageFree(b),0);
+  const temporaryStock=existing.filter(isTemporaryStorage).reduce((n,b)=>n+
+   Object.values(b.stock??{}).reduce((sum,quantity)=>sum+Math.max(0,quantity),0),0);
+  // Expand only under measured overflow; reserve housing and construction opportunities.
+  return capacity>0&&free<=capacity*.15&&temporaryStock>=30&&permanent.length<Math.max(2,living(world).length);
+ }
+ if(id==="building.workshop")return !existing.some(b=>b.blueprintId===id);
  if(id==="building.family_house")return existing.filter(b=>b.blueprintId===id).length<Math.floor(living(world).length/2);
  if(id==="building.cafeteria")return living(world).length>=3&&!existing.some(b=>b.blueprintId===id);
  if(id==="building.mine")return !existing.some(b=>b.blueprintId===id)&&!world.entities.some(e=>e.kind==="resource"&&e.resourceType==="iron_ore"&&e.quantity>0);
