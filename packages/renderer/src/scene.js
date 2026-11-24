@@ -46,8 +46,20 @@ export class Scene {
    c.fillStyle=(x+y)%2?'#30523d':'#335640';c.fillRect(p.x,p.y,s+.5,s+.5);
    if((x*17+y*23)%29===0&&s>16){c.fillStyle='rgba(191,214,168,.13)';c.fillRect(p.x+s*.6,p.y+s*.29,2,3);}
   }
+  // Cultivation zones are passable terrain overlays, drawn before actors and crops.
+  for(const zone of this.world.entities.filter(e=>e.kind==='planting_zone')){
+   const start=k.worldToScreen(zone.position.x*t,zone.position.y*t),size=t*k.zoom;
+   c.fillStyle='rgba(98,66,36,.39)';
+   c.fillRect(start.x,start.y,zone.footprint.width*size,zone.footprint.height*size);
+   c.strokeStyle=zone.id===this.selected?'#f6d789':'rgba(200,172,112,.68)';
+   c.lineWidth=zone.id===this.selected?3:1.3;
+   c.setLineDash([5,4]);c.strokeRect(start.x+1,start.y+1,zone.footprint.width*size-2,zone.footprint.height*size-2);c.setLineDash([]);
+   c.strokeStyle='rgba(168,132,88,.23)';c.lineWidth=1;
+   for(let yy=1;yy<zone.footprint.height;yy++){const y=start.y+yy*size;c.beginPath();c.moveTo(start.x,y);c.lineTo(start.x+zone.footprint.width*size,y);c.stroke();}
+   for(let xx=1;xx<zone.footprint.width;xx++){const x=start.x+xx*size;c.beginPath();c.moveTo(x,start.y);c.lineTo(x,start.y+zone.footprint.height*size);c.stroke();}
+  }
   // Only real entities from /api/world are visualized. No fake houses, stocks or paths.
-  for(const e of [...this.world.entities].sort((a,b)=>(a.position.y+(a.kind==='construction'?a.footprint.height:1))-(b.position.y+(b.kind==='construction'?b.footprint.height:1)))){
+  for(const e of this.world.entities.filter(e=>e.kind!=='planting_zone').sort((a,b)=>(a.position.y+(a.kind==='construction'?a.footprint.height:1))-(b.position.y+(b.kind==='construction'?b.footprint.height:1)))){
    let pos=e.position;
    if(e.kind==='character'){
     const animation=this.motion.get(e.id);
@@ -133,6 +145,26 @@ export class Scene {
       c.fillStyle='#8a9993';c.beginPath();c.moveTo(-s*.37,s*.17);c.lineTo(-s*.3,-s*.12);c.lineTo(-s*.10,-s*.34);c.lineTo(s*.25,-s*.24);c.lineTo(s*.39,s*.16);c.lineTo(s*.12,s*.29);c.lineTo(-s*.31,s*.25);c.closePath();c.fill();c.stroke();
       c.fillStyle='#b3bfb6';c.beginPath();c.moveTo(-s*.3,-s*.12);c.lineTo(-s*.1,-s*.3);c.lineTo(s*.18,-s*.2);c.lineTo(0,0);c.closePath();c.fill();
      }
+    }else if(e.kind==='resource'&&(e.sourceId==='carrot'||e.sourceId==='potato')){
+     const potato=e.sourceId==='potato',stage=e.life?.stage??'seedling';
+     const mature=stage==='mature'||stage==='old',height=stage==='seedling'?.12:stage==='young'?.25:.34;
+     const count=mature?(potato?3:4):stage==='young'?2:1;
+     c.strokeStyle='#345d31';c.lineWidth=Math.max(1,s*.035);
+     c.fillStyle=potato?'#84ad65':'#79b26b';
+     for(let i=0;i<count;i++){
+      const x=(i-(count-1)/2)*s*.12,y=(i%2)*s*.045;
+      c.beginPath();c.moveTo(x,s*.22);c.quadraticCurveTo(x-s*.08,y-s*height,x-s*.04,y-s*height);c.stroke();
+      c.beginPath();c.ellipse(x-s*.06,y-s*height,s*.07,s*.035,-.5,0,Math.PI*2);c.fill();
+      c.beginPath();c.ellipse(x+s*.04,y-s*height*.76,s*.07,s*.035,.6,0,Math.PI*2);c.fill();
+     }
+     if(mature){
+      c.fillStyle=potato?'#c5ac76':'#e88a43';
+      for(let i=0;i<(potato?3:2);i++){
+       const x=(i-1)*s*.13;
+       c.beginPath();c.ellipse(x,s*.19,s*.085,s*.09,0,0,Math.PI*2);c.fill();
+      }
+     }
+     if(stage==='old'){c.fillStyle='rgba(97,67,38,.4)';c.fillRect(-s*.3,-s*.25,s*.6,s*.54);}
     }else if(e.resourceType==='wood'){
      c.fillStyle='#6b8f65';c.beginPath();c.arc(-s*.09,0,s*.22,0,Math.PI*2);c.arc(s*.1,-s*.07,s*.22,0,Math.PI*2);c.fill();
      c.fillStyle='#9f8464';c.fillRect(-s*.035,s*.13,s*.07,s*.17);
@@ -161,8 +193,9 @@ export class Scene {
   }
   if(this.brush&&this.pointer){
    const center=k.tileAt(this.pointer.x,this.pointer.y),cells=brushCells(center,this.brush.size,this.world);
-   for(const anchor of this.brush.kind==='house'?[center]:cells) {
-    const width=this.brush.kind==='house'?2:1,height=this.brush.kind==='house'?2:1;
+   for(const anchor of ['house','farm'].includes(this.brush.kind)?[center]:cells) {
+    const width=this.brush.kind==='house'?2:this.brush.kind==='farm'?this.brush.size:1;
+    const height=width;
     let blocked=false;
     for(let y=anchor.y;y<anchor.y+height;y++)for(let x=anchor.x;x<anchor.x+width;x++){
      if(x<0||y<0||x>=this.world.width||y>=this.world.height||
@@ -171,7 +204,7 @@ export class Scene {
        e.position.x===x&&e.position.y===y))blocked=true;
     }
     const point=k.worldToScreen(anchor.x*t,anchor.y*t),s=t*k.zoom;
-    c.fillStyle=blocked?'rgba(220,96,90,.3)':'rgba(170,227,155,.26)';
+    c.fillStyle=blocked?'rgba(220,96,90,.3)':this.brush.kind==='farm'?'rgba(151,108,60,.46)':'rgba(170,227,155,.26)';
     c.fillRect(point.x,point.y,s*width,s*height);
     c.strokeStyle=blocked?'#db8983':'#add89b';c.lineWidth=1;c.strokeRect(point.x+1,point.y+1,s*width-2,s*height-2);
    }

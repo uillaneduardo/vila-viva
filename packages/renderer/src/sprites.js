@@ -29,6 +29,8 @@ export function resolveWorldSprite(entity){
   return {id:entity.blueprintId==='building.depot'?'buildings/depot':'buildings/community_house',state,scale:1};
  }
  if(entity?.kind!=='resource')return null;
+ if(entity.sourceId==='carrot'||entity.sourceId==='potato')
+  return {id:'vegetation/'+entity.sourceId,state:entity.life?.stage??'seedling',scale:.82};
  if(entity.resourceType==='food'){
   // Species-specific projection; old generic food sources retain a compatible fallback.
   if(entity.sourceId&&entity.sourceId!=='apple_tree')return null;

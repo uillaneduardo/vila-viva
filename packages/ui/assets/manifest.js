@@ -10,6 +10,7 @@ export const UI_VISUAL_MANIFEST=Object.freeze({
   "action.add-wood":{icon:"wood",sprite:null},
   "action.add-stone":{icon:"stone",sprite:null},
   "action.add-food":{icon:"food",sprite:null},
+  "action.add-farm":{icon:"farm",sprite:null},
   "action.add-scenery":{icon:"scenery",sprite:null},
   "action.build":{icon:"house",sprite:null},
   "action.events":{icon:"events",sprite:null},
