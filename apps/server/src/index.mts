@@ -374,7 +374,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string;asyncPersist
         capacity:storageDefinition(entity)!.capacity,accepted:storageDefinition(entity)!.accepted
        }:null
       }:null,
-      needs:entity.kind==="character"?{satiety:entity.satiety??100,health:entity.health,energy:entity.energy}:null,social:null,
+      needs:entity.kind==="character"?{satiety:entity.satiety??100,health:entity.health,energy:entity.energy,sleepingInId:entity.sleepingInId??null}:null,social:null,
       decisions:entity.kind==="character"?entity.ai?.history??[]:null
     });
    }

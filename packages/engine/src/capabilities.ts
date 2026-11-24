@@ -38,6 +38,10 @@ export function availableActions(world:World,role:Role,actorId:string|undefined,
   actions.push({id:"movement.move",label:"Mover um tile",enabled:valid,...(!valid?{reason:"BLOCKED" as const}:{})});
  }
  if(target?.kind==="item"){const ready=alive&&free&&Math.abs(actor.position.x-target.position.x)+Math.abs(actor.position.y-target.position.y)<=1;actions.push({id:"item.pickup",label:"Recolher item",enabled:ready,targetId:target.id});}
+ if(target?.kind==="resource"&&target.sourceId==="apple_tree"&&(target.life?.stage==="dead"||target.life?.stage==="old")){
+  const ready=alive&&(adjacent||actor.position.x===target.position.x&&actor.position.y===target.position.y);
+  actions.push({id:"nature.cut",label:"Cortar macieira",enabled:ready,targetId:target.id,...(!ready?{reason:"BLOCKED" as const}:{})});
+ }
  if(source&&target)actions.push({id:"resource.harvest",label:"Colher frutos",enabled:canHarvest,targetId:target.id,...(!canHarvest?{reason:harvestReason}:{})});
  if(target)actions.push({id:"entity.inspect",label:"Inspecionar entidade",enabled:true,targetId:target.id});
  return actions;

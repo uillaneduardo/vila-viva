@@ -7,7 +7,7 @@ export const HEALING_INTERVAL_TICKS=6;
 export function passiveHealthRecovery(world:World,npc:Character):number {
  if(npc.health<=0||npc.health>=100||(npc.satiety??0)<=25||world.tick%HEALING_INTERVAL_TICKS!==0)return 0;
  const house=reservedHouse(world,npc);
- const sheltered=!!house&&nearFootprint(npc.position,house);
+ const sheltered=!!house&&npc.sleepingInId===house.id&&nearFootprint(npc.position,house);
  const rate=healingFactor(npc);
  const recovered=Math.max(1,Math.floor((sheltered?4:2)*rate));
  const healed=Math.min(100-npc.health,recovered);

@@ -13,7 +13,7 @@ import {advanceNpcDecisions,NPC_ACTION_INTERVAL} from "../../systems/ai/src/inde
 import {advanceNeeds,eatFood,updateNeedEffects} from "../../systems/needs/src/index.ts";
 import {miningYield,isMineral} from "../../content/src/extraction.ts";
 import {TOOL_PRESETS,evaluateActionRisk,correctTool} from "../../systems/risk/src/index.ts";
-import {clearHouse,pruneBeds,advanceResidences} from "../../systems/housing/src/index.ts";
+import {clearHouse,pruneBeds,advanceResidences,releaseBed} from "../../systems/housing/src/index.ts";
 import {generateCharacterProfile,generateStartingInventory} from "../../content/src/characters.ts";
 import {advanceMortality,isCorpse,carriedCorpse,availableGraves,registerBurial} from "../../systems/mortality/src/index.ts";
 import {inBounds} from "../../domain/src/contracts.ts";
@@ -184,7 +184,7 @@ export function applyCommand(world: World, command: Command,
    (tree.life?.stage!=="old"&&tree.life?.stage!=="dead"))return reject(command,"INVALID_TARGET");
   const actor=actorForCommand(world,command);
   if(!actor)return reject(command,"UNAUTHORIZED");
-  if(!orthogonallyAdjacent(actor.position,tree.position)||actor.health<=0||actor.energy<=0)
+  if((!orthogonallyAdjacent(actor.position,tree.position)&&!(actor.position.x===tree.position.x&&actor.position.y===tree.position.y))||actor.health<=0||actor.energy<=0)
    return reject(command,"BLOCKED");
   dropItem(world,actor.position,"wood",rollDrop(world,command,"cut",3,5));actor.energy=Math.max(0,actor.energy-1);
   world.entities.splice(index,1);
@@ -382,6 +382,7 @@ export function applyCommand(world: World, command: Command,
   const prior=character.nextMoveTick??world.tick;
   const base=world.tick-prior<interval?prior:world.tick;
   character.nextMoveTick=Math.max(world.tick+1,base+interval*cost);
+  if(character.sleepingInId)releaseBed(world,character);
   character.movementSegment={from:{...character.position},to:{...command.position},startTick:world.tick,endTick:character.nextMoveTick};
   character.position={...command.position};character.energy=Math.max(0,character.energy-1);
   for(const body of world.entities)if(body.kind==="character"&&body.bodyCarriedBy===character.id)
