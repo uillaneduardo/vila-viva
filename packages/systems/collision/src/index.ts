@@ -8,7 +8,8 @@ export const resourceBlocksMovement=(entity:Extract<Entity,{kind:"resource"}>):b
 export const blocksMovement=(entity:Entity):boolean=>
  entity.kind==="obstacle"?entity.blocksMovement:
  entity.kind==="resource"?resourceBlocksMovement(entity):
- entity.kind==="planting_zone"?false:entity.kind==="construction"?true:entity.kind==="character";
+ entity.kind==="planting_zone"?false:entity.kind==="construction"?true:
+ entity.kind==="character"?entity.health>0:false;
 export const sameCell=(a:Position,b:Position):boolean=>a.x===b.x&&a.y===b.y;
 export function occupiesCell(entity:Entity,cell:Position):boolean {
  if(entity.kind==="construction"||entity.kind==="planting_zone")return cell.x>=entity.position.x&&cell.y>=entity.position.y&&

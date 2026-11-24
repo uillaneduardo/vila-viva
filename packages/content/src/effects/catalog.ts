@@ -34,6 +34,13 @@ export const EFFECTS:Readonly<Record<string,Readonly<EffectDefinition>>>=Object.
   id:"starving",displayName:{"pt-BR":"Faminto"},tags:["needs","negative"],lifetime:{kind:"conditional"},
   stacking:"unique",modifiers:[{attribute:"workRate",operation:"multiply",value:.5},{attribute:"movementSpeed",operation:"multiply",value:.7}]
  },
+ corpse_exposure:{
+  id:"corpse_exposure",displayName:{"pt-BR":"Perturbado por cadáver"},tags:["environment","death","negative"],
+  lifetime:{kind:"conditional"},stacking:"unique",
+  modifiers:[{attribute:"mood",operation:"add",value:-15},
+   {attribute:"workRate",operation:"multiply",value:.85},
+   {attribute:"socialWillingness",operation:"multiply",value:.8}]
+ },
  well_fed:{
   id:"well_fed",displayName:{"pt-BR":"Bem alimentado"},tags:["needs","positive"],lifetime:{kind:"conditional"},
   stacking:"unique",modifiers:[{attribute:"workRate",operation:"multiply",value:1.1},{attribute:"mood",operation:"add",value:5}]

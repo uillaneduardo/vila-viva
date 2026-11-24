@@ -12,6 +12,7 @@ export interface BuildingBlueprint {
  effects:readonly {capability:string;value:number;unit:string}[];
  storage?:Readonly<{capacity:number;accepted:readonly string[]}>;
  housing?:Readonly<{adultBeds:number;restGain:number}>;
+ cemetery?:Readonly<{capacity:number}>;
 }
 export const COMMUNITY_HOUSE:Readonly<BuildingBlueprint>=Object.freeze({
  id:"building.community_house",version:1,label:"Casa Comunitária",displayName:{"pt-BR":"Casa Comunitária"},footprint:{width:2,height:2},
