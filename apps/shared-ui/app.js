@@ -6,7 +6,10 @@ import {createHud} from '../../packages/ui/src/hud.js';
 import {createInspector} from '../../packages/ui/src/inspector.js';
 const el=id=>document.getElementById(id),role=document.body.dataset.role;
 applyUiTheme(document.documentElement);
-const scene=new Scene(el('game')),inspector=createInspector({onHarvest:(id)=>void harvestSelected(id)});
+const scene=new Scene(el('game')),inspector=createInspector({
+ onHarvest:(id)=>void harvestSelected(id),
+ onConstruction:(id,action,parameters)=>void executeConstruction(id,action,parameters)
+});
 let snapshot=null,catalog=null,selectedId=null,hoverId=null,tool='inspect',brushSize=1,preset='apple_adult';
 let pan=null,painting=new Map(),loading=false,inspection=null,lastSpeed=1;
 const keys=new Set();
@@ -17,9 +20,9 @@ const request=async(path,options)=>{
 };
 const hud=createHud({
  role,
- onTool(id){tool=id;hud.tool(id);scene.setBrush(['npc','wood','stone','food','scenery'].includes(id)?{kind:id,size:brushSize}:null);hoverId=null;scene.setHover(null);el('tooltip').hidden=true;},
+ onTool(id){tool=id;hud.tool(id);scene.setBrush(['npc','wood','stone','food','scenery','house'].includes(id)?{kind:id,size:id==='house'?1:brushSize}:null);hoverId=null;scene.setHover(null);el('tooltip').hidden=true;},
  onPreset(value){preset=value;},
- onSize(n){brushSize=n;hud.size(n);if(scene.brush)scene.setBrush({...scene.brush,size:n});},
+ onSize(n){if(tool==='house')return;brushSize=n;hud.size(n);if(scene.brush)scene.setBrush({...scene.brush,size:n});},
  onClock(speed){changeSpeed(speed);}
 });
 hud.tool('inspect');hud.size(1);
@@ -60,6 +63,15 @@ async function harvestSelected(sourceId){
  }catch(error){status('Falha na coleta: '+error.message);}
 }
 
+async function executeConstruction(siteId,action,parameters){
+ try{
+  const data=await request('/api/commands',{method:'POST',headers:{'content-type':'application/json'},
+   body:JSON.stringify({commandId:crypto.randomUUID(),role:'admin',action,targetId:siteId,parameters})});
+  if(!data.result?.ok)throw Error(data.result?.error||'Comando rejeitado');
+  status(action==='construction.admin_supply'?'Materiais inseridos no canteiro pelo Modo Deus.':'Trabalho aplicado à etapa atual.');
+  await refresh();
+ }catch(error){status('Construção: '+error.message);}
+}
 function updateHover(point){
  if(tool!=='inspect'||pan||!snapshot){el('tooltip').hidden=true;scene.setHover(null);scene.setRoute(null);return;}
  const target=scene.pick(point.x,point.y);
@@ -80,19 +92,28 @@ function updateHover(point){
 function addBrushAt(point){
  if(!snapshot||!scene.brush)return;
  const center=scene.camera.tileAt(point.x,point.y);
- for(const cell of brushCells(center,brushSize,snapshot.world)){
-  if(painting.size>=225)break;
+ for(const cell of tool==='house'?[center]:brushCells(center,brushSize,snapshot.world)){
+  if(painting.size>=(tool==='house'?1:225))break;
   const key=cell.x+','+cell.y;
-  if(!painting.has(key)&&!snapshot.world.entities.some(e=>e.position.x===cell.x&&e.position.y===cell.y))painting.set(key,cell);
+  const width=tool==='house'?2:1,height=tool==='house'?2:1;
+  let occupied=false;
+  for(let y=cell.y;y<cell.y+height;y++)for(let x=cell.x;x<cell.x+width;x++){
+   if(x<0||y<0||x>=snapshot.world.width||y>=snapshot.world.height||
+    snapshot.world.entities.some(e=>e.kind==='construction'?
+     x>=e.position.x&&x<e.position.x+e.footprint.width&&y>=e.position.y&&y<e.position.y+e.footprint.height:
+     e.position.x===x&&e.position.y===y))occupied=true;
+  }
+  if(!occupied&&!painting.has(key))painting.set(key,cell);
  }
 }
 async function submitBrush(){
  if(!painting.size){status('Nenhuma célula livre para posicionar.');return;}
- const cells=[...painting.values()],kind=tool,action=kind==='npc'?'npc.spawn':kind==='scenery'?'obstacle.spawn':'resource.spawn';
+ const cells=[...painting.values()],kind=tool,action=kind==='npc'?'npc.spawn':kind==='scenery'?'obstacle.spawn':kind==='house'?'construction.place':'resource.spawn';
  const commands=cells.map((position,i)=>({
   commandId:crypto.randomUUID(),action,position,
   parameters:kind==='npc'?{name:'Habitante '+(snapshot.world.entities.filter(e=>e.kind==='character').length+i+1)}:
    kind==='scenery'?{obstacleType:preset}:
+   kind==='house'?{blueprintId:'building.community_house'}:
    kind==='food'?{resourceType:'food',sourceId:'apple_tree',ageTicks:preset==='apple_seedling'?0:120,quantity:preset==='apple_seedling'?0:6}:
    {resourceType:kind,quantity:25}
  }));

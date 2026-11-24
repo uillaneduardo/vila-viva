@@ -21,7 +21,7 @@ export function createHud({role,onTool,onClock,onSize,onPreset=()=>{}}){
   b.querySelector('.dock-label').textContent=label;
   b.title=label;
   if(role!=='admin'&&id!=='inspect'){b.disabled=true;b.title='Ação disponível somente no Modo Deus';}
-  if(['house','events','stats'].includes(id)){b.disabled=true;b.title='Sistema ainda não implementado';}
+  if(['events','stats'].includes(id)){b.disabled=true;b.title='Sistema ainda não implementado';}
   b.addEventListener('click',()=>onTool(id));
   dock.append(b);
  }
@@ -43,18 +43,22 @@ export function createHud({role,onTool,onClock,onSize,onPreset=()=>{}}){
  return {
   tool(id){
    for(const button of dock.querySelectorAll('[data-tool]'))button.classList.toggle('active',button.dataset.tool===id);
-   const brush=['npc','wood','stone','food','scenery'].includes(id);
-   label.hidden=id!=='food'&&id!=='scenery';
-   if(id==='food'||id==='scenery'){
-    const items=id==='food'?[['apple_adult','Adulta'],['apple_seedling','Muda']]:[['boulder','Pedra sólida'],['wall','Muro'],['statue','Estátua']];
+   const brush=['npc','wood','stone','food','scenery','house'].includes(id);
+   const isHouse=id==='house';
+   range.disabled=isHouse;minus.disabled=isHouse;plus.disabled=isHouse;
+   if(isHouse){range.value='1';el('brushValue').textContent='2 × 2';el('brushCount').textContent='4 células ocupadas';}
+   label.hidden=id!=='food'&&id!=='scenery'&&id!=='house';
+   if(id==='food'||id==='scenery'||id==='house'){
+    const items=id==='food'?[['apple_adult','Adulta'],['apple_seedling','Muda']]:id==='house'?[['building.community_house','Casa Comunitária']]:[['boulder','Pedra sólida'],['wall','Muro'],['statue','Estátua']];
     preset.replaceChildren(...items.map(([value,name])=>{const option=document.createElement('option');option.value=value;option.textContent=name;return option;}));
     onPreset(preset.value);
    }
    el('brushPanel').hidden=!brush;
-   el('brushName').textContent=({npc:'Pincel · Habitante',wood:'Pincel · Floresta',stone:'Pincel · Pedreira',food:'Pincel · Macieira',scenery:'Pincel · Cenário'})[id]||'';
-   el('toolBadge').textContent=({inspect:'Modo observar',npc:'Adicionar habitantes',wood:'Adicionar fontes de madeira',stone:'Adicionar pedreiras',food:'Plantar macieiras',scenery:'Posicionar obstáculos sólidos'})[id]||id;
+   el('brushName').textContent=({npc:'Pincel · Habitante',wood:'Pincel · Floresta',stone:'Pincel · Pedreira',food:'Pincel · Macieira',scenery:'Pincel · Cenário',house:'Pincel · Construir'})[id]||'';
+   el('toolBadge').textContent=({inspect:'Modo observar',npc:'Adicionar habitantes',wood:'Adicionar fontes de madeira',stone:'Adicionar pedreiras',food:'Plantar macieiras',scenery:'Posicionar obstáculos sólidos',house:'Posicionar canteiro de obras'})[id]||id;
   },
   size(n){
+   if(range.disabled)return;
    range.value=String(n);el('brushValue').textContent=n+' × '+n;el('brushCount').textContent=(n*n)+' célula'+(n===1?'':'s');
   },
   update(data){
