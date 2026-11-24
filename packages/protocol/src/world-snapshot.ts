@@ -28,6 +28,12 @@ export function validateWorld(value:unknown):asserts value is World {
    !safeInt(entity.energy,100)||
    entity.nextMoveTick!==undefined&&(typeof entity.nextMoveTick!=="number"||!Number.isFinite(entity.nextMoveTick)||entity.nextMoveTick<0)||entity.satiety!==undefined&&!safeInt(entity.satiety,100)))
    throw Error("INVALID_WORLD");
+  if(entity.kind==="character"&&object(entity.ai)&&entity.ai.plantingCommitment!==undefined){
+   const p=entity.ai.plantingCommitment;
+   if(!object(p)||typeof p.zoneId!=="string"||!/^[\w:-]{1,120}$/.test(p.zoneId)||
+    !position(p.position,value.width,value.height)||!safeInt(p.startedTick,value.tick)||
+    !safeInt(p.lastProgressTick,value.tick)||p.lastProgressTick<p.startedTick)throw Error("INVALID_WORLD");
+  }
   if(entity.kind==="character"&&entity.sleepingInId!==undefined&&(typeof entity.sleepingInId!=="string"||!/^[\w:-]{1,120}$/.test(entity.sleepingInId)))throw Error("INVALID_WORLD");
   if(entity.kind==="character"&&entity.movementSegment!==undefined){
    const m=entity.movementSegment;
