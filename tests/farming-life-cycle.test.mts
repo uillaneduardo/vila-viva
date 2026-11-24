@@ -49,7 +49,7 @@ test("medicinal herb uses the physical planting, harvest and storage cycle witho
  assert.ok(n.inventory.medicinal_herb_seed>=1);
  assert.equal(FOOD_ITEMS.medicinal_herb,undefined);
  assert.equal(player(w,"not-food","npc.eat",n.id,{parameters:{itemId:"medicinal_herb"}}).ok,false);
- assert.ok(god(w,"depot","construction.place",{position:{x:3,y:1},parameters:{blueprintId:"building.depot",mode:"completed"}}).ok);
+ assert.ok(god(w,"depot","construction.place",{position:{x:0,y:0},parameters:{blueprintId:"building.depot",mode:"completed"}}).ok);
  const depot=w.entities.find(e=>e.id==="construction-depot");
  assert.ok(player(w,"store-herb","storage.deposit",depot.id,{parameters:{materialId:"medicinal_herb",quantity:3}}).ok);
  assert.equal(depot.stock.medicinal_herb,3);
