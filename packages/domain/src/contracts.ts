@@ -9,7 +9,8 @@ export type Inventory = Record<string,number>;
 export interface Character { id: string; kind: "character"; name: string; position: Position; health: number; energy: number; ownerId?: string; inventory?: Inventory; ai?:NpcDecisionState; attributes?: Partial<Record<AttributeId,number>>; effects?: ActiveEffect[];
  satiety?:number; equipment?:{tool?:string}; injuries?:number;
  traits?:string[]; deathTick?:number; causeOfDeath?:string; bodyCarriedBy?:string;
- communityRole?:"leader"; leadership?:{lastPlanTick:number;lastBlueprintId?:string;lastReason:string;lastSiteId?:string}; }
+ communityRole?:"leader"; leadership?:{lastPlanTick:number;lastBlueprintId?:string;lastReason:string;lastSiteId?:string;
+ lastProductionTick?:number;lastRecipeId?:string;productionReason?:string}; }
 export interface NpcDecisionState {
  activity:string|null; reason:string; targetId?:string; route:Position[];
  lastDecisionTick:number; history:Array<{tick:number;activity:string;reason:string;targetId?:string}>;

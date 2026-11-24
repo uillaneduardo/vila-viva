@@ -5,6 +5,8 @@ import {canPlaceFootprint} from "../../collision/src/index.ts";
 import {routeToEntity} from "../../pathfinding/src/index.ts";
 import {bedsIn} from "../../housing/src/index.ts";
 import {availableGraves,visibleCorpses} from "../../mortality/src/index.ts";
+import {planProduction,productionNeeds} from "./production.ts";
+import {productionDefinition} from "../../production/src/index.ts";
 export type ProposedConstruction={blueprintId:string;position:Position;score:number;reason:string};
 const manhattan=(a:Position,b:Position)=>Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
 const living=(world:World):Character[]=>world.entities.filter((e):e is Character=>
@@ -13,7 +15,7 @@ const buildings=(world:World):Construction[]=>world.entities.filter((e):e is Con
  e.kind==="construction"&&e.status!=="destroyed");
 const isProjectNeeded=(world:World,id:string):boolean=>{
  const existing=buildings(world);
- if(id==="building.depot")return !existing.some(b=>b.blueprintId===id);
+ if(id==="building.depot"||id==="building.workshop")return !existing.some(b=>b.blueprintId===id);
  if(id==="building.community_house"){
   const capacity=existing.filter(b=>b.blueprintId===id).reduce((sum,b)=>sum+
    (b.status==="site"?(buildingBlueprint(id)?.housing?.adultBeds??0):bedsIn(b)),0);
@@ -100,6 +102,20 @@ export function advanceLeaderDecisions(world:World,execute:(cmd:Command)=>Result
  const leader=living(world).find(npc=>npc.communityRole==="leader");
  if(!leader)return;
  leader.leadership??={lastPlanTick:-1,lastReason:"Avaliando comunidade"};
+ const productionIntent=planProduction(world);
+ if(productionIntent){
+  const workshop=world.entities.find((e):e is Construction=>e.kind==="construction"&&
+   !!productionDefinition(e)&&!(e.productionOrders?.length));
+  if(workshop){
+   const outcome=execute({worldId:world.id,commandId:"leader-production-"+world.tick+"-"+leader.id,
+    actorRole:"npc",actorId:leader.id,action:"production.order",targetId:workshop.id,
+    parameters:{recipeId:productionIntent.recipeId,quantity:1}});
+   leader.leadership.lastProductionTick=world.tick;
+   leader.leadership.lastRecipeId=productionIntent.recipeId;
+   leader.leadership.productionReason=outcome.ok?productionIntent.reason:
+    "Ordem rejeitada: "+outcome.error;
+  }
+ }
  const active=buildings(world).find(site=>site.status==="site");
  if(active){
   leader.leadership.lastReason="Obra em andamento: "+(buildingBlueprint(active.blueprintId)?.label??active.blueprintId);
