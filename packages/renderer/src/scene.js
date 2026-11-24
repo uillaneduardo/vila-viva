@@ -58,8 +58,29 @@ export class Scene {
    for(let yy=1;yy<zone.footprint.height;yy++){const y=start.y+yy*size;c.beginPath();c.moveTo(start.x,y);c.lineTo(start.x+zone.footprint.width*size,y);c.stroke();}
    for(let xx=1;xx<zone.footprint.width;xx++){const x=start.x+xx*size;c.beginPath();c.moveTo(x,start.y);c.lineTo(x,start.y+zone.footprint.height*size);c.stroke();}
   }
+  // Completed cemeteries are passable marked plots, rendered under NPCs.
+  for(const graveyard of this.world.entities.filter(e=>e.kind==='construction'&&
+   e.blueprintId==='building.cemetery'&&e.status==='completed')){
+   const start=k.worldToScreen(graveyard.position.x*t,graveyard.position.y*t),size=t*k.zoom;
+   const width=graveyard.footprint.width*size,height=graveyard.footprint.height*size;
+   c.fillStyle='rgba(104,103,75,.5)';c.fillRect(start.x,start.y,width,height);
+   c.strokeStyle='#b2aa83';c.lineWidth=2;c.strokeRect(start.x+2,start.y+2,width-4,height-4);
+   for(let i=0;i<graveyard.footprint.width*graveyard.footprint.height;i++){
+    const x=start.x+(i%graveyard.footprint.width+.5)*size;
+    const y=start.y+(Math.floor(i/graveyard.footprint.width)+.54)*size;
+    c.fillStyle='#899189';c.fillRect(x-size*.13,y-size*.17,size*.26,size*.26);
+    c.strokeStyle='#dbd8be';c.lineWidth=Math.max(1,size*.022);
+    c.beginPath();c.moveTo(x,y-size*.14);c.lineTo(x,y+size*.07);
+    c.moveTo(x-size*.08,y-size*.055);c.lineTo(x+size*.08,y-size*.055);c.stroke();
+   }
+   if(graveyard.id===this.selected){
+    c.strokeStyle='#f2e3a7';c.lineWidth=3;c.strokeRect(start.x+2,start.y+2,width-4,height-4);
+   }
+  }
   // Only real entities from /api/world are visualized. No fake houses, stocks or paths.
-  for(const e of this.world.entities.filter(e=>e.kind!=='planting_zone').sort((a,b)=>(a.position.y+(a.kind==='construction'?a.footprint.height:1))-(b.position.y+(b.kind==='construction'?b.footprint.height:1)))){
+  for(const e of this.world.entities.filter(e=>e.kind!=='planting_zone'&&
+   !(e.kind==='character'&&e.bodyCarriedBy)&&
+   !(e.kind==='construction'&&e.blueprintId==='building.cemetery'&&e.status==='completed')).sort((a,b)=>(a.position.y+(a.kind==='construction'?a.footprint.height:1))-(b.position.y+(b.kind==='construction'?b.footprint.height:1)))){
    let pos=e.position;
    if(e.kind==='character'){
     const animation=this.motion.get(e.id);
@@ -129,6 +150,9 @@ export class Scene {
       }
      }
      }
+    }else if(e.kind==='character'&&e.health<=0){
+     c.fillStyle='#ece4cc';c.font='bold '+Math.max(20,s*.64)+'px serif';
+     c.textAlign='center';c.textBaseline='middle';c.fillText('☠',0,1);
     }else if(e.kind==='character'){
      c.beginPath();c.arc(0,0,Math.max(7,s*.28),0,Math.PI*2);c.fillStyle=e.ownerId?'#e5d19e':'#d6c091';c.fill();
      c.strokeStyle='rgba(35,42,26,.7)';c.lineWidth=1.5;c.stroke();
