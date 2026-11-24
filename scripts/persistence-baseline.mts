@@ -39,10 +39,11 @@ async function run(asyncPersistence:boolean,npcs:number,speed:number,clients:num
   const startTick=app.world.tick, cpu=process.cpuUsage(),start=performance.now();
   measuring=true;app.clock.speed=speed as 1|2|4;
   await delay(duration);app.clock.speed=0;measuring=false;
-  const elapsed=performance.now()-start,endTick=app.world.tick;
+  const elapsed=performance.now()-start;
+  const endTick=app.world.tick,metrics=app.timings.summary();
   const usage=process.cpuUsage(cpu);
   await app.shutdown();
-  return {mode:asyncPersistence?'worker':'sync',npcs,speed,clients,elapsedMs:elapsed,ticks:endTick-startTick,tps:(endTick-startTick)*1000/elapsed,metrics:app.timings.summary(),cpuMainProcessMicros:usage,rssBytes:process.memoryUsage().rss,observers:samples.map(s=>({messages:s.count,bytes:s.bytes,gapP50:percentile(s.gaps,.5),gapP95:percentile(s.gaps,.95),gapP99:percentile(s.gaps,.99)}))};
+  return {mode:asyncPersistence?'worker':'sync',npcs,speed,clients,elapsedMs:elapsed,ticks:endTick-startTick,tps:(endTick-startTick)*1000/elapsed,metrics,cpuProcessMicros:usage,rssBytes:process.memoryUsage().rss,observers:samples.map(s=>({messages:s.count,bytes:s.bytes,gapP50:percentile(s.gaps,.5),gapP95:percentile(s.gaps,.95),gapP99:percentile(s.gaps,.99)}))};
  }finally{app.clock.speed=0;for(const ws of sockets)ws.terminate();if(app.server.listening)await new Promise<void>(resolve=>app.server.close(()=>resolve()));await app.shutdown();rmSync(dir,{recursive:true,force:true});}
 }
 console.log(JSON.stringify({type:'environment',host:hostname(),platform:platform(),arch:arch(),cpu:cpus()[0]?.model,node:process.version,duration,scope:'loopback websocket; sparse synthetic world; no browser'}));
