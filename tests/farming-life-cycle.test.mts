@@ -20,8 +20,8 @@ const pick=(w,person,itemId)=>{const item=w.entities.find(e=>e.kind==="item"&&e.
 const zone=(w,id,sourceId,position={x:2,y:2},width=2,height=2)=>
  god(w,id,"farming.zone.create",{position,parameters:{sourceId,width,height}});
 
-test("catalog defines only one perennial tree and two finite vegetable species",()=>{
- assert.deepEqual(Object.keys(NATURAL_SOURCES),["apple_tree","carrot","potato"]);
+test("catalog defines perennial, food and medicinal crops",()=>{
+ assert.deepEqual(Object.keys(NATURAL_SOURCES),["apple_tree","carrot","potato","medicinal_herb"]);
  assert.equal(naturalSource("apple_tree").growthMode,"perennial");
  for(const id of ["carrot","potato"]){
   assert.equal(naturalSource(id).growthMode,"single_harvest");
@@ -29,6 +29,30 @@ test("catalog defines only one perennial tree and two finite vegetable species",
   assert.equal(naturalSource(id).blocksMovement,false);
   assert.ok(FOOD_ITEMS[naturalSource(id).productId].satiety>0);
  }
+});
+test("medicinal herb uses the physical planting, harvest and storage cycle without being food",()=>{
+ const w=createWorld("herbs",12,12),n=owned(w);
+ assert.ok(zone(w,"herbs","medicinal_herb").ok);
+ const field=w.entities.find(e=>e.kind==="planting_zone");
+ n.inventory={medicinal_herb_seed:1};n.satiety=10;
+ assert.ok(player(w,"sow-herb","farming.plant",field.id,{position:{x:2,y:2}}).ok);
+ assert.equal(n.inventory.medicinal_herb_seed,0);
+ const plant=w.entities.find(e=>e.id==="plant-sow-herb");
+ assert.equal(plant.resourceType,"medicinal_herb");assert.ok(canEnter(w,plant.position));
+ for(let i=0;i<45;i++)advanceTick(w);
+ assert.equal(plant.quantity,3);
+ assert.ok(player(w,"herb-harvest-1","resource.harvest",plant.id).ok);
+ if(plant.quantity>0)assert.ok(player(w,"herb-harvest-2","resource.harvest",plant.id).ok);
+ assert.equal(availablePlots(w,field).length,4);
+ pick(w,n,"medicinal_herb");pick(w,n,"medicinal_herb_seed");
+ assert.equal(n.inventory.medicinal_herb,3);
+ assert.ok(n.inventory.medicinal_herb_seed>=1);
+ assert.equal(FOOD_ITEMS.medicinal_herb,undefined);
+ assert.equal(player(w,"not-food","npc.eat",n.id,{parameters:{itemId:"medicinal_herb"}}).ok,false);
+ assert.ok(god(w,"depot","construction.place",{position:{x:0,y:0},parameters:{blueprintId:"building.depot",mode:"completed"}}).ok);
+ const depot=w.entities.find(e=>e.id==="construction-depot");
+ assert.ok(player(w,"store-herb","storage.deposit",depot.id,{parameters:{materialId:"medicinal_herb",quantity:3}}).ok);
+ assert.equal(depot.stock.medicinal_herb,3);
 });
 test("planting zones reserve land without blocking movement, but cannot overlap foundations",()=>{
  const w=createWorld("land",12,12);

@@ -36,7 +36,7 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
     entity.communityRole==='leader'?'Líder · Planejamento da comunidade':'Habitante · Decisões autônomas'):entity.kind==='planting_zone'?
    'Área de plantio · Sem bloqueio de passagem':entity.kind==='construction'?
    (entity.status==='destroyed'?'Ruína · Edificação destruída':entity.status==='completed'?'Edificação concluída':'Canteiro de obras · Construção em andamento'):entity.kind==='obstacle'?
-   'Elemento estático · Não coletável':entity.sourceId?'Fonte viva · Produção renovável':'Fonte de recurso';
+   'Elemento estático · Não coletável':entity.sourceId?'Fonte viva · Cultivo':'Fonte de recurso';
   const allowed=isNpc?['overview','health','effects']:['overview'];
   if(!allowed.includes(active))active='overview';
   const signature=allowed.join(',');

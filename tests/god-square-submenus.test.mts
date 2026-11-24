@@ -11,7 +11,7 @@ import {UI_VISUAL_MANIFEST} from "../packages/ui/assets/manifest.js";
 test("God Mode submenus map to existing domain catalog IDs, with replaceable semantic visuals",()=>{
  assert.deepEqual(godMenuOptions("npc").map(o=>o.id),["settler","leader"]);
  assert.deepEqual(godMenuOptions("stone").map(o=>o.id),["stone","iron_ore","copper_ore"]);
- assert.deepEqual(godMenuOptions("food").map(o=>o.id),["apple_adult","apple_seedling"]);
+ assert.deepEqual(godMenuOptions("food").map(o=>o.id),["apple_adult","apple_seedling","medicinal_herb_adult"]);
  assert.deepEqual(godMenuOptions("scenery").map(o=>o.id),["boulder","wall","statue"]);
  assert.deepEqual(godMenuOptions("farm",{farmingSpecies:NATURAL_SOURCES}).map(o=>o.id),
   Object.keys(NATURAL_SOURCES));

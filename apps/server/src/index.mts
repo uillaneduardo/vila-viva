@@ -112,7 +112,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
       item=>[item,depots.reduce((sum,d)=>sum+(d.stock?.[item]??0),0)])):null;
     if(storageSummary){
      storageSummary.food=(storageSummary.apple??0)+(storageSummary.carrot??0)+(storageSummary.potato??0);
-     storageSummary.seeds=(storageSummary.apple_seed??0)+(storageSummary.carrot_seed??0)+(storageSummary.potato_seed??0);
+     storageSummary.seeds=(storageSummary.apple_seed??0)+(storageSummary.carrot_seed??0)+(storageSummary.potato_seed??0)+(storageSummary.medicinal_herb_seed??0);
     }
     return {world,clock:clockView(),storageSummary,
     npcViews:Object.fromEntries(world.entities.filter(e=>e.kind==="character").map(e=>[e.id,{

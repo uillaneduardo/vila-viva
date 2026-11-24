@@ -14,7 +14,8 @@ const FIXED=Object.freeze({
  ]),
  food:Object.freeze([
   {id:"apple_adult",label:"Adulta",description:"Macieira adulta",icon:"choice.tree.adult"},
-  {id:"apple_seedling",label:"Muda",description:"Muda de macieira",icon:"choice.tree.seedling"}
+  {id:"apple_seedling",label:"Muda",description:"Muda de macieira",icon:"choice.tree.seedling"},
+  {id:"medicinal_herb_adult",label:"Erva medicinal",description:"Planta madura",icon:"action.add-farm"}
  ]),
  scenery:Object.freeze([
   {id:"boulder",label:"Rocha",icon:"resource.stone"},

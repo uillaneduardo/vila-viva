@@ -1,8 +1,8 @@
-/** Data-only definitions: one perennial tree and two finite-season vegetable crops. */
+/** Data-only definitions: perennial and finite-season crops, including medicinal plants. */
 import type {NaturalStage} from "../../domain/src/contracts.ts";
 export type GrowthMode="perennial"|"single_harvest";
 export interface NaturalSourceDefinition {
- id:string;label:string;resourceType:"food";productId:string;
+ id:string;label:string;resourceType:"food"|"medicinal_herb";productId:string;
  seedItem:string;seedsPerHarvest:number;drop:Readonly<{min:number;max:number;seedMin:number;seedMax:number}>;growthMode:GrowthMode;
  stages:Readonly<{young:number;mature:number;old:number;dead:number}>;
  production:Readonly<{capacity:number;intervalTicks:number;amount:number;harvestBatch:number}>;
@@ -29,6 +29,12 @@ export const NATURAL_SOURCES:Readonly<Record<string,NaturalSourceDefinition>>=Ob
   stages:Object.freeze({young:22,mature:80,old:600,dead:960}),
   production:Object.freeze({capacity:4,intervalTicks:0,amount:4,harvestBatch:4}),
   blocksMovement:false
+ }),
+ medicinal_herb:Object.freeze({
+  id:"medicinal_herb",label:"Erva medicinal",resourceType:"medicinal_herb",productId:"medicinal_herb",
+  seedItem:"medicinal_herb_seed",seedsPerHarvest:1,drop:Object.freeze({min:2,max:3,seedMin:1,seedMax:2}),growthMode:"single_harvest",
+  stages:Object.freeze({young:12,mature:45,old:360,dead:540}),
+  production:Object.freeze({capacity:3,intervalTicks:0,amount:3,harvestBatch:3}),blocksMovement:false
  })
 });
 export function naturalSource(id:string):NaturalSourceDefinition|undefined {
