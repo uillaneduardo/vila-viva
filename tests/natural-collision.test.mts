@@ -46,7 +46,7 @@ test('life progresses by logical clock; produces fruit, replenishes, ages and di
  assert.equal(tree.quantity,0);
  assert.equal(resolveWorldSprite(tree).state,'leafless');
  assert.equal(w.entities.length,1); // dead trunk persists; never vanishes on depletion
- assert.equal(canEnter(w,tree.position),false);
+ assert.equal(canEnter(w,tree.position),true);
 });
 test('physical harvest creates bounded ground stacks; pickup transfers fruit to actor inventory',()=>{
  const w=createWorld('w');

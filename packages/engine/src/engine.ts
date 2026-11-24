@@ -6,10 +6,10 @@ import {naturalSource} from "../../content/src/natural-sources.ts";
 import {foodItem} from "../../content/src/foods.ts";
 import {makeZone,canCreateZone,canPlantAt,plantInZone} from "../../systems/farming/src/index.ts";
 import {makeNaturalSource,advanceNaturalSources} from "../../systems/nature/src/index.ts";
-import {canEnter,orthogonallyAdjacent,canPlaceFootprint} from "../../systems/collision/src/index.ts";
+import {canEnter,orthogonallyAdjacent,canPlaceFootprint,canPlaceEntity,movementCost} from "../../systems/collision/src/index.ts";
 import {buildingBlueprint} from "../../content/src/buildings/registry.ts";
 import {createConstructionSite,createCompletedBuilding,currentStage,materialsRemaining,hasMaterials,nearFootprint,acceptMaterial,applyConstructionWork,storageDefinition,storageFree} from "../../systems/construction/src/index.ts";
-import {advanceNpcDecisions} from "../../systems/ai/src/index.ts";
+import {advanceNpcDecisions,NPC_ACTION_INTERVAL} from "../../systems/ai/src/index.ts";
 import {advanceNeeds,eatFood,updateNeedEffects} from "../../systems/needs/src/index.ts";
 import {miningYield,isMineral} from "../../content/src/extraction.ts";
 import {TOOL_PRESETS,evaluateActionRisk,correctTool} from "../../systems/risk/src/index.ts";
@@ -57,7 +57,7 @@ export function applyCommand(world: World, command: Command,
  if(command.action==="npc.spawn"||command.action==="resource.spawn"||command.action==="obstacle.spawn"){
   if(!admin)return reject(command,"UNAUTHORIZED");
   if(!command.position||!inBounds(world,command.position))return reject(command,"OUT_OF_BOUNDS");
-  if(!canEnter(world,command.position))return reject(command,"BLOCKED");
+  if(!canPlaceEntity(world,command.position))return reject(command,"BLOCKED");
   const prefix=command.action==="npc.spawn"?"npc-":command.action==="obstacle.spawn"?"obstacle-":"resource-";
   const id=prefix+command.commandId;eventTargetId=id;
   if(command.action==="npc.spawn"){
@@ -365,6 +365,13 @@ export function applyCommand(world: World, command: Command,
   if(!command.position||!inBounds(world,command.position))return reject(command,"OUT_OF_BOUNDS");
   if(character.health<=0||resolveAttributes({...character,attributes:{...character.attributes,energy:character.energy,health:character.health}},world.tick).values.energy<=0 ||
     !orthogonallyAdjacent(character.position,command.position)||!canEnter(world,command.position,character.id))return reject(command,"BLOCKED");
+  if(world.tick<(character.nextMoveTick??0))return reject(command,"NOT_READY");
+  const cost=movementCost(world,command.position,character.id);
+  const interval=command.actorRole==="npc"&&options.internal?NPC_ACTION_INTERVAL:1;
+  // Charge destination traversal time, retaining fractional progress between consecutive steps.
+  const prior=character.nextMoveTick??world.tick;
+  const base=world.tick-prior<interval?prior:world.tick;
+  character.nextMoveTick=Math.max(world.tick+1,base+interval*cost);
   character.position={...command.position};character.energy=Math.max(0,character.energy-1);
   for(const body of world.entities)if(body.kind==="character"&&body.bodyCarriedBy===character.id)
    body.position={...character.position};

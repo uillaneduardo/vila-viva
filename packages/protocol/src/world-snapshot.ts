@@ -25,7 +25,8 @@ export function validateWorld(value:unknown):asserts value is World {
    throw Error("INVALID_WORLD");
   if(entity.kind==="character"&&(
    typeof entity.name!=="string"||entity.name.length>120||!safeInt(entity.health,100)||
-   !safeInt(entity.energy,100)||entity.satiety!==undefined&&!safeInt(entity.satiety,100)))
+   !safeInt(entity.energy,100)||
+   entity.nextMoveTick!==undefined&&(typeof entity.nextMoveTick!=="number"||!Number.isFinite(entity.nextMoveTick)||entity.nextMoveTick<0)||entity.satiety!==undefined&&!safeInt(entity.satiety,100)))
    throw Error("INVALID_WORLD");
   if(entity.kind==="construction"||entity.kind==="planting_zone"){
    if(!object(entity.footprint)||!safeInt(entity.footprint.width,12)||entity.footprint.width<1||

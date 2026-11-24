@@ -1,6 +1,6 @@
 import type {World,Character,Entity,Resource,Construction,Command,Result,Position} from "../../../domain/src/contracts.ts";
 import {canEnter,blockingEntity} from "../../collision/src/index.ts";
-import {routeToEntity} from "../../pathfinding/src/index.ts";
+import {routeToEntity,routeCost} from "../../pathfinding/src/index.ts";
 import {materialsRemaining,hasMaterials,storageDefinition,storageFree} from "../../construction/src/index.ts";
 import {bedsIn,reservationCount,reserveBed,reservedHouse,releaseBed,sleepRecovery} from "../../housing/src/index.ts";
 import {EAT_THRESHOLD} from "../../needs/src/index.ts";
@@ -42,7 +42,7 @@ function selectTask(world:World,npc:Character,targets:Entity[],activity:string,r
   const route=routeToEntity(world,npc.position,target,npc.id);
   return route?{target,route}:null;
  }).filter((item):item is {target:Entity;route:Position[]}=>!!item);
- reachable.sort((a,b)=>a.route.length-b.route.length||a.target.id.localeCompare(b.target.id));
+ reachable.sort((a,b)=>routeCost(world,a.route,npc.id)-routeCost(world,b.route,npc.id)||a.target.id.localeCompare(b.target.id));
  const chosen=reachable[0];
  return chosen?{...chosen,activity,reason,action,parameters:parameters?.(chosen.target)}:null;
 }
@@ -55,7 +55,7 @@ function reachablePlots(world:World,npc:Character,zone:FarmingZone){
   const route=routeToEntity(world,npc.position,target,npc.id);
   return route?{position,route,target}:null;
  }).filter((x):x is {position:Position;route:Position[];target:Resource}=>!!x)
- .sort((a,b)=>a.route.length-b.route.length||a.position.y-b.position.y||a.position.x-b.position.x);
+ .sort((a,b)=>routeCost(world,a.route,npc.id)-routeCost(world,b.route,npc.id)||a.position.y-b.position.y||a.position.x-b.position.x);
 }
 /** Farming tasks require a reachable plot before procuring seeds. */
 function plantingTask(world:World,npc:Character):Task|null {
@@ -275,6 +275,7 @@ function deadwoodTask(world:World,npc:Character):Task|null{
 }
 const adjacentCells=(npc:Character)=>[{x:npc.position.x+1,y:npc.position.y},{x:npc.position.x-1,y:npc.position.y},{x:npc.position.x,y:npc.position.y+1},{x:npc.position.x,y:npc.position.y-1}];
 function idleStep(world:World,npc:Character,execute:ActionHandler):boolean{
+ if(world.tick<(npc.nextMoveTick??0))return true;
  const cells=adjacentCells(npc).filter(p=>canEnter(world,p,npc.id));
  if(!cells.length){
   const blockers=adjacentCells(npc).map(p=>blockingEntity(world,p,npc.id)).filter(Boolean);
@@ -388,7 +389,7 @@ function rest(world:World,npc:Character,execute:ActionHandler):boolean {
    bedsIn(e)>0&&reservationCount(e)<bedsIn(e)&&(e.blueprintId!=="building.family_house"||e.residents?.includes(npc.id)));
   const reachable=candidates.map(target=>({target,route:routeToEntity(world,npc.position,target,npc.id)}))
    .filter((entry):entry is {target:Construction;route:Position[]}=>!!entry.route)
-   .sort((a,b)=>Number(b.target.id===npc.homeId)-Number(a.target.id===npc.homeId)||a.route.length-b.route.length||a.target.id.localeCompare(b.target.id));
+   .sort((a,b)=>Number(b.target.id===npc.homeId)-Number(a.target.id===npc.homeId)||routeCost(world,a.route,npc.id)-routeCost(world,b.route,npc.id)||a.target.id.localeCompare(b.target.id));
   for(const entry of reachable){
    if(reserveBed(world,npc,entry.target)){house=entry.target;route=entry.route;break;}
   }
@@ -397,6 +398,7 @@ function rest(world:World,npc:Character,execute:ActionHandler):boolean {
   releaseBed(world,npc);house=undefined;route=null;
  }
  if(house&&route&&route.length>1){
+  if(world.tick<(npc.nextMoveTick??0)){reserveBed(world,npc,house);return true;}
   const next=route[1];
   const result=execute({worldId:world.id,commandId:"ai-sleep-"+world.tick+"-"+npc.id,
    actorRole:"npc",actorId:npc.id,action:"movement.move",targetId:npc.id,position:next});
@@ -422,6 +424,9 @@ function rest(world:World,npc:Character,execute:ActionHandler):boolean {
 function executeTask(world:World,npc:Character,task:Task,execute:ActionHandler):void {
  const effective=resolveAttributes({...npc,attributes:{...npc.attributes,energy:npc.energy,health:npc.health}},world.tick).values;
  const cycle=Math.floor(world.tick/NPC_ACTION_INTERVAL);
+ if(task.route.length>1&&world.tick<(npc.nextMoveTick??0)){
+  record(npc,world,"Movimento lento","Tempo de travessia do terreno",task.target.id,task.route.slice(1));return;
+ }
  if(task.route.length>1&&effective.movementSpeed<.8&&cycle%2===1){
   record(npc,world,"Movimento lento","Atributos/efeitos reduzem velocidade; recuperando fôlego",task.target.id,task.route.slice(1));
   return;

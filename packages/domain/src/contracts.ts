@@ -8,6 +8,7 @@ export type NaturalStage = "seedling" | "young" | "mature" | "old" | "dead";
 export type Inventory = Record<string,number>;
 export interface Character { id: string; kind: "character"; name: string; position: Position; health: number; energy: number; ownerId?: string; inventory?: Inventory; ai?:NpcDecisionState; attributes?: Partial<Record<AttributeId,number>>; effects?: ActiveEffect[];
  homeId?:string; satiety?:number; equipment?:{tool?:string}; injuries?:number;
+ nextMoveTick?:number;
  traits?:string[]; deathTick?:number; causeOfDeath?:string; bodyCarriedBy?:string;
  communityRole?:"leader"; leadership?:{lastPlanTick:number;lastBlueprintId?:string;lastReason:string;lastSiteId?:string;
  lastProductionTick?:number;lastRecipeId?:string;productionReason?:string}; }

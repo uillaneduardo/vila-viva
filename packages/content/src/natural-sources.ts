@@ -7,6 +7,7 @@ export interface NaturalSourceDefinition {
  stages:Readonly<{young:number;mature:number;old:number;dead:number}>;
  production:Readonly<{capacity:number;intervalTicks:number;amount:number;harvestBatch:number}>;
  blocksMovement:boolean;
+ movementSpeed?:number; seedlingMovementSpeed?:number;
 }
 export const NATURAL_SOURCES:Readonly<Record<string,NaturalSourceDefinition>>=Object.freeze({
  apple_tree:Object.freeze({
@@ -14,7 +15,7 @@ export const NATURAL_SOURCES:Readonly<Record<string,NaturalSourceDefinition>>=Ob
   seedItem:"apple_seed",seedsPerHarvest:1,drop:Object.freeze({min:1,max:3,seedMin:1,seedMax:2}),growthMode:"perennial",
   stages:Object.freeze({young:40,mature:120,old:1800,dead:3000}),
   production:Object.freeze({capacity:30,intervalTicks:40,amount:3,harvestBatch:3}),
-  blocksMovement:true
+  blocksMovement:false,movementSpeed:.6,seedlingMovementSpeed:.9
  }),
  carrot:Object.freeze({
   id:"carrot",label:"Cenoura",resourceType:"food",productId:"carrot",

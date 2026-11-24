@@ -1,5 +1,6 @@
 import {Camera,hitTest,brushCells} from './camera.js';
 import {SpriteLibrary,resolveWorldSprite} from './sprites.js';
+import {createOcclusionResolver} from './occlusion.js';
 export class Scene {
  constructor(canvas,{spriteLibrary=new SpriteLibrary()}={}){
   this.canvas=canvas;this.ctx=canvas.getContext('2d');this.camera=new Camera();
@@ -96,6 +97,7 @@ export class Scene {
     c.strokeStyle='#f2e3a7';c.lineWidth=3;c.strokeRect(start.x+2,start.y+2,width-4,height-4);
    }
   }
+  const opacityFor=createOcclusionResolver(this.world.entities,e=>this.positionProvider?this.positionProvider(e,now):e.position);
   // Only real entities from /api/world are visualized. No fake houses, stocks or paths.
   for(const e of this.world.entities.filter(e=>e.kind!=='item'&&e.kind!=='planting_zone'&&
    !(e.kind==='character'&&e.bodyCarriedBy)&&
@@ -115,6 +117,7 @@ export class Scene {
      (pos.y+(e.kind==='construction'?e.footprint.height/2:.5))*t),s=t*k.zoom;
    if(p.x<-s||p.y<-s||p.x>w+s||p.y>h+s)continue;
    const visual=resolveWorldSprite(e,{movingVisually:Math.abs(pos.x-e.position.x)+Math.abs(pos.y-e.position.y)>.001});
+   c.save();c.globalAlpha*=opacityFor(e);
    const drawn=visual&&this.sprites.draw(c,visual.id,p.x,p.y,e.kind==='construction'?s*e.footprint.width:s*visual.scale,visual.state,e.kind==='construction'?{height:s*e.footprint.height,level:visual.level}:undefined);
    if(!drawn){
     c.save();c.translate(p.x,p.y);
@@ -235,6 +238,7 @@ export class Scene {
     if(e.kind==='resource'&&e.quantity===0){c.fillStyle='rgba(30,45,33,.58)';c.fillRect(-s*.3,-s*.3,s*.6,s*.6);}
     c.restore();
    }
+   c.restore();
    if(e.id===this.hover||e.id===this.selected){
     c.beginPath();
     if(e.kind==='construction')c.rect(p.x-s*e.footprint.width/2,p.y-s*e.footprint.height/2,s*e.footprint.width,s*e.footprint.height);
