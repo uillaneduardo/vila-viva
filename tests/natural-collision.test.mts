@@ -12,7 +12,7 @@ const cmd=(world,commandId,action,extra={})=>({
 const placeApple=(w,id,position={x:2,y:2},ageTicks=0,quantity=0)=>
  applyCommand(w,cmd(w,id,'resource.spawn',{position,parameters:{resourceType:'food',sourceId:'apple_tree',ageTicks,quantity}}));
 test('registered living food species: apple tree and two finite crops',()=>{
- assert.deepEqual(Object.keys(NATURAL_SOURCES),['apple_tree','carrot','potato']);
+ assert.deepEqual(Object.keys(NATURAL_SOURCES),['apple_tree','carrot','potato','medicinal_herb']);
  assert.equal(NATURAL_SOURCES.apple_tree.productId,'apple');
  assert.deepEqual(Object.keys(SCENERY_PRESETS),['boulder','wall','statue']);
  const w=createWorld('w');
