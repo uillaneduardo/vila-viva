@@ -2,6 +2,7 @@
 import type {World,Character,Construction} from "../../../domain/src/contracts.ts";
 import {buildingBlueprint} from "../../../content/src/buildings/registry.ts";
 import {applyEffect,removeEffect} from "../../effects/src/manager.ts";
+import {buildingCapabilities} from "../../construction/src/index.ts";
 import {releaseBed} from "../../housing/src/index.ts";
 export const CORPSE_EXPOSURE_RADIUS=4;
 export const CORPSE_EFFECT_ID="corpse_exposure";
@@ -11,7 +12,7 @@ export const isVisibleCorpse=(e:unknown):e is Character=>isCorpse(e)&&!(e as Cha
 export function cemeteryCapacity(building:Construction):number {
  if(building.status!=="completed"||building.availability!=="available")return 0;
  const blueprint=buildingBlueprint(building.blueprintId);
- return blueprint?.version===building.blueprintVersion?blueprint.cemetery?.capacity??0:0;
+ return blueprint?.version===building.blueprintVersion&&blueprint.cemetery?(buildingCapabilities(building)["cemetery.grave_capacity"]??blueprint.cemetery.capacity):0;
 }
 export const availableGraves=(building:Construction)=>
  Math.max(0,cemeteryCapacity(building)-(building.burials?.length??0));
