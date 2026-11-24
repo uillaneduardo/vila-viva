@@ -24,6 +24,11 @@ jobs:
         run: node --experimental-strip-types --test tests/*.test.mts
       - name: Measure deterministic community baseline (15000 ticks)
         run: node --experimental-strip-types scripts/measure-community.mts oturo-starter-v1 15000
+      - name: Measure additional deterministic community seeds
+        run: |
+          for seed in oturo-stability-a oturo-stability-b; do
+            node --experimental-strip-types scripts/measure-community.mts "$seed" 15000
+          done
       - name: Ensure archived deployment and new deployment contracts coexist
         run: |
           test -s .old/Dockerfile
