@@ -55,6 +55,7 @@ export function validateWorld(value:unknown):asserts value is World {
     if(!object(u)||!next||entity.status!=="completed"||entity.availability!=="available"||u.targetLevel!==next.level||!safeInt(u.startedTick,value.tick)||!safeInt(entity.workDone,next.stage.workUnits-1)||!object(entity.delivered)||Object.entries(entity.delivered).some(([id,n])=>!Object.hasOwn(next.stage.materials,id)||!safeInt(n,next.stage.materials[id])))throw Error("INVALID_WORLD");
    }
   }
+  if(entity.kind==="construction"&&entity.workCycle!==undefined){const c=entity.workCycle;if(!object(c)||!safeInt(c.tick,value.tick)||!Array.isArray(c.actors)||c.actors.length<1||c.actors.length>4||new Set(c.actors).size!==c.actors.length||c.actors.some(id=>typeof id!=="string"||!/^[\w:-]{1,120}$/.test(id)))throw Error("INVALID_WORLD");}
   if(entity.kind==="item"&&(typeof entity.itemId!=="string"||!isItem(entity.itemId)||!safeInt(entity.quantity,1e9)||entity.quantity<1||!safeInt(entity.createdTick,value.tick)))throw Error("INVALID_WORLD");
   if(entity.kind==="resource"&&(!safeInt(entity.quantity,1e9)||!safeInt(entity.maximum,1e9)))throw Error("INVALID_WORLD");
  }
