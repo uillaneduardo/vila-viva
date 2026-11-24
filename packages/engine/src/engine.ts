@@ -8,6 +8,9 @@ import {canEnter,orthogonallyAdjacent,canPlaceFootprint} from "../../systems/col
 import {buildingBlueprint} from "../../content/src/buildings/registry.ts";
 import {createConstructionSite,createCompletedBuilding,currentStage,materialsRemaining,hasMaterials,nearFootprint,acceptMaterial,applyConstructionWork,storageDefinition,storageFree} from "../../systems/construction/src/index.ts";
 import {advanceNpcDecisions} from "../../systems/ai/src/index.ts";
+import {advanceNeeds,eatApple,updateNeedEffects} from "../../systems/needs/src/index.ts";
+import {TOOL_PRESETS,evaluateActionRisk} from "../../systems/risk/src/index.ts";
+import {clearHouse,pruneBeds} from "../../systems/housing/src/index.ts";
 import {inBounds} from "../../domain/src/contracts.ts";
 import type {Command, World, Result, Character, Resource, Position} from "../../domain/src/contracts.ts";
 
@@ -34,6 +37,8 @@ export function applyCommand(world: World, command: Command,options:{internal?:b
  const admin=command.actorRole==="admin";
  let eventTargetId=command.targetId;
  const additionalEvents:{type:string;entityId?:string}[]=[];
+ let riskActor:Character|undefined;
+ let riskActivity:"resource.gather:wood"|"resource.gather:stone"|"construction.work"|"resource.harvest"|undefined;
  if(command.action==="npc.spawn"||command.action==="resource.spawn"||command.action==="obstacle.spawn"){
   if(!admin)return reject(command,"UNAUTHORIZED");
   if(!command.position||!inBounds(world,command.position))return reject(command,"OUT_OF_BOUNDS");
@@ -45,7 +50,7 @@ export function applyCommand(world: World, command: Command,options:{internal?:b
    if(typeof name!=="string"||!name.trim()||name.length>64)return reject(command,"INVALID_PAYLOAD");
    const ownerId=command.parameters?.ownerId;
    if(ownerId!==undefined&&(typeof ownerId!=="string"||!ownerId.trim()))return reject(command,"INVALID_PAYLOAD");
-   const character:Character={kind:"character",id,name,position:{...command.position},health:100,energy:100,inventory:{},
+   const character:Character={kind:"character",id,name,position:{...command.position},health:100,energy:100,satiety:100,inventory:{},equipment:{},injuries:0,
     ...(typeof ownerId==="string"?{ownerId}:{})};
    world.entities.push(character);
   } else if(command.action==="obstacle.spawn"){
@@ -108,7 +113,7 @@ export function applyCommand(world: World, command: Command,options:{internal?:b
    const amount=debug?command.parameters?.workUnits:1;
    if(typeof amount!=="number"||!Number.isSafeInteger(amount)||amount<1||amount>Math.max(1,stage.workUnits-target.workDone))return reject(command,"INVALID_PAYLOAD");
    const result=applyConstructionWork(target,amount,world.tick+1);
-   if(actor)actor.energy=Math.max(0,actor.energy-1);
+   if(actor){actor.energy=Math.max(0,actor.energy-1);riskActor=actor;riskActivity="construction.work";}
    if(result.stageCompleted)additionalEvents.push({type:"construction.stage_completed",entityId:target.id});
    if(result.buildingCompleted)additionalEvents.push({type:"building.completed",entityId:target.id});
   }
@@ -153,6 +158,7 @@ export function applyCommand(world: World, command: Command,options:{internal?:b
   source.quantity-=amount;actor.inventory??={};
   actor.inventory[source.resourceType]=(actor.inventory[source.resourceType]??0)+amount;
   actor.energy=Math.max(0,actor.energy-1);
+  riskActor=actor;riskActivity=source.resourceType==="wood"?"resource.gather:wood":"resource.gather:stone";
  } else if(command.action==="movement.move"){
   if(admin)return reject(command,"UNAUTHORIZED");
   const character=world.entities.find(e=>e.id===command.targetId);
@@ -181,10 +187,48 @@ export function applyCommand(world: World, command: Command,options:{internal?:b
   source.quantity-=take;
   actor.inventory??={};actor.inventory[def.productId]=(actor.inventory[def.productId]??0)+take;
   actor.energy=Math.max(0,actor.energy-1);
+  riskActor=actor;riskActivity="resource.harvest";
+ } else if(command.action==="construction.destroy"||command.action==="construction.remove"){
+  if(!admin)return reject(command,"UNAUTHORIZED");
+  const index=world.entities.findIndex(e=>e.id===command.targetId);
+  if(index<0)return reject(command,"NOT_FOUND");
+  const target=world.entities[index];
+  if(target.kind!=="construction")return reject(command,"INVALID_TARGET");
+  if(command.action==="construction.destroy"){
+   if(target.status==="destroyed")return reject(command,"ALREADY_COMPLETED");
+   clearHouse(world,target);
+   target.status="destroyed";target.availability="unavailable";
+   additionalEvents.push({type:"building.destroyed",entityId:target.id});
+  }else{
+   clearHouse(world,target);
+   world.entities.splice(index,1);
+   additionalEvents.push({type:"building.removed",entityId:target.id});
+  }
+ } else if(command.action==="npc.admin_equip"){
+  if(!admin)return reject(command,"UNAUTHORIZED");
+  const target=world.entities.find(e=>e.id===command.targetId);
+  if(!target)return reject(command,"NOT_FOUND");
+  if(target.kind!=="character")return reject(command,"INVALID_TARGET");
+  const tool=command.parameters?.tool;
+  if(tool!==null&&(typeof tool!=="string"||!Object.hasOwn(TOOL_PRESETS,tool)))return reject(command,"INVALID_PAYLOAD");
+  target.equipment={...(tool?{tool}:{})};
+  additionalEvents.push({type:"npc.equipment_changed",entityId:target.id});
+ } else if(command.action==="npc.eat"){
+  if(admin)return reject(command,"UNAUTHORIZED");
+  const actor=actorForCommand(world,command);
+  if(!actor||actor.id!==command.targetId)return reject(command,"UNAUTHORIZED");
+  if(actor.health<=0)return reject(command,"BLOCKED");
+  if((actor.satiety??100)>=100)return reject(command,"NOT_READY");
+  if((actor.inventory?.apple??0)<1)return reject(command,"EXHAUSTED");
+  if(!eatApple(actor))return reject(command,"NOT_READY");
+  updateNeedEffects(actor,world.tick);
+  additionalEvents.push({type:"npc.ate",entityId:actor.id});
  } else if(command.action==="entity.inspect"){
   if(!world.entities.some(e=>e.id===command.targetId))return reject(command,"NOT_FOUND");
   return {ok:true,status:"completed",commandId:command.commandId,tick:world.tick,events:[]};
  } else return reject(command,"INVALID_PAYLOAD");
+ if(riskActor&&riskActivity&&evaluateActionRisk(riskActor,riskActivity,world.tick,command.commandId))
+  additionalEvents.push({type:"npc.injured",entityId:riskActor.id});
  if(!options.internal){
   world.appliedCommands.push(command.commandId);
   // External actions retain legacy tick accounting. Autonomous NPC actions do not accelerate time.
@@ -198,6 +242,8 @@ export function applyCommand(world: World, command: Command,options:{internal?:b
 export function advanceTick(world:World){
  world.tick+=1;
  advanceNaturalSources(world);
+ advanceNeeds(world);
+ pruneBeds(world);
  advanceNpcDecisions(world,(cmd)=>applyCommand(world,cmd,{internal:true}));
  return world.entities.filter(e=>e.kind==="character").flatMap(e=>expireEffects(e,e.id,world.tick));
 }
