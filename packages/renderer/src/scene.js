@@ -11,21 +11,27 @@ export class Scene {
   this.camera.setViewport(width,height);this.canvas.width=Math.round(width*dpr);this.canvas.height=Math.round(height*dpr);
   this.ctx.setTransform(dpr,0,0,dpr,0,0);this.dpr=dpr;
  }
- setWorld(world){
+ setWorld(world,{reset=false,paused=false}={}){
   if(!this.world)this.camera.centerOnWorld(world);
+  if(reset||paused)this.motion.clear();
   const oldById=new Map(this.world?.entities.map(e=>[e.id,e])??[]);
   const now=performance.now();
+  const duration=Math.max(100,Math.min(750,now-(this.lastSample??now-250)));
+  this.lastSample=now;
+  const ids=new Set(world.entities.map(e=>e.id));
+  for(const id of this.motion.keys())if(!ids.has(id))this.motion.delete(id);
   for(const entity of world.entities){
-   if(entity.kind!=='character')continue;
+   if(entity.kind!=='character'||reset||paused)continue;
    const previous=oldById.get(entity.id);
    if(!previous||previous.position.x===entity.position.x&&previous.position.y===entity.position.y)continue;
+   if(Math.abs(previous.position.x-entity.position.x)+Math.abs(previous.position.y-entity.position.y)>1){this.motion.delete(entity.id);continue;}
    const active=this.motion.get(entity.id);
-   const progress=active?Math.min(1,(now-active.startedAt)/420):1;
+   const progress=active?Math.min(1,(now-active.startedAt)/active.duration):1;
    const from=active&&progress<1?{
     x:active.from.x+(active.to.x-active.from.x)*progress,
     y:active.from.y+(active.to.y-active.from.y)*progress
    }:previous.position;
-   this.motion.set(entity.id,{from,to:{...entity.position},startedAt:now});
+   this.motion.set(entity.id,{from,to:{...entity.position},startedAt:now,duration});
   }
   this.world=world;
  }
@@ -85,8 +91,8 @@ export class Scene {
    if(e.kind==='character'){
     const animation=this.motion.get(e.id);
     if(animation){
-     const alpha=Math.min(1,(now-animation.startedAt)/420);
-     const eased=alpha*alpha*(3-2*alpha);
+     const alpha=Math.min(1,(now-animation.startedAt)/animation.duration);
+     const eased=alpha;
      pos={x:animation.from.x+(animation.to.x-animation.from.x)*eased,
       y:animation.from.y+(animation.to.y-animation.from.y)*eased};
      if(alpha>=1)this.motion.delete(e.id);

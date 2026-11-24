@@ -161,7 +161,7 @@ export function createHud({role,onTool,onClock,onSize,onShape=()=>{},onPreset=()
    el('day').textContent='Dia '+String(clock.day).padStart(2,'0');
    el('clockTime').textContent=String(clock.hour).padStart(2,'0')+':'+String(clock.minute).padStart(2,'0');
    speedButtons.forEach((b,i)=>b.classList.toggle('active',[0,1,2,4][i]===clock.speed));
-   speedButtons[0].replaceChildren(createUiVisual(clock.speed===0?'control.resume':'control.pause',{size:16}));
+   if(speedButtons[0].dataset.paused!==String(clock.speed===0)){speedButtons[0].dataset.paused=String(clock.speed===0);speedButtons[0].replaceChildren(createUiVisual(clock.speed===0?'control.resume':'control.pause',{size:16}));}
    el('population').textContent=world.entities.filter(e=>e.kind==='character'&&e.health>0).length+
     ' vivos · '+world.entities.filter(e=>e.kind==='character'&&e.health<=0).length+' falecidos';
    for(const resource of ['wood','food','stone']){

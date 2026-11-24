@@ -14,6 +14,7 @@ import {TOOL_PRESETS,injuryProbability} from "../../../packages/systems/risk/src
 import {TRAITS} from "../../../packages/content/src/characters.ts";
 import {cemeteryCapacity,availableGraves} from "../../../packages/systems/mortality/src/index.ts";
 import {createServer} from "node:http";
+import {attachWorldStream} from "./world-stream.mts";
 import {readFile} from "node:fs/promises";
 import {resolve,extname,sep} from "node:path";
 import {fileURLToPath} from "node:url";
@@ -102,6 +103,26 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
   let raw="";for await(const part of req){raw+=part.toString();if(Buffer.byteLength(raw)>limit)throw Error("BODY_TOO_LARGE");}
   try{return JSON.parse(raw);}catch{throw Error("INVALID_JSON");}
  };
+ let generation=0;
+ const projectWorld=()=>{
+    const depots=world.entities.filter(e=>e.kind==="construction"&&
+     e.blueprintId==="building.depot"&&!!storageDefinition(e));
+    const storageSummary=depots.length?
+     Object.fromEntries(Object.keys(ITEMS).map(
+      item=>[item,depots.reduce((sum,d)=>sum+(d.stock?.[item]??0),0)])):null;
+    if(storageSummary){
+     storageSummary.food=(storageSummary.apple??0)+(storageSummary.carrot??0)+(storageSummary.potato??0);
+     storageSummary.seeds=(storageSummary.apple_seed??0)+(storageSummary.carrot_seed??0)+(storageSummary.potato_seed??0);
+    }
+    return {world,clock:clockView(),storageSummary,
+    npcViews:Object.fromEntries(world.entities.filter(e=>e.kind==="character").map(e=>[e.id,{
+     mood:resolveAttributes({...e,attributes:{...e.attributes,health:e.health,energy:e.energy}},world.tick).values.mood,
+     activity:e.ai?.activity??null,reason:e.ai?.reason??"Sem tarefa",route:e.ai?.route??null,
+     targetId:e.ai?.targetId??null
+    }])),
+    playerId:playerId(),mode:"local-prototype",persistent:!!store,
+    timelineId:store?.timelineId??null};
+ };
  const server=createServer(async(req,res)=>{
   try{
    const url=new URL(req.url||"/","http://localhost");
@@ -160,7 +181,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
     const restoredWorld=structuredClone(loaded.world);
     removeLegacyAvatar(restoredWorld);
     store.switchWorld(restoredWorld,loaded.seed??restoredWorld.seed);
-    world=restoredWorld;
+    world=restoredWorld;generation++;
     return json(res,200,{ok:true,worldId:world.id,tick:world.tick,paused:true,
      timelineId:store.timelineId});
    }
@@ -177,7 +198,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
     clock.speed=0;
     const next=createWorld("first-world",width,height);
     if(store)store.switchWorld(next,seed);
-    world=next;
+    world=next;generation++;
     initialize(seed);
     return json(res,200,{ok:true,tick:world.tick,paused:true,seed:seed??null,width,height});
    }
@@ -228,23 +249,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
     items:ITEMS,itemCategories:ITEM_CATEGORIES,recipes:RECIPES
    });
    if(url.pathname==="/api/world"&&req.method==="GET"){
-    const depots=world.entities.filter(e=>e.kind==="construction"&&
-     e.blueprintId==="building.depot"&&!!storageDefinition(e));
-    const storageSummary=depots.length?
-     Object.fromEntries(Object.keys(ITEMS).map(
-      item=>[item,depots.reduce((sum,d)=>sum+(d.stock?.[item]??0),0)])):null;
-    if(storageSummary){
-     storageSummary.food=(storageSummary.apple??0)+(storageSummary.carrot??0)+(storageSummary.potato??0);
-     storageSummary.seeds=(storageSummary.apple_seed??0)+(storageSummary.carrot_seed??0)+(storageSummary.potato_seed??0);
-    }
-    return json(res,200,{world,clock:clockView(),storageSummary,
-    npcViews:Object.fromEntries(world.entities.filter(e=>e.kind==="character").map(e=>[e.id,{
-     mood:resolveAttributes({...e,attributes:{...e.attributes,health:e.health,energy:e.energy}},world.tick).values.mood,
-     activity:e.ai?.activity??null,reason:e.ai?.reason??"Sem tarefa",route:e.ai?.route??null,
-     targetId:e.ai?.targetId??null
-    }])),
-    playerId:playerId(),mode:"local-prototype",persistent:!!store,
-    timelineId:store?.timelineId??null});
+    return json(res,200,projectWorld());
    }
    if(url.pathname==="/api/inspect"&&req.method==="GET"){
     const entity=world.entities.find(e=>e.id===url.searchParams.get("entityId"));
@@ -375,6 +380,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
    json(res,500,{error:"INTERNAL_ERROR"});
   }
  });
+ attachWorldStream(server,projectWorld,()=>generation);
  server.on("close",()=>clearInterval(timer));
  return {server,get world(){return world;},clock,store};
 }

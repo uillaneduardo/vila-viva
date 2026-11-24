@@ -1,3 +1,4 @@
+import {connectWorld} from '../../packages/client-sdk/src/world-stream.js';
 import {createUiVisual} from '../../packages/ui/assets/visual.js';
 import {applyUiTheme} from '../../packages/ui/assets/themes/index.js';
 import {Scene} from '../../packages/renderer/src/scene.js';
@@ -14,6 +15,7 @@ const scene=new Scene(el('game')),inspector=createInspector({
 const npcActivityMonitor=role==='admin'?createNpcActivityMonitor(el('npcActivityMonitor')):null;
 let snapshot=null,catalog=null,selectedId=null,hoverId=null,tool='inspect',brushSize=1,brushShape='square',preset='apple_adult',buildMode='site';
 let pan=null,painting=new Map(),loading=false,inspection=null,lastSpeed=1;
+let stream=null,inspectAt=0,inspectSequence=0,visualEpoch=0,frames=0,fps=0;
 const keys=new Set();
 const request=async(path,options)=>{
  const response=await fetch(path,options),data=await response.json();
@@ -45,13 +47,14 @@ const status=message=>{el('statusMessage').textContent=message;};
 const eventCoordinates=e=>{const rect=scene.canvas.getBoundingClientRect();return {x:e.clientX-rect.left,y:e.clientY-rect.top};};
 function setSelection(entity){
  selectedId=entity?.id??null;inspector.setSelection(selectedId);scene.setSelection(selectedId);
- inspection=null;if(entity)refreshInspector(entity);
+ inspection=null;inspectSequence++;inspectAt=0;if(entity)refreshInspector(entity);
 }
 async function refreshInspector(entity){
  if(!entity||entity.id!==selectedId)return;
+ const sequence=++inspectSequence;inspectAt=performance.now();
  try{
   const details=await request('/api/inspect?entityId='+encodeURIComponent(entity.id));
-  if(entity.id!==selectedId)return;
+  if(entity.id!==selectedId||sequence!==inspectSequence)return;
   inspection=details;inspector.render(entity,details,catalog,{role,canHarvest:!!harvestActor(entity)});
  }catch(error){status('Falha na inspeção: '+error.message);}
 }
@@ -174,6 +177,15 @@ function changeSpeed(speed){
  .then(data=>{if(speed)lastSpeed=speed;if(snapshot){snapshot.clock=data.clock;hud.update(snapshot);}status(speed?'Velocidade '+speed+'×':'Simulação pausada');})
  .catch(error=>status('Falha no relógio: '+error.message));
 }
+function applyWorld(data,{reset=false}={}){
+ const changed=reset||snapshot?.timelineId!==data.timelineId||data.world.tick<(snapshot?.world.tick??0);
+ if(changed){visualEpoch++;setSelection(null);}
+ snapshot=data;scene.setWorld(data.world,{reset:changed,paused:data.clock.paused});hud.update(data);
+ npcActivityMonitor?.update(data);
+ const selected=data.world.entities.find(e=>e.id===selectedId);
+ if(selectedId&&!selected)setSelection(null);
+ else if(selected&&performance.now()-inspectAt>=500)void refreshInspector(selected);
+}
 async function refresh(){
  if(loading)return;loading=true;
  try{
@@ -182,14 +194,13 @@ async function refresh(){
    hud.setBlueprints(catalog.buildingBlueprints);
    hud.setFarmingSpecies(catalog.naturalSources);
   }
-  const data=await request('/api/world');snapshot=data;scene.setWorld(data.world);hud.update(data);
-  npcActivityMonitor?.update(data);
-  const selected=data.world.entities.find(e=>e.id===selectedId);
-  if(selectedId&&!selected)setSelection(null);
-  else if(selected)refreshInspector(selected);
-  el('connection').textContent='Simulação local';
+  if(stream?.live)return;
+  const epoch=visualEpoch,data=await request('/api/world');
+  if(stream?.live||epoch!==visualEpoch)return;
+  applyWorld(data);
+  el('connection').textContent='Sincronização HTTP';
   el('connection').classList.remove('offline');
- }catch(error){el('connection').textContent='Sem conexão';el('connection').classList.add('offline');status('Servidor indisponível: '+error.message);}
+ }catch(error){if(stream?.live)return;el('connection').textContent='Sem conexão';el('connection').classList.add('offline');status('Servidor indisponível: '+error.message);}
  finally{loading=false;}
 }
 
@@ -364,9 +375,15 @@ function animate(now){
  const dt=Math.min(.06,(now-last)/1000);last=now;
  const x=Number(keys.has('KeyD'))-Number(keys.has('KeyA')),y=Number(keys.has('KeyS'))-Number(keys.has('KeyW'));
  if(x||y){const factor=420*dt/Math.max(1,Math.hypot(x,y));scene.camera.pan(-x*factor,-y*factor);}
- scene.paint(now);requestAnimationFrame(animate);
+ frames++;scene.paint(now);requestAnimationFrame(animate);
 }
 requestAnimationFrame(animate);
 el('worldTick').textContent='Carregando mundo…';
 el('introHint').replaceChildren(createUiVisual('action.inspect',{size:15}),document.createTextNode(' Sobrevivência ativa: NPCs comem, reservam camas e podem se ferir. Use o inspetor para acompanhar decisões.'));
-refresh();setInterval(refresh,650);
+refresh();
+stream=connectWorld({onState:(data,meta)=>applyWorld(data,meta),
+ onStatus:state=>{const node=el('connection');node.textContent=state==='live'?'Ao vivo':state==='connecting'?'Conectando…':'Reconectando…';node.classList.toggle('offline',state!=='live');},
+ onMetrics:({updates,bytes,rtt})=>{fps=frames;frames=0;const node=el('connection');node.title=fps+' FPS · '+updates+' atualizações/s · '+Math.round(bytes/1024)+' KiB/s · RTT '+(rtt===null?'—':Math.round(rtt)+' ms');}
+});
+setInterval(()=>{if(!stream.live)void refresh();},650);
+addEventListener('pagehide',event=>{if(!event.persisted)stream.close();});
