@@ -12,7 +12,7 @@ const scene=new Scene(el('game')),inspector=createInspector({
  onConstruction:(id,action,parameters)=>void executeConstruction(id,action,parameters)
 });
 const npcActivityMonitor=role==='admin'?createNpcActivityMonitor(el('npcActivityMonitor')):null;
-let snapshot=null,catalog=null,selectedId=null,hoverId=null,tool='inspect',brushSize=1,preset='apple_adult',buildMode='site';
+let snapshot=null,catalog=null,selectedId=null,hoverId=null,tool='inspect',brushSize=1,brushShape='square',preset='apple_adult',buildMode='site';
 let pan=null,painting=new Map(),loading=false,inspection=null,lastSpeed=1;
 const keys=new Set();
 const request=async(path,options)=>{
@@ -26,7 +26,7 @@ const hud=createHud({
   tool=id;hud.tool(id);
   if(id==='farm'&&brushSize<3){brushSize=3;hud.size(brushSize);}
   scene.setBrush(['npc','wood','stone','food','farm','scenery','house'].includes(id)?
-   {kind:id,size:id==='house'?1:brushSize,
+   {kind:id,size:id==='house'?1:brushSize,shape:brushShape,
     ...(id==='house'?{footprint:catalog?.buildingBlueprints?.[preset]?.footprint??{width:2,height:2}}:{})}:null);
   hoverId=null;scene.setHover(null);el('tooltip').hidden=true;
  },
@@ -37,6 +37,7 @@ const hud=createHud({
  },
  onBuildMode(value){buildMode=value;},
  onSize(n){if(tool==='house')return;brushSize=n;hud.size(n);if(scene.brush)scene.setBrush({...scene.brush,size:n});},
+ onShape(shape){brushShape=shape;hud.shape(shape);if(scene.brush)scene.setBrush({...scene.brush,shape});},
  onClock(speed){changeSpeed(speed);}
 });
 hud.tool('inspect');hud.size(1);
@@ -126,7 +127,7 @@ function updateHover(point){
 function addBrushAt(point){
  if(!snapshot||!scene.brush)return;
  const center=scene.camera.tileAt(point.x,point.y);
- for(const cell of ['house','farm'].includes(tool)?[center]:brushCells(center,brushSize,snapshot.world)){
+ for(const cell of ['house','farm'].includes(tool)?[center]:brushCells(center,brushSize,snapshot.world,brushShape)){
   if(painting.size>=(['house','farm'].includes(tool)?1:225))break;
   const key=cell.x+','+cell.y;
   const area=tool==='house'?(catalog?.buildingBlueprints?.[preset]?.footprint??{width:2,height:2}):
@@ -257,6 +258,7 @@ if(role==='admin'&&el('worldManagerToggle')){
   }
   if(!activity.ticks.length)area.textContent='Nenhuma ação válida registrada nesta linha do tempo.';
   el('worldManagerStatus').textContent='Mundo '+(snapshot?.world?.id??'—')+
+   ' · '+(snapshot?.world?.width??'—')+' × '+(snapshot?.world?.height??'—')+' células'+
    ' · tick '+(snapshot?.world?.tick??'—')+
    ' · '+(snapshot?.clock?.paused?'pausado':'em execução')+
    (saves.persistent?' · persistência ativa':' · sem armazenamento permanente');
@@ -284,7 +286,9 @@ if(role==='admin'&&el('worldManagerToggle')){
   const seed=el('newWorldSeed').value.trim();
   if(!seed){status('Informe a seed do mundo.');return;}
   if(!confirm('Criar novo mundo com a seed '+seed+'? Salve o atual antes se quiser recuperá-lo.'))return;
-  await execute('/api/world/new',{seed});setSelection(null);
+  const dimensions=el('newWorldSize').value.split('x').map(Number);
+  await execute('/api/world/new',{seed,width:dimensions[0],height:dimensions[1]});
+  scene.world=null;setSelection(null);
   status('Novo mundo criado e pausado. Inicie pelos controles 1×/2×/4×.');
  }));
  el('worldExport').addEventListener('click',()=>download('/api/world/export'));
