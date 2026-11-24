@@ -1,5 +1,6 @@
 import {Camera,hitTest,brushCells} from './camera.js';
 import {SpriteLibrary,resolveWorldSprite} from './sprites.js';
+import {createOcclusionResolver} from './occlusion.js';
 export class Scene {
  constructor(canvas,{spriteLibrary=new SpriteLibrary()}={}){
   this.canvas=canvas;this.ctx=canvas.getContext('2d');this.camera=new Camera();
@@ -78,6 +79,9 @@ export class Scene {
    e.blueprintId==='building.cemetery'&&e.status==='completed')){
    const start=k.worldToScreen(graveyard.position.x*t,graveyard.position.y*t),size=t*k.zoom;
    const width=graveyard.footprint.width*size,height=graveyard.footprint.height*size;
+   const visual=resolveWorldSprite(graveyard);
+   const drawn=this.sprites.draw(c,visual.id,start.x+width/2,start.y+height/2,width,visual.state,{height,level:visual.level});
+   if(!drawn){
    c.fillStyle='rgba(104,103,75,.5)';c.fillRect(start.x,start.y,width,height);
    c.strokeStyle='#b2aa83';c.lineWidth=2;c.strokeRect(start.x+2,start.y+2,width-4,height-4);
    for(let i=0;i<graveyard.footprint.width*graveyard.footprint.height;i++){
@@ -88,15 +92,12 @@ export class Scene {
     c.beginPath();c.moveTo(x,y-size*.14);c.lineTo(x,y+size*.07);
     c.moveTo(x-size*.08,y-size*.055);c.lineTo(x+size*.08,y-size*.055);c.stroke();
    }
+   }
    if(graveyard.id===this.selected){
     c.strokeStyle='#f2e3a7';c.lineWidth=3;c.strokeRect(start.x+2,start.y+2,width-4,height-4);
    }
   }
-  const livingPositions=this.world.entities.filter(e=>e.kind==='character'&&e.health>0)
-   .map(e=>this.positionProvider?this.positionProvider(e,now):e.position);
-  const obscuresActor=e=>livingPositions.some(p=>e.kind==='construction'?
-   p.x+.5>=e.position.x&&p.x+.5<e.position.x+e.footprint.width&&p.y+.5>=e.position.y&&p.y+.5<e.position.y+e.footprint.height:
-   Math.abs(p.x-e.position.x)<.5&&Math.abs(p.y-e.position.y)<.5);
+  const opacityFor=createOcclusionResolver(this.world.entities,e=>this.positionProvider?this.positionProvider(e,now):e.position);
   // Only real entities from /api/world are visualized. No fake houses, stocks or paths.
   for(const e of this.world.entities.filter(e=>e.kind!=='item'&&e.kind!=='planting_zone'&&
    !(e.kind==='character'&&e.bodyCarriedBy)&&
@@ -116,9 +117,8 @@ export class Scene {
      (pos.y+(e.kind==='construction'?e.footprint.height/2:.5))*t),s=t*k.zoom;
    if(p.x<-s||p.y<-s||p.x>w+s||p.y>h+s)continue;
    const visual=resolveWorldSprite(e,{movingVisually:Math.abs(pos.x-e.position.x)+Math.abs(pos.y-e.position.y)>.001});
-   const fade=(e.kind==='construction'&&e.status==='completed'||e.kind==='resource'&&e.sourceId==='apple_tree')&&obscuresActor(e);
-   c.save();if(fade)c.globalAlpha=.38;
-   const drawn=visual&&this.sprites.draw(c,visual.id,p.x,p.y,s*visual.scale,visual.state);
+   c.save();c.globalAlpha*=opacityFor(e);
+   const drawn=visual&&this.sprites.draw(c,visual.id,p.x,p.y,e.kind==='construction'?s*e.footprint.width:s*visual.scale,visual.state,e.kind==='construction'?{height:s*e.footprint.height,level:visual.level}:undefined);
    if(!drawn){
     c.save();c.translate(p.x,p.y);
     if(e.kind==='construction'){
