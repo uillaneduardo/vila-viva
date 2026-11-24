@@ -57,7 +57,7 @@ export class Scene {
   const topLeft=k.screenToWorld(0,0),bottomRight=k.screenToWorld(w,h);
   const x0=Math.max(0,Math.floor(topLeft.x/t)-1),y0=Math.max(0,Math.floor(topLeft.y/t)-1);
   const x1=Math.min(this.world.width,Math.ceil(bottomRight.x/t)+1),y1=Math.min(this.world.height,Math.ceil(bottomRight.y/t)+1);
-  for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){
+  if(!this.terrainPainter?.(c,k,this.world,{x0,y0,x1,y1}))for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){
    const p=k.worldToScreen(x*t,y*t),s=t*k.zoom;
    c.fillStyle=(x+y)%2?'#30523d':'#335640';c.fillRect(p.x,p.y,s+.5,s+.5);
    if((x*17+y*23)%29===0&&s>16){c.fillStyle='rgba(191,214,168,.13)';c.fillRect(p.x+s*.6,p.y+s*.29,2,3);}
@@ -99,10 +99,13 @@ export class Scene {
   }
   const opacityFor=createOcclusionResolver(this.world.entities,e=>this.positionProvider?this.positionProvider(e,now):e.position);
   // Only real entities from /api/world are visualized. No fake houses, stocks or paths.
-  for(const e of this.world.entities.filter(e=>e.kind!=='item'&&e.kind!=='planting_zone'&&
+  const positionFor=e=>this.positionProvider?this.positionProvider(e,now):e.position;
+  const drawPlan=this.entityPlanner?this.entityPlanner(this.world.entities,positionFor,{x0,y0,x1,y1}):
+   this.world.entities.filter(e=>e.kind!=='item'&&e.kind!=='planting_zone'&&
    !(e.kind==='character'&&e.bodyCarriedBy)&&
-   !(e.kind==='construction'&&e.blueprintId==='building.cemetery'&&e.status==='completed')).sort((a,b)=>(a.position.y+(a.kind==='construction'?a.footprint.height:1))-(b.position.y+(b.kind==='construction'?b.footprint.height:1)))){
-   let pos=this.positionProvider?this.positionProvider(e,now):e.position;
+   !(e.kind==='construction'&&e.blueprintId==='building.cemetery'&&e.status==='completed')).sort((a,b)=>(a.position.y+(a.kind==='construction'?a.footprint.height:1))-(b.position.y+(b.kind==='construction'?b.footprint.height:1))).map(entity=>({entity,pos:positionFor(entity)}));
+  for(const row of drawPlan){
+   const e=row.entity;let pos=row.pos;
    if(e.kind==='character'&&!this.positionProvider){
     const animation=this.motion.get(e.id);
     if(animation){
@@ -115,7 +118,7 @@ export class Scene {
    }
    const p=k.worldToScreen((pos.x+(e.kind==='construction'?e.footprint.width/2:.5))*t,
      (pos.y+(e.kind==='construction'?e.footprint.height/2:.5))*t),s=t*k.zoom;
-   if(p.x<-s||p.y<-s||p.x>w+s||p.y>h+s)continue;
+   if(!this.entityPlanner&&(p.x<-s||p.y<-s||p.x>w+s||p.y>h+s))continue;
    const visual=resolveWorldSprite(e,{movingVisually:Math.abs(pos.x-e.position.x)+Math.abs(pos.y-e.position.y)>.001});
    c.save();c.globalAlpha*=opacityFor(e);
    const drawn=visual&&this.sprites.draw(c,visual.id,p.x,p.y,e.kind==='construction'?s*e.footprint.width:s*visual.scale,visual.state,e.kind==='construction'?{height:s*e.footprint.height,level:visual.level}:undefined);
