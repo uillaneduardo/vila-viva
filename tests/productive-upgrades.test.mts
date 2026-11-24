@@ -12,7 +12,7 @@ test("productive upgrades preserve inventory, orders and mineral reserves and in
  const before=structuredClone({stock:b.stock,orders:b.productionOrders,mineral:b.mineRemaining});
  for(let level=1;level<=3;level++){
  assert.equal(storageDefinition(b).capacity,stocks[level-1]);assert.equal(workerCapacity(b),workers[level-1]);
- const tick=level;w.tick=tick;
+ const tick=++w.tick;
  for(let i=0;i<workers[level-1];i++){assert.ok(canUseWorkSlot(b,"npc-"+i,tick));recordWorkSlot(b,"npc-"+i,tick);assert.equal(canUseWorkSlot(b,"npc-"+i,tick),false);}
  assert.equal(canUseWorkSlot(b,"extra",tick),false);assert.ok(canUseWorkSlot(b,"extra",tick+1));validateWorld(w);
  if(level<3){assert.ok(startUpgrade(b,tick));const s=currentStage(b);for(const [k,v] of Object.entries(s.materials))assert.ok(acceptMaterial(b,k,v));assert.equal(workerCapacity(b),workers[level-1]);assert.ok(applyConstructionWork(b,s.workUnits,tick).upgraded);}
