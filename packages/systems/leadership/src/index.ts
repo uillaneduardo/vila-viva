@@ -155,6 +155,11 @@ export function advanceLeaderDecisions(world:World,execute:(cmd:Command)=>Result
   leader.leadership.lastReason=result.ok?agriculture.reason:"Zona recusada: "+result.error;
   if(result.ok)return;
  }
+ const cafeteria=buildings(world).find(b=>b.blueprintId==="building.cafeteria"&&b.status==="completed"&&!b.productionOrders?.length);
+ if(cafeteria){
+  const raw=["apple","carrot","potato"].find(id=>world.entities.some(e=>e.kind==="construction"&&(e.stock?.[id]??0)>=2));
+  if(raw&&(cafeteria.stock?.meal??0)<6)execute({worldId:world.id,commandId:"cook-"+world.tick+"-"+leader.id,actorRole:"npc",actorId:leader.id,action:"production.order",targetId:cafeteria.id,parameters:{recipeId:"cook_"+raw,quantity:1}});
+ }
  const productionIntent=planProduction(world);
  if(productionIntent){
   const workshop=world.entities.find((e):e is Construction=>e.kind==="construction"&&
