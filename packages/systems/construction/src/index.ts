@@ -7,7 +7,7 @@ export function createConstructionSite(id:string,position:Position,blueprint:Bui
  return {id,kind:"construction",blueprintId:blueprint.id,blueprintVersion:blueprint.version,
   position:{...position},footprint:{...blueprint.footprint},status:"site",availability:"unavailable",
   stageIndex:0,delivered:{},workDone:0,
-  ...(blueprint.storage?{stock:{}}:{}),...(blueprint.housing?{bedReservations:{}}:{}),
+  ...(blueprint.storage?{stock:{}}:{}),...(blueprint.mining?{mineRemaining:{iron_ore:80,copper_ore:60,stone:100}}:{}),...(blueprint.housing?{bedReservations:{}}:{}),
   ...(blueprint.cemetery?{burials:[]}: {}),
   ...(blueprint.production?{productionOrders:[]}: {})};
 }
