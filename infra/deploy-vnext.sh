@@ -43,7 +43,7 @@ snapshot={"formatVersion":1,"savedAt":datetime.datetime.now(datetime.timezone.ut
           "timelineId":str(uuid.uuid4()),"lastSequence":0,"clock":{"speed":0},"world":world}
 if isinstance(world.get("seed"),str):
     snapshot["seed"]=world["seed"]
-with open(sys.argv[2],"x",encoding="utf-8") as file:
+with open(sys.argv[2],"w",encoding="utf-8") as file:
     json.dump(snapshot,file,ensure_ascii=False)
 os.chmod(sys.argv[2],0o600)
 PY
