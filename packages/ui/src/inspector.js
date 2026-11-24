@@ -31,7 +31,7 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
    (catalog?.scenery?.[entity.obstacleType]||'Obstáculo'):
    (entity.sourceId?catalog?.naturalSources?.[entity.sourceId]?.label:catalog?.resources?.[entity.resourceType])||'Recurso';
   el('panelDesc').textContent=isNpc?(entity.ownerId?'Personagem jogador · Controle manual':'Habitante · Decisões autônomas'):entity.kind==='construction'?
-   (entity.status==='completed'?'Edificação concluída':'Canteiro de obras · Construção em andamento'):entity.kind==='obstacle'?
+   (entity.status==='destroyed'?'Ruína · Edificação destruída':entity.status==='completed'?'Edificação concluída':'Canteiro de obras · Construção em andamento'):entity.kind==='obstacle'?
    'Elemento estático · Não coletável':entity.sourceId?'Fonte viva · Produção renovável':'Fonte de recurso';
   const allowed=isNpc?['overview','health','effects']:['overview'];
   if(!allowed.includes(active))active='overview';
@@ -56,7 +56,8 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
     const ai=entity.ai;
     html='<div class="quick-state"><strong>'+safe(ai?.activity??'Aguardando')+'</strong><small>'+safe(ai?.reason??'Aguardando atribuição de tarefa')+'</small></div>';
     html+='<h3>Condição do habitante</h3><div class="stat-grid">'+bar('Saúde',entity.health,'#a8cca1')+bar('Energia',entity.energy,'#d9c18b')+
-      (values?bar('Humor',values.mood,'#9ec6cd'):'')+'</div>';
+     bar('Saciedade',entity.satiety??100,'#e4ae81')+
+     (values?bar('Humor',values.mood,'#9ec6cd'):'')+'</div>';
     html+='<h3>Informações</h3>'+row('Posição',entity.position.x+', '+entity.position.y)+row('Atividade',ai?.activity??'Aguardando')+
      row('Rota',ai?.route?.length?Math.max(0,ai.route.length-1)+' passos planejados':'Sem rota')+
      row('Destino',ai?.targetId??'Nenhum');
@@ -64,6 +65,19 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
     const decisions=details?.decisions??[];
     html+=decisions.length?decisions.slice(-6).reverse().map(item=>'<div class="data-row"><span>Tick '+safe(item.tick)+' · '+safe(item.activity)+'</span><strong style="max-width:50%;white-space:normal;text-align:right">'+safe(item.reason)+'</strong></div>').join(''):
      '<p class="empty">Nenhuma decisão autônoma registrada.</p>';
+    html+='<h3>Equipamentos e riscos</h3>';
+    const gear=entity.equipment?.tool;
+    const risk=details?.survival?.risk;
+    html+=row('Ferramenta',catalog?.tools?.[gear]??'Nenhuma')+row('Ferimentos sofridos',entity.injuries??0);
+    if(risk)html+=row('Risco madeira',(risk.wood*100).toFixed(1)+'%')+
+      row('Risco mineração',(risk.stone*100).toFixed(1)+'%')+
+      row('Risco de obra',(risk.building*100).toFixed(1)+'%');
+    if(options.role==='admin'&&!entity.ownerId){
+     html+='<label class="equipment-label">Equipamento de teste <select id="equipmentChoice" aria-label="Ferramenta do NPC">'+
+      '<option value="">Sem ferramenta</option>'+
+      Object.entries(catalog?.tools??{}).map(([id,label])=>'<option value="'+safe(id)+'" '+(gear===id?'selected':'')+'>'+safe(label)+'</option>').join('')+
+      '</select></label><button class="context-action" id="equipNpc" type="button">Aplicar equipamento (Modo Deus)</button>';
+    }
     html+='<h3>Inventário carregado</h3>';
     for(const resourceId of ['wood','stone','apple'])html+=row(({wood:'Madeira',stone:'Pedra',apple:'Maçãs'})[resourceId],entity.inventory?.[resourceId]??0);
     html+=row('Capacidade',Object.values(entity.inventory??{}).reduce((a,b)=>a+b,0)+' / 12');
@@ -82,14 +96,20 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
   }else if(entity.kind==='construction'){
    const blueprint=catalog?.buildingBlueprints?.[entity.blueprintId];
    const stage=blueprint?.stages?.[entity.stageIndex];
-   const completed=entity.status==='completed';
+   const completed=entity.status==='completed',destroyed=entity.status==='destroyed';
    const capabilities=details?.construction?.capabilities??{};
-   html='<h3>'+ (completed?'Construção concluída':'Etapa '+(entity.stageIndex+1)+' / '+(blueprint?.stages?.length??'—')) +'</h3>';
+   html='<h3>'+ (destroyed?'Construção destruída':completed?'Construção concluída':'Etapa '+(entity.stageIndex+1)+' / '+(blueprint?.stages?.length??'—')) +'</h3>';
    html+=row('Projeto',blueprint?.label||entity.blueprintId)+row('Área',entity.footprint.width+' × '+entity.footprint.height+' células');
-   html+=row('Estado',completed?'Disponível':stage?.label||'Canteiro');
+   html+=row('Estado',destroyed?'Destruída · bloqueia passagem':completed?'Disponível':stage?.label||'Canteiro');
    if(completed){
     html+='<h3>Capacidades desbloqueadas</h3>';
     for(const effect of blueprint?.effects??[])html+=row(effect.capability,capabilities[effect.capability]===undefined?'Inativa':capabilities[effect.capability]+' '+effect.unit);
+    if(details?.construction?.housing){
+     const housing=details.construction.housing;
+     html+='<h3>Camas e reservas</h3>'+row('Camas',housing.beds)+row('Reservadas',housing.reserved)+row('Disponíveis',housing.beds-housing.reserved);
+     html+=housing.reservations.length?housing.reservations.map(r=>row(r.name,'Reserva até tick '+r.expiresTick)).join(''):
+      '<p class="empty">Nenhuma cama reservada.</p>';
+    }
     if(details?.construction?.storage){
      const storage=details.construction.storage;
      html+='<h3>Estoque físico</h3>'+row('Ocupação',storage.total+' / '+storage.capacity)+row('Espaço livre',storage.free);
@@ -116,6 +136,13 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
      html+='<button type="button" class="context-action" data-construction-action="construction.admin_work" data-amount="'+Math.min(15,stage.workUnits-entity.workDone)+'" '+(ready?'':'disabled')+'>Aplicar trabalho +'+Math.min(15,stage.workUnits-entity.workDone)+' (Modo Deus)</button>';
     html+='<p class="empty">Materiais de homologação são adicionados explicitamente pelo Modo Deus. Entrega física e trabalho por NPC estão disponíveis no motor, mas a IA logística ainda não foi implementada.</p>';
    }
+   if(destroyed)html+='<p class="empty">Ruína: sem efeitos ou serviços. O terreno permanece bloqueado até a remoção.</p>';
+   if(options.role==='admin'){
+    html+='<h3>Gerenciar construção</h3>';
+    if(!destroyed)html+='<button type="button" class="context-action" data-construction-action="construction.destroy">Destruir construção (manter ruína)</button>';
+    html+='<button type="button" class="context-action" data-construction-action="construction.remove">Remover construção do mapa</button>';
+    html+='<p class="empty">A remoção descarta todo material/estoque associado. Não há reembolso nesta versão.</p>';
+   }
    html+=row('Posição',entity.position.x+', '+entity.position.y);
   }else if(entity.kind==='obstacle'){
    html='<h3>Elemento de cenário</h3>'+row('Tipo',catalog?.scenery?.[entity.obstacleType]||entity.obstacleType)+
@@ -140,11 +167,16 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
   }else html='<h3>Fonte de recurso</h3>'+row('Tipo',catalog?.resources?.[entity.resourceType]||entity.resourceType)+row('Disponível',entity.quantity+' unidades')+row('Capacidade',entity.maximum+' unidades')+row('Posição',entity.position.x+', '+entity.position.y);
   if(lastContent!==html){const scroll=el('panelScroll');const previous=scroll.scrollTop;el('panelBody').innerHTML=html;scroll.scrollTop=previous;lastContent=html;
    el('harvestSelected')?.addEventListener('click',()=>onHarvest(entity.id));
+   el('equipNpc')?.addEventListener('click',()=>onConstruction(entity.id,'npc.admin_equip',
+    {tool:el('equipmentChoice').value||null}));
    for(const button of el('panelBody').querySelectorAll('[data-construction-action]')){
-    button.addEventListener('click',()=>onConstruction(entity.id,button.dataset.constructionAction,
-     ['construction.admin_supply','storage.admin_supply'].includes(button.dataset.constructionAction)?
+    button.addEventListener('click',()=>{
+     const action=button.dataset.constructionAction;
+     const parameters=['construction.admin_supply','storage.admin_supply'].includes(action)?
       {materialId:button.dataset.material,quantity:Number(button.dataset.amount)}:
-      {workUnits:Number(button.dataset.amount)}));
+      action==='construction.admin_work'?{workUnits:Number(button.dataset.amount)}:{};
+     onConstruction(entity.id,action,parameters);
+    });
    }}
  }
  return {setSelection,render,close};

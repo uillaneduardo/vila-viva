@@ -24,7 +24,8 @@ export function resolveWorldSprite(entity){
  if(entity?.kind==='construction'){
   const states=entity.blueprintId==='building.depot'?
    ['site','foundation','structure']:['site','foundation','structure','roof'];
-  const state=entity.status==='completed'?'completed':states[Math.min(states.length-1,entity.stageIndex)];
+  const state=entity.status==='destroyed'?'destroyed':
+   entity.status==='completed'?'completed':states[Math.min(states.length-1,entity.stageIndex)];
   return {id:entity.blueprintId==='building.depot'?'buildings/depot':'buildings/community_house',state,scale:1};
  }
  if(entity?.kind!=='resource')return null;
