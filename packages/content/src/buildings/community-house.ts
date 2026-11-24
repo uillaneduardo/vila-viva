@@ -10,6 +10,7 @@ export interface BuildingStage {
 export interface BuildingBlueprint {
  id:string; version:number; label:string; displayName:LocalizedText; footprint:Readonly<{width:number;height:number}>; stages:readonly BuildingStage[];
  effects:readonly {capability:string;value:number;unit:string}[];
+ movementSpeed?:number;
  storage?:Readonly<{capacity:number;accepted:readonly string[]}>;
  housing?:Readonly<{adultBeds:number;restGain:number;dependentBeds?:number;permanent?:boolean}>;
  cemetery?:Readonly<{capacity:number}>;
@@ -24,6 +25,7 @@ export const COMMUNITY_HOUSE:Readonly<BuildingBlueprint>=Object.freeze({
   {id:"roof",label:"Telhado",displayName:{"pt-BR":"Telhado"},materials:{wood:16},workUnits:30},
   {id:"finishing",label:"Acabamento",displayName:{"pt-BR":"Acabamento"},materials:{wood:8,stone:2},workUnits:20}
  ],
+ movementSpeed:.5,
  housing:{adultBeds:6,restGain:14},
  effects:[
   {capability:"housing.adult_capacity",value:6,unit:"slots"},
