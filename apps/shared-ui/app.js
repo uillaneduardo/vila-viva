@@ -60,8 +60,7 @@ function harvestActor(entity){
  if(!snapshot||entity?.kind!=='resource'||!catalog?.naturalSources?.[entity.sourceId]||
    entity.quantity<=0||entity.life?.stage==='dead')return null;
  const eligible=e=>e.kind==='character'&&e.health>0&&e.energy>0&&
-  Math.abs(e.position.x-entity.position.x)+Math.abs(e.position.y-entity.position.y)===1&&
-  Object.values(e.inventory||{}).reduce((sum,value)=>sum+value,0)<(12-(catalog?.naturalSources?.[entity.sourceId]?.seedsPerHarvest??1));
+  Math.abs(e.position.x-entity.position.x)+Math.abs(e.position.y-entity.position.y)===1;
  if(role==='admin')return snapshot.world.entities.find(e=>!e.ownerId&&eligible(e))||null;
  return snapshot.world.entities.find(e=>e.id===snapshot.playerId&&eligible(e))||null;
 }
@@ -74,7 +73,7 @@ async function harvestSelected(sourceId){
  try{
   const data=await request('/api/commands',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(command)});
   if(!data.result?.ok)throw Error(data.result?.error||'Falha na coleta');
-  status(actor.name+' colheu alimento e sementes. Itens transportados no inventário.');
+  status(actor.name+' colheu alimento e sementes. Itens disponíveis no chão.');
   await refresh();
  }catch(error){status('Falha na coleta: '+error.message);}
 }
@@ -136,7 +135,7 @@ function addBrushAt(point){
   let occupied=false;
   for(let y=cell.y;y<cell.y+height;y++)for(let x=cell.x;x<cell.x+width;x++){
    if(x<0||y<0||x>=snapshot.world.width||y>=snapshot.world.height||
-    snapshot.world.entities.some(e=>e.kind==='planting_zone'?
+    snapshot.world.entities.some(e=>e.kind==='item'?false:e.kind==='planting_zone'?
      (tool==='farm'&&x>=e.position.x&&x<e.position.x+e.footprint.width&&y>=e.position.y&&y<e.position.y+e.footprint.height):
      (tool==='farm'&&e.kind==='character')?false:e.kind==='construction'?
      x>=e.position.x&&x<e.position.x+e.footprint.width&&y>=e.position.y&&y<e.position.y+e.footprint.height:
