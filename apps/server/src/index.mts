@@ -1,3 +1,4 @@
+import {workerCapacity} from "../../../packages/systems/construction/src/work-cycle.ts";
 import {PersistenceWorker} from "./persistence-worker.mts";
 import {TickScheduler} from "./tick-scheduler.mts";
 import {TimingMetrics} from "./timing-metrics.mts";
@@ -358,6 +359,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string;asyncPersist
        level:buildingLevel(entity),upgrade:entity.upgrade??null,nextUpgrade:nextUpgrade(entity)??null,
        stage:currentStage(entity)?.id??null,remaining:materialsRemaining(entity),
        materialsReady:hasMaterials(entity),capabilities:buildingCapabilities(entity),
+       workerCapacity:workerCapacity(entity),
        mining:entity.mineRemaining?{remaining:entity.mineRemaining,stock:entity.stock??{}}:null,
        stageIndex:entity.stageIndex,status:entity.status,availability:entity.availability,
        production:productionDefinition(entity)?{

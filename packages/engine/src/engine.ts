@@ -1,3 +1,4 @@
+import {canUseWorkSlot,recordWorkSlot} from "../../systems/construction/src/work-cycle.ts";
 import {expireEffects} from "../../systems/effects/src/manager.ts";
 import {resolveAttributes} from "../../systems/effects/src/resolver.ts";
 import {baseRegistry,resourcePreset} from "../../content/src/catalog.ts";
@@ -243,7 +244,7 @@ export function applyCommand(world: World, command: Command,
   if(!actor)return reject(command,"UNAUTHORIZED");
   if(!mine||mine.kind!=="construction"||mine.blueprintId!=="building.mine"||!storageDefinition(mine))return reject(command,"NOT_READY");
   if(actor.health<=0||actor.energy<=0||!nearFootprint(actor.position,mine))return reject(command,"BLOCKED");
-  if(mine.lastMiningTick===world.tick)return reject(command,"NOT_READY");
+  if(actor.sleepingInId||!canUseWorkSlot(mine,actor.id,world.tick))return reject(command,"NOT_READY");
   const item=command.parameters?.materialId;
   if(typeof item!=="string"||!["iron_ore","copper_ore","stone"].includes(item))return reject(command,"INVALID_PAYLOAD");
   const remaining=mine.mineRemaining?.[item]??0;
@@ -252,7 +253,7 @@ export function applyCommand(world: World, command: Command,
   const amount=Math.min(remaining,storageFree(mine),rollDrop(world,command,"mine",range.min,range.max));
   if(!amount)return reject(command,"INVENTORY_FULL");
   mine.mineRemaining![item]-=amount;mine.stock??={};mine.stock[item]=(mine.stock[item]??0)+amount;
-  mine.lastMiningTick=world.tick;actor.energy=Math.max(0,actor.energy-1);
+  recordWorkSlot(mine,actor.id,world.tick);mine.lastMiningTick=world.tick;actor.energy=Math.max(0,actor.energy-1);
   riskActor=actor;riskActivity=("resource.gather:"+item) as typeof riskActivity;
  } else if(command.action==="production.order"){
   const target=world.entities.find(e=>e.id===command.targetId);
@@ -274,8 +275,10 @@ export function applyCommand(world: World, command: Command,
   const actor=actorForCommand(world,command);
   if(!actor)return reject(command,"UNAUTHORIZED");
   if(actor.health<=0||actor.energy<=0||!nearFootprint(actor.position,target))return reject(command,"BLOCKED");
+  if(actor.sleepingInId||!canUseWorkSlot(target,actor.id,world.tick))return reject(command,"NOT_READY");
   const output=applyProductionWork(target,correctTool(actor,"production.work")?2:1);
   if(!output)return reject(command,"NOT_READY");
+  recordWorkSlot(target,actor.id,world.tick);
   actor.energy=Math.max(0,actor.energy-1);
   riskActor=actor;riskActivity="production.work";
   if(output.completed)additionalEvents.push({type:"production.batch_finished",entityId:target.id});

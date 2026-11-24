@@ -33,6 +33,7 @@ export interface Construction {
  /** Absent level means legacy level 1; active improvement retains current capabilities. */
  level?:number; upgrade?:{targetLevel:number;startedTick:number};
  residents?:string[]; mineRemaining?:Inventory; lastMiningTick?:number; stock?:Inventory; bedReservations?:Record<string,{expiresTick:number}>;
+ workCycle?:{tick:number;actors:string[]};
  productionOrders?:Array<{recipeId:string;quantity:number;workDone:number}>;
  burials?:{npcId:string;name:string;deathTick:number;burialTick:number;cause:string}[];
 }
