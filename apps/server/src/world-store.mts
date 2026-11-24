@@ -99,11 +99,11 @@ export class FileWorldStore {
   return value;
  }
  /** Creates an independent branch of history; previous journal files remain exportable. */
- switchWorld(world:World,seed?:string):WorldSnapshot {
+ switchWorld(world:World,seed?:string,actions:AcceptedAction[]=[]):WorldSnapshot {
   validateWorld(world);
   const old=this.timelineId,oldSeq=this.lastSequence;
   this.timelineId=randomUUID();this.lastSequence=0;
-  try{return this.commit(world,seed);}
+  try{return this.commit(world,seed,actions);}
   catch(e){this.timelineId=old;this.lastSequence=oldSeq;throw e;}
  }
  saveNamed(name:string,world:World,seed?:string):WorldSnapshot {

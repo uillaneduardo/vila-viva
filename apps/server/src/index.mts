@@ -1,3 +1,4 @@
+import {PersistenceWorker} from "./persistence-worker.mts";
 import {TickScheduler} from "./tick-scheduler.mts";
 import {TimingMetrics} from "./timing-metrics.mts";
 import {displayText} from "../../../packages/domain/src/localization.ts";
@@ -38,7 +39,7 @@ import type {Command,Role,Position} from "../../../packages/domain/src/contracts
 const root=resolve(fileURLToPath(new URL("../../../",import.meta.url)));
 const host=process.env.HOST||"127.0.0.1";
 const port=Number(process.env.PORT||8086);
-export function makePrototype(options:{dataDir?:string;seed?:string}={}){
+export function makePrototype(options:{dataDir?:string;seed?:string;asyncPersistence?:boolean}={}){
  const store=options.dataDir?new FileWorldStore(options.dataDir):null;
  const restored=store?.loadActive();
  let world=restored?structuredClone(restored.world):createWorld("first-world",24,16);
@@ -76,13 +77,31 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
   store?.switchWorld(world,options.seed);
   initialize(options.seed);
  }
+ // Bootstrap is complete before exclusive ownership transfers to the worker.
+ const worker=options.asyncPersistence&&options.dataDir?new PersistenceWorker(options.dataDir):null;
+ let committedTimeline=store?.timelineId??null;
+ let busy=false,fault=false;
+ let pendingTick:Promise<void>|null=null;
+ const exclusive=async<T>(run:()=>Promise<T>):Promise<T>=>{
+  if(busy)throw Error("WORLD_BUSY");
+  if(fault)throw Error("RECOVERY_REQUIRED");
+  busy=true;try{return await run();}finally{busy=false;}
+ };
+ const durable=async(draft:typeof world,actions:AcceptedAction[]=[],switching=false)=>{
+  try{
+   const saved=worker?await (switching?worker.switchWorld(draft,draft.seed,actions):worker.commit(draft,draft.seed,actions)):
+    switching?store?.switchWorld(draft,draft.seed):store?.commit(draft,draft.seed,actions);
+   if(saved)committedTimeline=saved.timelineId;
+  }catch(error){fault=true;clock.speed=0;throw error;}
+ };
  const timings=new TimingMetrics();
  let lastTickAt:number|null=null;
  let publishRevision=()=>{};
- const executeCommand=(command:Command)=>{
+ const executeCommand=async(command:Command)=>{
   const actions:AcceptedAction[]=[];
-  const result=applyCommand(world,command,{onAction:a=>actions.push(a)});
-  if(result.ok){store?.commit(world,world.seed,actions);publishRevision();}
+  const draft=worker?structuredClone(world):world;
+  const result=applyCommand(draft,command,{onAction:a=>actions.push(a)});
+  if(result.ok){await durable(draft,actions);world=draft;publishRevision();}
   return result;
  };
  const progressOneTick=()=>{
@@ -98,6 +117,19 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
  const scheduler=new TickScheduler();
  const timer=setInterval(()=>{
   if(clock.speed===0){scheduler.reset();lastTickAt=null;return;}
+  if(worker){
+   if(busy||fault)return;
+   scheduler.pulse(clock.speed,()=>{
+    const job=exclusive(async()=>{
+     const draft=structuredClone(world),actions:AcceptedAction[]=[];
+     const now=performance.now();if(lastTickAt!==null)timings.record("tickInterval",now-lastTickAt);lastTickAt=now;
+     timings.measure("simulation",()=>advanceTick(draft,a=>actions.push(a)));
+     const begin=performance.now();await durable(draft,actions);timings.record("persistence",performance.now()-begin);
+     world=draft;timings.measure("publish",()=>publishRevision());
+    });
+    pendingTick=job.catch(error=>{fault=true;clock.speed=0;scheduler.reset();console.error("Async simulation paused",error);publishRevision();}).finally(()=>{pendingTick=null;});
+   });return;
+  }
   try{scheduler.pulse(clock.speed,progressOneTick);}
   catch(error){clock.speed=0;scheduler.reset();lastTickAt=null;console.error("Simulation paused: persistence failed",error);}
  },scheduler.quantumMs);
@@ -129,18 +161,25 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
      targetId:e.ai?.targetId??null
     }])),
     playerId:playerId(),mode:"local-prototype",persistent:!!store,
-    timelineId:store?.timelineId??null};
+    timelineId:committedTimeline};
  };
  const server=createServer(async(req,res)=>{
+  let locked=false;
   try{
    const url=new URL(req.url||"/","http://localhost");
+   const diskRead=["/api/world/export","/api/world/saves","/api/world/logs","/api/world/activity","/api/world/activity/export"].includes(url.pathname);
+   if(worker&&(req.method==="POST"||diskRead)){
+    if(busy)return json(res,503,{error:"WORLD_BUSY"});
+    if(fault)return json(res,503,{error:"RECOVERY_REQUIRED"});
+    busy=true;locked=true;
+   }
    if(url.pathname==="/healthz")return json(res,200,{status:"ok"});
    if(url.pathname==="/version.txt"){
     res.writeHead(200,{"content-type":"text/plain; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"});
     return res.end(req.method==="HEAD"?"":(process.env.SOURCE_SHA||"development")+"\n");
    }
    if(url.pathname==="/api/world/export"&&req.method==="GET"){
-    const snapshot=store?.snapshot(world,world.seed)??{
+    const snapshot=(worker?await worker.snapshot(world,world.seed):store?.snapshot(world,world.seed))??{
      formatVersion:1,savedAt:new Date().toISOString(),timelineId:"00000000-0000-4000-8000-000000000000",
      lastSequence:0,world:structuredClone(world),clock:{speed:0}};
     res.writeHead(200,{"content-type":"application/json; charset=utf-8",
@@ -148,26 +187,26 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
     return res.end(JSON.stringify(snapshot,null,2));
    }
    if(url.pathname==="/api/world/saves"&&req.method==="GET")
-    return json(res,200,{saves:store?.listSaves()??[],persistent:!!store});
+    return json(res,200,{saves:(worker?await worker.listSaves():store?.listSaves())??[],persistent:!!store});
    if(url.pathname==="/api/world/save"&&req.method==="POST"){
     const input=await readBody(req);
     if(input?.role!=="admin")return json(res,403,{error:"UNAUTHORIZED"});
     if(!store)return json(res,409,{error:"PERSISTENCE_DISABLED"});
     if(typeof input.name!=="string"||!/^[a-zA-Z0-9][\w-]{0,63}$/.test(input.name))
      return json(res,422,{error:"INVALID_SAVE_NAME"});
-    store.commit(world,world.seed);
-    const saved=store.saveNamed(input.name,world,world.seed);
+    await durable(world);
+    const saved=worker?await worker.saveNamed(input.name,world,world.seed):store.saveNamed(input.name,world,world.seed);
     return json(res,200,{name:input.name,tick:saved.world.tick,savedAt:saved.savedAt});
    }
    if(url.pathname==="/api/world/logs"&&req.method==="GET")
-    return json(res,200,{logs:store?.listLogs()??[],timelineId:store?.timelineId??null});
+    return json(res,200,{logs:(worker?await worker.listLogs():store?.listLogs())??[],timelineId:committedTimeline});
    if(url.pathname==="/api/world/activity"&&req.method==="GET")
-    return json(res,200,{ticks:store?.recentLog(Number(url.searchParams.get("limit")||80))??[],
-     timelineId:store?.timelineId??null});
+    return json(res,200,{ticks:(worker?await worker.recentLog(Number(url.searchParams.get("limit")||80)):store?.recentLog(Number(url.searchParams.get("limit")||80)))??[],
+     timelineId:committedTimeline});
    if(url.pathname==="/api/world/activity/export"&&req.method==="GET"){
     if(!store)return json(res,409,{error:"PERSISTENCE_DISABLED"});
-    const timelineId=url.searchParams.get("timeline")??store.timelineId;
-    const log=store.getLog(timelineId);
+    const timelineId=url.searchParams.get("timeline")??committedTimeline??undefined;
+    const log=worker?await worker.getLog(timelineId):store.getLog(timelineId);
     res.writeHead(200,{"content-type":"application/x-ndjson; charset=utf-8",
      "cache-control":"no-store","content-disposition":'attachment; filename="oturo-activity-'+timelineId+'.jsonl"'});
     return res.end(log);
@@ -180,7 +219,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
     let loaded;
     if(url.pathname==="/api/world/load"){
      if(typeof input.name!=="string")return json(res,422,{error:"INVALID_SAVE_NAME"});
-     loaded=store.loadNamed(input.name);
+     loaded=worker?await worker.loadNamed(input.name):store.loadNamed(input.name);
     }else{
      if(!input.snapshot||typeof input.snapshot!=="object")return json(res,422,{error:"INVALID_SNAPSHOT"});
      loaded=parseSnapshot(JSON.stringify(input.snapshot));
@@ -188,10 +227,11 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
     clock.speed=0;
     const restoredWorld=structuredClone(loaded.world);
     removeLegacyAvatar(restoredWorld);
-    store.switchWorld(restoredWorld,loaded.seed??restoredWorld.seed);
+    if(loaded.seed)restoredWorld.seed=loaded.seed;
+    await durable(restoredWorld,[],true);
     world=restoredWorld;generation++;scheduler.reset();lastTickAt=null;publishRevision();
     return json(res,200,{ok:true,worldId:world.id,tick:world.tick,paused:true,
-     timelineId:store.timelineId});
+     timelineId:committedTimeline});
    }
    if(url.pathname==="/api/world/new"&&req.method==="POST"){
     const input=await readBody(req);
@@ -205,9 +245,23 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
      return json(res,422,{error:"INVALID_WORLD_SIZE"});
     clock.speed=0;
     const next=createWorld("first-world",width,height);
-    if(store)store.switchWorld(next,seed);
-    world=next;generation++;scheduler.reset();lastTickAt=null;
-    initialize(seed);publishRevision();
+    if(worker){
+     const actions:AcceptedAction[]=[];
+     const add=(action:Command["action"],commandId:string,position:Position,parameters:Record<string,unknown>)=>{
+      const result=applyCommand(next,{worldId:next.id,actorRole:"admin",commandId,action,position,parameters},{onAction:a=>actions.push(a)});
+      if(!result.ok)throw Error("BOOTSTRAP_FAILED:"+result.error);
+      return result;
+     };
+     if(seed)bootstrapSeededWorld(next,seed,c=>add(c.action,c.commandId,c.position,c.parameters));
+     else{add("npc.spawn","npc-init",{x:13,y:9},{name:"Ayla"});add("resource.spawn","wood-init",{x:7,y:8},{resourceType:"wood",quantity:30});}
+     // Switch checkpoint and bootstrap action batch atomically in one worker operation.
+     await durable(next,actions,true);world=next;generation++;scheduler.reset();lastTickAt=null;publishRevision();
+    }else{
+     if(store)store.switchWorld(next,seed);
+     committedTimeline=store?.timelineId??null;
+     world=next;generation++;scheduler.reset();lastTickAt=null;
+     initialize(seed);publishRevision();
+    }
     return json(res,200,{ok:true,tick:world.tick,paused:true,seed:seed??null,width,height});
    }
    if(url.pathname==="/api/economy"&&req.method==="GET"){
@@ -328,8 +382,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
     const input=await readBody(req);
     if(input?.role!=="admin")return json(res,403,{error:"UNAUTHORIZED"});
     if(![0,1,2,4].includes(input.speed))return json(res,422,{error:"INVALID_PAYLOAD"});
-    clock.speed=input.speed;scheduler.reset();lastTickAt=null;
-    store?.commit(world,world.seed);publishRevision();
+    await durable(world);clock.speed=input.speed;scheduler.reset();lastTickAt=null;publishRevision();
     return json(res,200,{clock:clockView()});
    }
    if(url.pathname==="/api/actions"&&req.method==="GET"){
@@ -347,7 +400,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
       actorId:role==="player"?"local-player":role==="npc"?input.actorId:undefined,
       action:input.action,targetId:role==="player"&&input.action==="movement.move"?playerId():input.targetId,
       position:input.position,parameters:input.parameters};
-    const result=executeCommand(command);
+    const result=await executeCommand(command);
     return json(res,result.ok?200:422,{result,world,clock:clockView()});
    }
    if(url.pathname==="/api/brush"&&req.method==="POST"){
@@ -359,7 +412,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
      if(!c||typeof c.commandId!=="string"||!/^[-\w]{1,80}$/.test(c.commandId))return json(res,422,{error:"INVALID_PAYLOAD"});
      if(c.action!=="npc.spawn"&&c.action!=="resource.spawn"&&c.action!=="obstacle.spawn"&&c.action!=="construction.place"&&c.action!=="farming.zone.create")return json(res,422,{error:"INVALID_PAYLOAD"});
     }
-    for(const c of input.commands)results.push(executeCommand({worldId:world.id,actorRole:"admin",
+    for(const c of input.commands)results.push(await executeCommand({worldId:world.id,actorRole:"admin",
      commandId:c.commandId,action:c.action,position:c.position,parameters:c.parameters}));
     return json(res,200,{results,world,clock:clockView()});
    }
@@ -386,16 +439,17 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
    if(error==="BODY_TOO_LARGE")return json(res,413,{error});
    if(error==="INVALID_JSON")return json(res,400,{error});
    if((e as NodeJS.ErrnoException).code==="ENOENT")return json(res,404,{error:"NOT_FOUND"});
+   if(worker&&fault)publishRevision();
    json(res,500,{error:"INTERNAL_ERROR"});
-  }
+  }finally{if(locked)busy=false;}
  });
  const stream=attachWorldStream(server,()=>timings.measure('projection',projectWorld),()=>generation);
  publishRevision=stream.publish;
- server.on("close",()=>clearInterval(timer));
+ server.on("close",()=>{clearInterval(timer);if(worker)void Promise.resolve(pendingTick).then(()=>worker.close()).catch(console.error);});
  return {server,get world(){return world;},clock,store,timings};
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  const {server}=makePrototype({dataDir:process.env.OTURO_DATA_DIR,
-  seed:process.env.OTURO_WORLD_SEED});
+  seed:process.env.OTURO_WORLD_SEED,asyncPersistence:process.env.OTURO_ASYNC_PERSISTENCE==="1"});
  server.listen(port,host,()=>console.log("Sandbox preview: http://"+host+":"+port+" (admin: /admin; local only)"));
 }
