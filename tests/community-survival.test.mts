@@ -32,3 +32,20 @@ test("seeded world has four autonomous settlers and no player avatar",()=>{
  assert.equal(w.entities.filter(e=>e.kind==="character").length,4);
  assert.ok(w.entities.every(e=>e.kind!=="character"||!e.ownerId));
 });
+
+test("injured NPC with moderate satiety obtains food for recovery",()=>{
+ const w=createWorld("injured-food",8,8);
+ assert.ok(admin(w,"npc","npc.spawn",{x:2,y:2},{}).ok);
+ const npc=w.entities[0] as Character;npc.inventory={};npc.health=30;npc.satiety=50;
+ assert.ok(admin(w,"apple","resource.spawn",{x:3,y:2},{resourceType:"food",sourceId:"apple_tree",ageTicks:120,quantity:10}).ok);
+ for(let i=0;i<3;i++)advanceTick(w);
+ assert.ok((npc.inventory?.apple??0)>0);
+});
+test("exhausted NPC recovers energy even if a distant bed exists",()=>{
+ const w=createWorld("zero-energy",16,12);
+ assert.ok(admin(w,"npc","npc.spawn",{x:2,y:2},{}).ok);
+ const npc=w.entities[0] as Character;npc.energy=0;npc.inventory={};
+ assert.ok(admin(w,"house","construction.place",{x:9,y:6},{blueprintId:"building.community_house",mode:"completed"}).ok);
+ for(let i=0;i<3;i++)advanceTick(w);
+ assert.ok(npc.energy>0);
+});
