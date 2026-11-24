@@ -23,7 +23,19 @@ export const EFFECTS:Readonly<Record<string,Readonly<EffectDefinition>>>=Object.
   stacking:"unique",modifiers:[{attribute:"movementSpeed",operation:"multiply",value:.9},{attribute:"workRate",operation:"multiply",value:.7},{attribute:"carryCapacity",operation:"multiply",value:.5}]
  },
  injured:{
-  id:"injured",displayName:{"pt-BR":"Ferido"},tags:["health","negative"],lifetime:{kind:"timed",durationTicks:8},
+  id:"injured",displayName:{"pt-BR":"Ferido"},tags:["health","negative"],lifetime:{kind:"timed",durationTicks:30},
   stacking:"refresh",modifiers:[{attribute:"movementSpeed",operation:"multiply",value:.65},{attribute:"workRate",operation:"multiply",value:.7}]
+ },
+ hungry:{
+  id:"hungry",displayName:{"pt-BR":"Com fome"},tags:["needs","negative"],lifetime:{kind:"conditional"},
+  stacking:"unique",modifiers:[{attribute:"workRate",operation:"multiply",value:.8},{attribute:"movementSpeed",operation:"multiply",value:.9}]
+ },
+ starving:{
+  id:"starving",displayName:{"pt-BR":"Faminto"},tags:["needs","negative"],lifetime:{kind:"conditional"},
+  stacking:"unique",modifiers:[{attribute:"workRate",operation:"multiply",value:.5},{attribute:"movementSpeed",operation:"multiply",value:.7}]
+ },
+ well_fed:{
+  id:"well_fed",displayName:{"pt-BR":"Bem alimentado"},tags:["needs","positive"],lifetime:{kind:"conditional"},
+  stacking:"unique",modifiers:[{attribute:"workRate",operation:"multiply",value:1.1},{attribute:"mood",operation:"add",value:5}]
  }
 });

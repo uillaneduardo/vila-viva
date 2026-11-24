@@ -6,7 +6,8 @@ import {buildingBlueprint} from "../../../content/src/buildings/registry.ts";
 export function createConstructionSite(id:string,position:Position,blueprint:BuildingBlueprint):Construction {
  return {id,kind:"construction",blueprintId:blueprint.id,blueprintVersion:blueprint.version,
   position:{...position},footprint:{...blueprint.footprint},status:"site",availability:"unavailable",
-  stageIndex:0,delivered:{},workDone:0,...(blueprint.storage?{stock:{}}:{})};
+  stageIndex:0,delivered:{},workDone:0,
+  ...(blueprint.storage?{stock:{}}:{}),...(blueprint.housing?{bedReservations:{}}:{})};
 }
 export function currentStage(site:Construction):Readonly<BuildingStage>|undefined {
  if(site.status!=="site")return undefined;

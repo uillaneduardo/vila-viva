@@ -68,8 +68,18 @@ export class Scene {
     c.save();c.translate(p.x,p.y);
     if(e.kind==='construction'){
      const width=s*e.footprint.width,height=s*e.footprint.height;
-     const left=-width/2,top=-height/2,phase=e.status==='completed'?4:e.stageIndex;
+     const left=-width/2,top=-height/2,phase=e.status==='destroyed'?-1:e.status==='completed'?4:e.stageIndex;
      c.fillStyle='rgba(13,29,21,.22)';c.fillRect(left+s*.06,top+s*.15,width-s*.12,height-s*.19);
+     if(phase===-1){
+      c.fillStyle='#6b7772';c.fillRect(left+s*.12,top+s*.35,width-s*.24,height-s*.48);
+      c.fillStyle='#9a9482';
+      for(let i=0;i<8;i++){
+       const xx=left+s*(.16+(i%4)*.4),yy=top+s*(.45+Math.floor(i/4)*.5);
+       c.fillRect(xx,yy,s*.22,s*.18);
+      }
+      c.strokeStyle='#c5a78f';c.lineWidth=Math.max(1,s*.03);
+      c.strokeRect(left+s*.08,top+s*.13,width-s*.16,height-s*.20);
+     }else{
      // Per-stage, geometry-only placeholder for the eventual registered sprites.
      c.strokeStyle='#d6bb82';c.lineWidth=Math.max(2,s*.04);
      c.strokeRect(left+s*.06,top+s*.08,width-s*.12,height-s*.16);
@@ -105,6 +115,7 @@ export class Scene {
        c.strokeRect(left+s*.17,top+height*.7,s*.22,s*.22);
        c.strokeRect(left+width-s*.39,top+height*.7,s*.22,s*.22);
       }
+     }
      }
     }else if(e.kind==='character'){
      c.beginPath();c.arc(0,0,Math.max(7,s*.28),0,Math.PI*2);c.fillStyle=e.ownerId?'#e5d19e':'#d6c091';c.fill();

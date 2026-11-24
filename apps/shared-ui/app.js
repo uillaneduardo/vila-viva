@@ -65,12 +65,24 @@ async function harvestSelected(sourceId){
 }
 
 async function executeConstruction(siteId,action,parameters){
+ const removal=action==='construction.remove',destruction=action==='construction.destroy';
+ if((removal||destruction)&&!window.confirm(removal?
+   'Remover definitivamente? A obra, estoque e reservas serão perdidos sem reembolso.':
+   'Destruir? O edifício ficará em ruínas, bloqueando o terreno, com serviços e camas cancelados.'))return;
  try{
   const data=await request('/api/commands',{method:'POST',headers:{'content-type':'application/json'},
    body:JSON.stringify({commandId:crypto.randomUUID(),role:'admin',action,targetId:siteId,parameters})});
   if(!data.result?.ok)throw Error(data.result?.error||'Comando rejeitado');
-  status(action==='construction.admin_supply'?'Materiais inseridos no canteiro pelo Modo Deus.':
-   action==='storage.admin_supply'?'Estoque de teste adicionado ao depósito.':'Trabalho aplicado à etapa atual.');
+  const messages={
+   'construction.admin_supply':'Materiais inseridos no canteiro.',
+   'storage.admin_supply':'Estoque de teste adicionado ao depósito.',
+   'construction.remove':'Construção removida permanentemente do mapa.',
+   'construction.destroy':'Construção destruída; ruínas continuam bloqueando o terreno.',
+   'npc.admin_equip':'Equipamento de teste aplicado ao NPC.',
+   'construction.admin_work':'Trabalho aplicado à etapa atual.'
+  };
+  status(messages[action]||'Comando de Modo Deus executado.');
+  if(removal)setSelection(null);
   await refresh();
  }catch(error){status('Construção: '+error.message);}
 }
@@ -81,7 +93,7 @@ function updateHover(point){
  if(!npc){hoverId=null;el('tooltip').hidden=true;scene.setHover(null);scene.setRoute(null);return;}
  hoverId=npc.id;scene.setHover(hoverId);
  el('tooltipName').textContent=npc.name;
- el('tooltipHealth').textContent='Saúde '+npc.health+'% · Energia '+npc.energy+'%';
+ el('tooltipHealth').textContent='Saúde '+npc.health+'% · Energia '+npc.energy+'% · Saciedade '+(npc.satiety??100)+'%';
  const view=snapshot.npcViews?.[npc.id];
  el('tooltipActivity').textContent=(view?.activity??'Aguardando')+' · Humor '+(view?.mood==null?'—':Math.round(view.mood)+'%');
  el('tooltipRoute').textContent=view?.route?.length?'Rota: '+Math.max(0,view.route.length-1)+' passos':(view?.reason??'Sem rota ativa');
@@ -210,5 +222,5 @@ function animate(now){
 }
 requestAnimationFrame(animate);
 el('worldTick').textContent='Carregando mundo…';
-el('introHint').replaceChildren(createUiVisual('action.inspect',{size:15}),document.createTextNode(' Macieiras produzem por ticks; NPCs coletam manualmente nesta fase. Cenário sólido bloqueia movimento.'));
+el('introHint').replaceChildren(createUiVisual('action.inspect',{size:15}),document.createTextNode(' Sobrevivência ativa: NPCs comem, reservam camas e podem se ferir. Use o inspetor para acompanhar decisões.'));
 refresh();setInterval(refresh,650);

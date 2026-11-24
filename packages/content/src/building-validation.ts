@@ -10,6 +10,8 @@ export function validateBuildingBlueprint(blueprint:BuildingBlueprint):void{
   const materialEntries=Object.entries(stage.materials);
   if(!materialEntries.length||materialEntries.some(([key,amount])=>!key.trim()||!Number.isSafeInteger(amount)||amount<1))throw Error("Invalid materials");
  }
+ if(blueprint.housing&&(!Number.isSafeInteger(blueprint.housing.adultBeds)||blueprint.housing.adultBeds<1||
+   !Number.isSafeInteger(blueprint.housing.restGain)||blueprint.housing.restGain<1))throw Error("Invalid housing");
  if(blueprint.storage){
   const storage=blueprint.storage;
   if(!Number.isSafeInteger(storage.capacity)||storage.capacity<1||!storage.accepted.length||
