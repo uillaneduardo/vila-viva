@@ -1,3 +1,4 @@
+import {PLANNED_BUILDING_ALIASES} from './planned-building-visuals.js';
 import {resolveBuildingVisual} from './building-visuals.js';
 import {getWorldVisualPack} from './visual-packs.js';
 import {resolveCharacterState} from './character-visual-state.js';
@@ -41,19 +42,25 @@ export class SpriteLibrary {
  register(id,image){this.images.set(id,image);}
  preload(){
   if(typeof Image==='undefined')return;
-  for(const [id,definition] of Object.entries(this.pack)){
+  for(const [id,definition] of Object.entries(this.pack))if(!definition.planned)this.loadAtlas(id,definition);
+ }
+ loadAtlas(id,definition){
+   if(typeof Image==='undefined'||this.atlases.has(id))return;
    const image=new Image();
    this.atlases.set(id,{image,definition,ready:false});
    image.onload=()=>{const entry=this.atlases.get(id);if(entry?.image===image)entry.ready=image.naturalWidth===definition.frameWidth*definition.frameCount&&image.naturalHeight===definition.frameHeight;};
    image.onerror=()=>{const entry=this.atlases.get(id);if(entry?.image===image)entry.ready=false;};
    image.src=definition.src;
-  }
  }
  draw(ctx,id,x,y,size,state='idle',{height=size,level=1}={}){
-  const variant=this.atlases.get(id+'@'+level);
-  const atlas=variant?.ready&&variant.definition.states.includes(state)?variant:this.atlases.get(id);
+  const legacyStates={site:'stage:0',foundation:'stage:1',structure:'stage:2',roof:'stage:3'};
+  const key=legacyStates[state]??state;
+  const assetId=Object.hasOwn(this.pack,id)?id:PLANNED_BUILDING_ALIASES[id]??id;
+  for(const candidate of [assetId,assetId+'@'+level])if(Object.hasOwn(this.pack,candidate))this.loadAtlas(candidate,this.pack[candidate]);
+  const variant=this.atlases.get(assetId+'@'+level);
+  const atlas=variant?.ready&&(variant.definition.states.includes(key)||variant.definition.states.includes(state))?variant:this.atlases.get(assetId);
   if(atlas?.ready){
-   const frame=atlas.definition.states.indexOf(state);
+   const frame=atlas.definition.states.includes(key)?atlas.definition.states.indexOf(key):atlas.definition.states.indexOf(state);
    if(frame===-1)return false;
    const d=atlas.definition;
    ctx.save();ctx.imageSmoothingEnabled=false;

@@ -27,3 +27,24 @@ test('atlas scales to rectangular footprint and uses base on missing level',()=>
  assert.equal(lib.draw(ctx,'buildings/workshop',100,100,90,'completed',{height:60,level:2}),true);
  assert.deepEqual(args.slice(-4),[55,70,90,60]);
 });
+
+import {PLANNED_BUILDING_VISUALS,PLANNED_BUILDING_ALIASES} from '../packages/renderer/src/planned-building-visuals.js';
+test('reserved art is separate from active gameplay and has valid atlas sizes',async()=>{
+ for(const [id,d] of Object.entries(PLANNED_BUILDING_VISUALS)){
+  assert.equal(d.planned,true);
+  assert.equal(BUILDING_BLUEPRINTS[id.replace('buildings/','building.')],undefined);
+  assert.equal(getWorldVisualPack()[id],d);
+  assert.equal(getWorldVisualPack('classic')[id],undefined);
+  const svg=await readFile(new URL('../public'+d.src,import.meta.url),'utf8');
+  assert.ok(svg.includes('width="480" height="96"'));
+ }
+ for(const target of Object.values(PLANNED_BUILDING_ALIASES))assert.ok(PLANNED_BUILDING_VISUALS[target]);
+});
+test('legacy visual state remains compatible with indexed atlas',()=>{
+ const lib=new SpriteLibrary(),d=BUILDING_VISUALS['buildings/community_house'];
+ lib.atlases.set('buildings/community_house',{ready:true,definition:d,image:{}});
+ let args;const ctx={save(){},restore(){},drawImage(...a){args=a;}};
+ const v=resolveBuildingVisual({blueprintId:'building.community_house',status:'site',stageIndex:2});
+ assert.equal(v.state,'structure');assert.equal(lib.draw(ctx,v.id,0,0,80,v.state),true);
+ assert.equal(args[1],192);
+});

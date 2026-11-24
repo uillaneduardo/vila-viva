@@ -10,6 +10,7 @@ export const BUILDING_VISUALS=Object.freeze({
 });
 export function resolveBuildingVisual(entity){
  const id='buildings/'+String(entity.blueprintId??'unknown').replace(/^building\./,'');
- const state=entity.status==='destroyed'?'destroyed':entity.status==='completed'?'completed':'stage:'+Math.max(0,entity.stageIndex??0);
+ const index=Math.max(0,entity.stageIndex??0);
+ const state=entity.status==='destroyed'?'destroyed':entity.status==='completed'?'completed':id==='buildings/community_house'?['site','foundation','structure','roof'][Math.min(3,index)]:id==='buildings/depot'?['site','foundation','structure'][Math.min(2,index)]:'stage:'+index;
  return {id,state,scale:1,level:Number.isInteger(entity.level)&&entity.level>0?entity.level:1};
 }
