@@ -2,7 +2,7 @@ import {canEnter} from "../../collision/src/index.ts";
 import type {World,Character,Construction} from "../../../domain/src/contracts.ts";
 import {buildingBlueprint} from "../../../content/src/buildings/registry.ts";
 import {applyEffect,removeEffect} from "../../effects/src/manager.ts";
-import {nearFootprint} from "../../construction/src/index.ts";
+import {nearFootprint,buildingCapabilities} from "../../construction/src/index.ts";
 export const BED_RESERVATION_TTL=180;
 export function advanceResidences(world:World):void {
  const homes=world.entities.filter((e):e is Construction=>e.kind==="construction"&&bedsIn(e)>0&&!!buildingBlueprint(e.blueprintId)?.housing?.permanent);
@@ -18,7 +18,12 @@ export function advanceResidences(world:World):void {
 export function bedsIn(house:Construction):number {
  if(house.status!=="completed"||house.availability!=="available")return 0;
  const def=buildingBlueprint(house.blueprintId);
- return def?.version===house.blueprintVersion?def.housing?.adultBeds??0:0;
+ return def?.version===house.blueprintVersion&&def.housing?(buildingCapabilities(house)["housing.adult_capacity"]??def.housing.adultBeds):0;
+}
+export function dependentBedsIn(house:Construction):number {
+ if(!bedsIn(house))return 0;
+ const def=buildingBlueprint(house.blueprintId);
+ return buildingCapabilities(house)["housing.dependent_capacity"]??def?.housing?.dependentBeds??0;
 }
 export function reservationCount(house:Construction):number {return Object.keys(house.bedReservations??{}).length;}
 export function reservedHouse(world:World,npc:Character):Construction|undefined {
