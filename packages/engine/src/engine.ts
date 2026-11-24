@@ -11,8 +11,8 @@ import {buildingBlueprint} from "../../content/src/buildings/registry.ts";
 import {createConstructionSite,createCompletedBuilding,currentStage,materialsRemaining,hasMaterials,nearFootprint,acceptMaterial,applyConstructionWork,storageDefinition,storageFree} from "../../systems/construction/src/index.ts";
 import {advanceNpcDecisions} from "../../systems/ai/src/index.ts";
 import {advanceNeeds,eatFood,updateNeedEffects} from "../../systems/needs/src/index.ts";
-import {TOOL_PRESETS,evaluateActionRisk} from "../../systems/risk/src/index.ts";
-import {clearHouse,pruneBeds} from "../../systems/housing/src/index.ts";
+import {TOOL_PRESETS,evaluateActionRisk,correctTool} from "../../systems/risk/src/index.ts";
+import {clearHouse,pruneBeds,advanceResidences} from "../../systems/housing/src/index.ts";
 import {generateCharacterProfile,generateStartingInventory} from "../../content/src/characters.ts";
 import {advanceMortality,isCorpse,carriedCorpse,availableGraves,registerBurial} from "../../systems/mortality/src/index.ts";
 import {inBounds} from "../../domain/src/contracts.ts";
@@ -237,7 +237,7 @@ export function applyCommand(world: World, command: Command,
   const actor=actorForCommand(world,command);
   if(!actor)return reject(command,"UNAUTHORIZED");
   if(actor.health<=0||actor.energy<=0||!nearFootprint(actor.position,target))return reject(command,"BLOCKED");
-  const output=applyProductionWork(target);
+  const output=applyProductionWork(target,correctTool(actor,"production.work")?2:1);
   if(!output)return reject(command,"NOT_READY");
   actor.energy=Math.max(0,actor.energy-1);
   riskActor=actor;riskActivity="production.work";
@@ -277,7 +277,7 @@ export function applyCommand(world: World, command: Command,
    const stage=currentStage(target);
    if(!stage)return reject(command,"ALREADY_COMPLETED");
    if(!hasMaterials(target))return reject(command,"NOT_READY");
-   const amount=debug?command.parameters?.workUnits:1;
+   const amount=debug?command.parameters?.workUnits:Math.min(stage.workUnits-target.workDone,actor&&correctTool(actor,"construction.work")?2:1);
    if(typeof amount!=="number"||!Number.isSafeInteger(amount)||amount<1||amount>Math.max(1,stage.workUnits-target.workDone))return reject(command,"INVALID_PAYLOAD");
    const result=applyConstructionWork(target,amount,world.tick+1);
    if(actor){actor.energy=Math.max(0,actor.energy-1);riskActor=actor;riskActivity="construction.work";}
@@ -331,7 +331,7 @@ export function applyCommand(world: World, command: Command,
   if(!actor)return reject(command,"UNAUTHORIZED");
   if(!orthogonallyAdjacent(actor.position,source.position)||actor.health<=0||actor.energy<=0)return reject(command,"BLOCKED");
   if(source.quantity<=0)return reject(command,"EXHAUSTED");
-  const amount=Math.min(source.quantity,rollDrop(world,command,"resource",1,3));
+  const amount=Math.min(source.quantity,rollDrop(world,command,"resource",1,3)+(correctTool(actor,("resource.gather:"+source.resourceType) as any)?1:0));
   source.quantity-=amount;dropItem(world,actor.position,source.resourceType,amount);
   actor.energy=Math.max(0,actor.energy-1);
   riskActor=actor;riskActivity=("resource.gather:"+source.resourceType) as typeof riskActivity;
@@ -435,7 +435,7 @@ export function advanceTick(world:World,onAction?:ActivityObserver){
  advanceNeeds(world);
  advanceHealth(world);
  advanceMortality(world);
- pruneBeds(world);
+ pruneBeds(world);advanceResidences(world);
  advanceNpcDecisions(world,(cmd)=>applyCommand(world,cmd,{internal:true,onAction}));
  advanceLeaderDecisions(world,(cmd)=>applyCommand(world,cmd,{internal:true,onAction}));
  advanceMortality(world);
