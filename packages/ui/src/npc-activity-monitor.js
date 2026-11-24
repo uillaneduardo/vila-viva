@@ -81,6 +81,7 @@ export function createNpcActivityMonitor(root){
   if(timelineId!==undefined&&snapshot.timelineId!==timelineId)clear();
   timelineId=snapshot.timelineId;
   const rows=npcActivityRows(snapshot.world);
+  if(rows.length)list.querySelector('[data-empty-npcs]')?.remove();
   const seen=new Set(rows.map(row=>row.id));
   const scroll=list.scrollTop;
   for(const [id,entry] of entries)if(!seen.has(id)){
@@ -116,6 +117,7 @@ export function createNpcActivityMonitor(root){
   if(count.textContent!==description)count.textContent=description;
   if(!rows.length&&list.children.length===0){
    const message=document.createElement('p');message.className='npc-monitor-empty';
+   message.dataset.emptyNpcs='true';
    message.textContent='Nenhum habitante na simulação.';
    list.append(message);
   }
