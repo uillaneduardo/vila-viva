@@ -14,6 +14,7 @@ import {affinityFor} from "../../../content/src/characters.ts";
 import type {WorkDomain} from "../../../content/src/characters.ts";
 import {activeOrder,productionDefinition,stockMissing,canWorkProduction} from "../../production/src/index.ts";
 import {RECIPES} from "../../../content/src/recipes.ts";
+import {TEMPORARY_STORAGE,canCreateTemporaryStorage,isTemporaryStorage} from "../../storage/src/temporary.ts";
 import {ITEMS} from "../../../content/src/items.ts";
 
 export const NPC_ACTION_INTERVAL=3;
@@ -138,8 +139,15 @@ function choosePreferred(npc:Character,tasks:Array<Task|null>):Task|null{
  });
  return candidates[0]??null;
 }
+function temporaryCargo(world:World,npc:Character,item:string,quantity:number,adjacentOnly=false):Task|null {
+ const existing=selectTask(world,npc,depots(world).filter(d=>isTemporaryStorage(d)&&acceptedBy(d,item)&&storageFree(d)>0),"Armazenando temporariamente","Depósito temporário disponível","storage.deposit",d=>({materialId:item,quantity:Math.min(quantity,storageFree(d as Construction))}));
+ if(existing&&(!adjacentOnly||existing.route.length===1))return existing;
+ const position=[{x:npc.position.x+1,y:npc.position.y},{x:npc.position.x,y:npc.position.y+1},{x:npc.position.x-1,y:npc.position.y},{x:npc.position.x,y:npc.position.y-1}].find(p=>canCreateTemporaryStorage(world,p));
+ return position?{target:npc,route:[{...npc.position}],position,activity:"Criando depósito temporário",reason:"Sem armazenamento convencional viável",action:"storage.temporary.create",parameters:{materialId:item,quantity:Math.min(quantity,TEMPORARY_STORAGE.storage!.capacity)},domain:"hauling"}:null;
+}
 function storedCargo(world:World,npc:Character):Task|null {
  const inventory=npc.inventory??{},warehouses=depots(world).filter(d=>d.blueprintId==="building.depot");
+ let fallback:Task|null=null;
  for(const [item,quantity] of Object.entries(inventory)){
   if(quantity<=0||!ITEMS[item])continue;
   // Keep a small personal food reserve; surplus remains available for collective storage.
@@ -153,8 +161,9 @@ function storedCargo(world:World,npc:Character):Task|null {
    " com transporte físico","storage.deposit",
    d=>({materialId:item,quantity:Math.min(quantity-reserve,storageFree(d as Construction))}));
   if(task)return {...task,domain:"hauling"};
+  if(!fallback&&load(npc)>=CARRY_LIMIT)fallback=temporaryCargo(world,npc,item,quantity-reserve);
  }
- return null;
+ return fallback;
 }
 function productionTask(world:World,npc:Character):Task|null {
  const workshops=world.entities.filter((e):e is Construction=>e.kind==="construction"&&!!productionDefinition(e));
@@ -306,6 +315,15 @@ function choose(world:World,npc:Character):Task|null{
  const cargo=storedCargo(world,npc);
  if(cargo)return cargo;
  const pickup=groundTask(world,npc);if(pickup)return pickup;
+ if(load(npc)<CARRY_LIMIT){
+  const permanent=depots(world).filter(d=>d.blueprintId==="building.depot"&&storageFree(d)>0);
+  const temporary=depots(world).filter(isTemporaryStorage);
+  for(const area of temporary){
+   const item=Object.keys(area.stock??{}).find(k=>(area.stock?.[k]??0)>0&&permanent.some(d=>acceptedBy(d,k)&&routeToEntity(world,area.position,d,npc.id)));
+   if(item){const task=selectTask(world,npc,[area],"Consolidando estoque","Transferir carga temporária ao depósito convencional","storage.withdraw",()=>({materialId:item,quantity:Math.min(CARRY_LIMIT-load(npc),area.stock![item],Math.max(...permanent.filter(d=>acceptedBy(d,item)).map(storageFree)))}));if(task)return task;}
+  }
+  if(permanent.length){const empty=selectTask(world,npc,temporary.filter(d=>Object.values(d.stock??{}).every(n=>n===0)),"Removendo depósito temporário","Área vazia; armazenamento convencional disponível","storage.temporary.remove");if(empty)return empty;}
+ }
  if(load(npc)<CARRY_LIMIT&&depots(world).some(d=>d.blueprintId==="building.depot"&&storageFree(d)>0)){
   const mineStock=selectTask(world,npc,depots(world).filter(d=>d.blueprintId==="building.mine"&&Object.values(d.stock??{}).some(n=>n>0)),"Transportando minério","Retirar produção da mina","storage.withdraw",e=>{const d=e as Construction;const item=Object.keys(d.stock??{}).find(k=>(d.stock?.[k]??0)>0)!;return {materialId:item,quantity:Math.min(CARRY_LIMIT-load(npc),d.stock![item])};});if(mineStock)return mineStock;
  }
@@ -375,6 +393,7 @@ function foodTask(world:World,npc:Character):Task|null {
   const rank=(item:string)=>({raw:0,processed:1,seed:2,medicine:3,equipment:4}[ITEMS[item]?.category]??5);
   const cargo=Object.entries(npc.inventory??{}).filter(([item,amount])=>amount>0&&Object.hasOwn(ITEMS,item)&&!Object.hasOwn(FOOD_ITEMS,item))
    .sort((a,b)=>rank(a[0])-rank(b[0])||b[1]-a[1]||a[0].localeCompare(b[0]));
+  if(cargo.length){const temporary=temporaryCargo(world,npc,cargo[0][0],Math.min(cargo[0][1],required-free),true);if(temporary)return temporary;}
   if(cargo.length)return {target:npc,route:[{...npc.position}],activity:"Liberando espaço para alimento",
    reason:"Fome crítica: deixar carga física no chão para obter alimento",action:"item.drop",
    parameters:{materialId:cargo[0][0],quantity:Math.min(cargo[0][1],required-free)}};

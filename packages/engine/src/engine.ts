@@ -22,6 +22,7 @@ import type {ActivityObserver} from "../../domain/src/activity.ts";
 import {advanceLeaderDecisions} from "../../systems/leadership/src/index.ts";
 import {orderProduction,productionDefinition,applyProductionWork} from "../../systems/production/src/index.ts";
 import {recipeById} from "../../content/src/recipes.ts";
+import {TEMPORARY_STORAGE,canCreateTemporaryStorage,isTemporaryStorage} from "../../systems/storage/src/temporary.ts";
 import {isToolItem,isItem} from "../../content/src/items.ts";
 import {advanceHealth} from "../../systems/health/src/index.ts";
 
@@ -190,6 +191,24 @@ export function applyCommand(world: World, command: Command,
   world.entities.splice(index,1);
   riskActor=actor;riskActivity="resource.gather:wood";
   additionalEvents.push({type:"nature.tree_cut",entityId:tree.id});
+ } else if(command.action==="storage.temporary.create"){
+  const actor=actorForCommand(world,command),position=command.position;
+  if(command.actorRole!=="npc"||!actor||actor.ownerId)return reject(command,"UNAUTHORIZED");
+  if(actor.health<=0||actor.energy<=0||!position||!orthogonallyAdjacent(actor.position,position)||!canCreateTemporaryStorage(world,position))return reject(command,"BLOCKED");
+  const item=command.parameters?.materialId,quantity=command.parameters?.quantity;
+  if(typeof item!=="string"||!TEMPORARY_STORAGE.storage!.accepted.includes(item)||typeof quantity!=="number"||!Number.isSafeInteger(quantity)||quantity<1||quantity>TEMPORARY_STORAGE.storage!.capacity)return reject(command,"INVALID_PAYLOAD");
+  if((actor.inventory?.[item]??0)<quantity)return reject(command,"EXHAUSTED");
+  const area=createCompletedBuilding("construction-"+command.commandId,position,TEMPORARY_STORAGE,world.tick);
+  if(world.entities.some(e=>e.id===area.id))return reject(command,"DUPLICATE_COMMAND");
+  actor.inventory![item]-=quantity;area.stock={[item]:quantity};world.entities.push(area);eventTargetId=area.id;
+ } else if(command.action==="storage.temporary.remove"){
+  const actor=actorForCommand(world,command),area=world.entities.find(e=>e.id===command.targetId);
+  if(command.actorRole!=="npc"||!actor||actor.ownerId)return reject(command,"UNAUTHORIZED");
+  if(!area||!isTemporaryStorage(area))return reject(command,"INVALID_TARGET");
+  if(actor.health<=0||!nearFootprint(actor.position,area))return reject(command,"BLOCKED");
+  for(const [item,quantity] of Object.entries(area.stock??{}))if(!isItem(item)||!Number.isSafeInteger(quantity)||quantity<0)return reject(command,"INVALID_PAYLOAD");
+  for(const [item,quantity] of Object.entries(area.stock??{}))dropItem(world,area.position,item,quantity);
+  world.entities.splice(world.entities.indexOf(area),1);
  } else if(command.action==="construction.place"||command.action==="construction.propose"){
   const proposed=command.action==="construction.propose";
   if(proposed){
@@ -200,7 +219,7 @@ export function applyCommand(world: World, command: Command,
   }else if(!admin)return reject(command,"UNAUTHORIZED");
   const blueprintId=command.parameters?.blueprintId;
   const blueprint=typeof blueprintId==="string"?buildingBlueprint(blueprintId):undefined;
-  if(!blueprint||!command.position)return reject(command,"INVALID_PAYLOAD");
+  if(!blueprint||blueprint.id===TEMPORARY_STORAGE.id||!command.position)return reject(command,"INVALID_PAYLOAD");
   const mode=command.parameters?.mode??"site";
   if((mode!=="site"&&mode!=="completed")||(proposed&&mode!=="site"))return reject(command,"INVALID_PAYLOAD");
   if(!inBounds(world,command.position)||!inBounds(world,{
@@ -413,7 +432,10 @@ export function applyCommand(world: World, command: Command,
   if(index<0)return reject(command,"NOT_FOUND");
   const target=world.entities[index];
   if(target.kind!=="construction")return reject(command,"INVALID_TARGET");
-  if(command.action==="construction.destroy"){
+  if(isTemporaryStorage(target)){
+   for(const [item,quantity] of Object.entries(target.stock??{}))dropItem(world,target.position,item,quantity);
+   world.entities.splice(index,1);
+  }else if(command.action==="construction.destroy"){
    if(target.status==="destroyed")return reject(command,"ALREADY_COMPLETED");
    clearHouse(world,target);
    target.status="destroyed";target.availability="unavailable";
