@@ -93,8 +93,13 @@ function plantingTask(world:World,npc:Character):Task|null {
 /** Funeral assistance is a real navigational job, above farming and construction. */
 function burialTask(world:World,npc:Character):Task|null {
  const cemeteries=world.entities.filter((e):e is Construction=>e.kind==="construction"&&availableGraves(e)>0);
- if(!cemeteries.length)return null;
  const carrying=carriedCorpse(world,npc.id);
+ if(!cemeteries.length){
+  if(carrying)return {target:carrying,route:[{...npc.position}],activity:"Devolvendo corpo",
+   reason:"Não há cemitério com vaga; o corpo permanece visível para posterior sepultamento",
+   action:"burial.drop"};
+  return null;
+ }
  if(carrying){
   return selectTask(world,npc,cemeteries,"Sepultando",
    "Transportando "+carrying.name+" para um cemitério com vaga","burial.inter");

@@ -1,6 +1,6 @@
 export type Role = "player" | "npc" | "admin";
 export type EntityKind = "character" | "resource" | "obstacle" | "construction";
-export type ActionId = "entity.inspect" | "movement.move" | "npc.spawn" | "resource.spawn" | "resource.harvest" | "obstacle.spawn" | "construction.place" | "construction.deliver" | "construction.work" | "construction.admin_supply" | "construction.admin_work" | "resource.gather" | "storage.deposit" | "storage.withdraw" | "storage.admin_supply" | "construction.remove" | "construction.destroy" | "npc.admin_equip" | "npc.eat" | "farming.zone.create" | "farming.plant" | "nature.cut" | "burial.pickup" | "burial.inter";
+export type ActionId = "entity.inspect" | "movement.move" | "npc.spawn" | "resource.spawn" | "resource.harvest" | "obstacle.spawn" | "construction.place" | "construction.deliver" | "construction.work" | "construction.admin_supply" | "construction.admin_work" | "resource.gather" | "storage.deposit" | "storage.withdraw" | "storage.admin_supply" | "construction.remove" | "construction.destroy" | "npc.admin_equip" | "npc.eat" | "farming.zone.create" | "farming.plant" | "nature.cut" | "burial.pickup" | "burial.inter" | "burial.drop";
 export type FailureCode = "UNAUTHORIZED" | "NOT_FOUND" | "INVALID_TARGET" | "INVALID_PAYLOAD" | "OUT_OF_BOUNDS" | "BLOCKED" | "DUPLICATE_COMMAND" | "EXHAUSTED" | "INVENTORY_FULL" | "NOT_READY" | "ALREADY_COMPLETED";
 export interface Position { x: number; y: number }
 import type {ActiveEffect,AttributeId} from "./effects.ts";

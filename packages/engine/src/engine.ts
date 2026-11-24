@@ -133,6 +133,14 @@ export function applyCommand(world: World, command: Command,options:{internal?:b
   corpse.position={...actor.position};
   actor.energy=Math.max(0,actor.energy-1);
   additionalEvents.push({type:"burial.body_collected",entityId:corpse.id});
+ } else if(command.action==="burial.drop"){
+  if(admin)return reject(command,"UNAUTHORIZED");
+  const actor=actorForCommand(world,command);
+  if(!actor)return reject(command,"UNAUTHORIZED");
+  const corpse=carriedCorpse(world,actor.id);
+  if(!corpse||corpse.id!==command.targetId)return reject(command,"NOT_READY");
+  corpse.position={...actor.position};delete corpse.bodyCarriedBy;
+  additionalEvents.push({type:"burial.body_released",entityId:corpse.id});
  } else if(command.action==="burial.inter"){
   if(admin)return reject(command,"UNAUTHORIZED");
   const cemetery=world.entities.find(e=>e.id===command.targetId);

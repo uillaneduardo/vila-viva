@@ -36,6 +36,14 @@ export function advanceMortality(world:World):void {
   character.causeOfDeath??=(character.satiety??100)===0?"Inanição":"Ferimentos ou saúde esgotada";
   releaseBed(world,character);
  }
+ for(const corpse of world.entities.filter(isCorpse)){
+  if(!corpse.bodyCarriedBy)continue;
+  const carrier=world.entities.find(e=>e.id===corpse.bodyCarriedBy);
+  if(!carrier||carrier.kind!=="character"||carrier.health<=0){
+   if(carrier?.kind==="character")corpse.position={...carrier.position};
+   delete corpse.bodyCarriedBy;
+  }
+ }
  const corpses=visibleCorpses(world);
  for(const character of world.entities){
   if(character.kind!=="character")continue;

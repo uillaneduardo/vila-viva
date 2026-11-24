@@ -24,7 +24,8 @@ export function blockingEntity(world:World,cell:Position,ignoreId?:string):Entit
 export function canPlaceFootprint(world:World,position:Position,width:number,height:number):boolean {
  if(!Number.isSafeInteger(width)||!Number.isSafeInteger(height)||width<1||height<1)return false;
  for(let y=position.y;y<position.y+height;y++)for(let x=position.x;x<position.x+width;x++)
-  if(!canEnter(world,{x,y}))return false;
+  if(!canEnter(world,{x,y})||
+   world.entities.some(e=>e.kind==="construction"&&occupiesCell(e,{x,y})))return false;
  return true;
 }
 export const canEnter=(world:World,cell:Position,ignoreId?:string):boolean=>

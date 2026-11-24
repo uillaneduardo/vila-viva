@@ -37,7 +37,8 @@ export function createBaseRegistry():DefinitionRegistry {
   {id:"farming.plant",displayName:{"pt-BR":"Plantar semente"},roles:["npc","player"],targets:["planting_zone"],requires:["position","inventory","energy"],readonly:false,description:"Converter uma semente física em muda na célula livre da zona"},
   {id:"nature.cut",displayName:{"pt-BR":"Cortar árvore envelhecida"},roles:["npc","player"],targets:["resource"],requires:["position","energy","inventory"],readonly:false,description:"Converter macieira velha ou seca em madeira carregada"},
   {id:"burial.pickup",displayName:{"pt-BR":"Recolher falecido"},roles:["npc","player"],targets:["character"],requires:["position","energy"],readonly:false,description:"Recolher corpo sem colisão para sepultamento"},
-  {id:"burial.inter",displayName:{"pt-BR":"Sepultar no cemitério"},roles:["npc","player"],targets:["construction"],requires:["position","energy"],readonly:false,description:"Registrar nome do falecido no cemitério e remover corpo do mundo"}
+  {id:"burial.inter",displayName:{"pt-BR":"Sepultar no cemitério"},roles:["npc","player"],targets:["construction"],requires:["position","energy"],readonly:false,description:"Registrar nome do falecido no cemitério e remover corpo do mundo"},
+  {id:"burial.drop",displayName:{"pt-BR":"Deixar o corpo no chão"},roles:["npc","player"],targets:["character"],requires:["position"],readonly:false,description:"Recuperar corpo visível se não houver cemitério disponível"}
  ] as const)catalog.registerAction(action);
  return catalog;
 }
