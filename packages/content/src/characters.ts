@@ -8,16 +8,41 @@ export const GIVEN_NAMES=Object.freeze([
 ]);
 export const FAMILY_NAMES=Object.freeze(["Silva","Oliveira","Costa","Almeida","Lima",
  "Santos","Rocha","Ferreira","Moura","Ribeiro","Nascimento","Barros","Pereira","Nunes"]);
-export const TRAITS:Readonly<Record<string,Readonly<{label:string;description:string;attributes:Partial<Record<AttributeId,number>>}>>>=Object.freeze({
- resilient:{label:"Resiliente",description:"Maior resistência física",attributes:{endurance:3}},
- nimble:{label:"Ágil",description:"Movimentos mais rápidos",attributes:{agility:3}},
- strong:{label:"Forte",description:"Maior força de carga",attributes:{strength:3}},
- sociable:{label:"Sociável",description:"Busca interações sociais",attributes:{sociability:3}},
- introverted:{label:"Reservado",description:"Menor disposição social",attributes:{sociability:-2}},
- fragile:{label:"Frágil",description:"Resistência reduzida",attributes:{endurance:-2}},
- clumsy:{label:"Desajeitado",description:"Agilidade reduzida",attributes:{agility:-2}},
- patient:{label:"Paciente",description:"Resistência a tarefas repetitivas",attributes:{endurance:2,sociability:1}}
+export type WorkDomain="farming"|"woodcutting"|"mining"|"building"|"crafting"|"hauling";
+export interface TraitDefinition {
+ label:string;description:string;attributes:Partial<Record<AttributeId,number>>;
+ affinities?:Partial<Record<WorkDomain,number>>;
+ healing?:number;risk?:number;
+}
+/** Work affinity changes *preferences*, not permissions or a supply of resources. */
+export const TRAITS:Readonly<Record<string,Readonly<TraitDefinition>>>=Object.freeze({
+ resilient:{label:"Resiliente",description:"Resiste melhor aos ferimentos",attributes:{endurance:3},healing:1.2,risk:.85},
+ nimble:{label:"Ágil",description:"Move-se rapidamente",attributes:{agility:3},affinities:{hauling:1.18}},
+ strong:{label:"Forte",description:"Boa aptidão física",attributes:{strength:3},affinities:{building:1.1,woodcutting:1.1}},
+ sociable:{label:"Sociável",description:"Gosta de atividades em grupo",attributes:{sociability:3},affinities:{building:1.05}},
+ introverted:{label:"Reservado",description:"Prefere trabalhos individuais",attributes:{sociability:-2},affinities:{crafting:1.08}},
+ fragile:{label:"Frágil",description:"Sofre mais lesões e recupera-se lentamente",attributes:{endurance:-2},healing:.7,risk:1.3},
+ clumsy:{label:"Desajeitado",description:"Dificuldade em tarefas manuais",attributes:{agility:-2},affinities:{crafting:.8}},
+ patient:{label:"Paciente",description:"Gosta de trabalho prolongado",attributes:{endurance:2,sociability:1},affinities:{farming:1.08,crafting:1.08}},
+ farmer:{label:"Agricultor",description:"Maior afinidade pelo plantio e colheita",attributes:{endurance:2,agility:1},affinities:{farming:1.8}},
+ lumberjack:{label:"Lenhador",description:"Prefere extrair madeira",attributes:{strength:3},affinities:{woodcutting:1.8}},
+ miner:{label:"Minerador",description:"Prefere pedras e minérios",attributes:{strength:2,endurance:1},affinities:{mining:1.8}},
+ builder:{label:"Construtor",description:"Prefere construir edifícios",attributes:{strength:2,endurance:2},affinities:{building:1.8}},
+ artisan:{label:"Artesão",description:"Prefere fabricar ferramentas",attributes:{agility:2,endurance:1},affinities:{crafting:1.8}},
+ healthy:{label:"Saudável",description:"Maior recuperação e resistência a lesões",attributes:{endurance:2},healing:1.4,risk:.85},
+ fast_healer:{label:"Cicatrização rápida",description:"Recupera saúde mais depressa",attributes:{endurance:1},healing:1.7},
+ slow_healer:{label:"Recuperação lenta",description:"Ferimentos demoram a sarar",attributes:{},healing:.5},
+ sickly:{label:"Constituição delicada",description:"Maior vulnerabilidade e recuperação pior",attributes:{endurance:-3},healing:.6,risk:1.35}
 });
+export function affinityFor(npc:Pick<Character,"traits">,domain:WorkDomain):number {
+ return (npc.traits??[]).reduce((score,id)=>score*(TRAITS[id]?.affinities?.[domain]??1),1);
+}
+export function healingFactor(npc:Pick<Character,"traits">):number{
+ return (npc.traits??[]).reduce((rate,id)=>rate*(TRAITS[id]?.healing??1),1);
+}
+export function injuryFactor(npc:Pick<Character,"traits">):number{
+ return (npc.traits??[]).reduce((rate,id)=>rate*(TRAITS[id]?.risk??1),1);
+}
 function hashSeed(value:string):number {
  let state=2166136261;
  for(let i=0;i<value.length;i++){state^=value.charCodeAt(i);state=Math.imul(state,16777619);}
