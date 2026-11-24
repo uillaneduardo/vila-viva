@@ -6,7 +6,7 @@ import {join} from 'node:path';
 import {makePrototype} from '../apps/server/src/index.mts';
 test('opt-in async server confirms commands, saves, timeline switches and recovery',async()=>{
  const root=mkdtempSync(join(tmpdir(),'oturo-async-http-'));
- const {server}=makePrototype({dataDir:root,asyncPersistence:true});
+ const {server,shutdown}=makePrototype({dataDir:root,asyncPersistence:true});
  await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));
  const address=server.address();if(!address||typeof address==='string')throw Error('address');
  const base='http://127.0.0.1:'+address.port;
@@ -24,5 +24,23 @@ test('opt-in async server confirms commands, saves, timeline switches and recove
   await post('/api/world/load',{name:'async-save'});
   const loaded=await get('/api/world');assert.deepEqual(loaded.world,after.world);
   assert.deepEqual((await get('/api/world/export')).world,loaded.world);
- }finally{await new Promise<void>(resolve=>server.close(()=>resolve()));rmSync(root,{recursive:true,force:true});}
+ }finally{await new Promise<void>(resolve=>server.close(()=>resolve()));await shutdown();rmSync(root,{recursive:true,force:true});}
+});
+
+test('async server does not expose competing store and shutdown waits for durable state',async()=>{
+ const root=mkdtempSync(join(tmpdir(),'oturo-async-stop-'));
+ const app=makePrototype({dataDir:root,asyncPersistence:true});
+ try{
+  assert.equal(app.store,null);
+  await new Promise<void>(resolve=>app.server.listen(0,'127.0.0.1',resolve));
+  const address=app.server.address();if(!address||typeof address==='string')throw Error('address');
+  const base='http://127.0.0.1:'+address.port;
+  const response=await fetch(base+'/api/commands',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({role:'admin',commandId:'shutdown-source',action:'resource.spawn',position:{x:8,y:7},parameters:{resourceType:'wood',quantity:5}})});
+  assert.equal(response.status,200);
+  const expected=app.world.tick;
+  await new Promise<void>(resolve=>app.server.close(()=>resolve()));
+  await Promise.all([app.shutdown(),app.shutdown()]);
+  const {FileWorldStore}=await import('../apps/server/src/world-store.mts');
+  assert.equal(new FileWorldStore(root).loadActive()?.world.tick,expected);
+ }finally{if(app.server.listening)await new Promise<void>(resolve=>app.server.close(()=>resolve()));await app.shutdown();rmSync(root,{recursive:true,force:true});}
 });
