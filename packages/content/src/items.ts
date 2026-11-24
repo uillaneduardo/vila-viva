@@ -1,11 +1,13 @@
 /** One source of truth for inventory labels, kinds, tool identity and storage sections. */
-export type ItemCategory="raw"|"food"|"seed"|"processed"|"equipment";
+export type ItemCategory="raw"|"food"|"seed"|"processed"|"equipment"|"medicine";
 export interface ItemDefinition {id:string;label:string;category:ItemCategory;description:string}
 export const ITEMS:Readonly<Record<string,Readonly<ItemDefinition>>>=Object.freeze({
  wood:{id:"wood",label:"Madeira",category:"raw",description:"Material florestal"},
  stone:{id:"stone",label:"Pedra",category:"raw",description:"Material de construção"},
  iron_ore:{id:"iron_ore",label:"Minério de ferro",category:"raw",description:"Extraído da jazida"},
  copper_ore:{id:"copper_ore",label:"Minério de cobre",category:"raw",description:"Extraído da jazida"},
+ medicinal_herb:{id:"medicinal_herb",label:"Erva medicinal",category:"medicine",description:"Insumo de tratamento; não é alimento"},
+ medicinal_herb_seed:{id:"medicinal_herb_seed",label:"Semente de erva medicinal",category:"seed",description:"Plantio medicinal"},
  meal:{id:"meal",label:"Refeição preparada",category:"food",description:"Alimento preparado no refeitório"},
  apple:{id:"apple",label:"Maçã",category:"food",description:"Alimento de pomar"},
  carrot:{id:"carrot",label:"Cenoura",category:"food",description:"Hortaliça"},
@@ -20,7 +22,7 @@ export const ITEMS:Readonly<Record<string,Readonly<ItemDefinition>>>=Object.free
  hammer:{id:"hammer",label:"Martelo",category:"equipment",description:"Equipamento para construção"}
 });
 export const ITEM_CATEGORIES:Readonly<Record<ItemCategory,string>>=Object.freeze({
- raw:"Recursos naturais",food:"Alimentos",seed:"Sementes",processed:"Materiais processados",equipment:"Ferramentas"
+ raw:"Recursos naturais",food:"Alimentos",seed:"Sementes",processed:"Materiais processados",equipment:"Ferramentas",medicine:"Medicinais"
 });
 export const isItem=(id:string)=>Object.hasOwn(ITEMS,id);
 export const isToolItem=(id:string)=>isItem(id)&&ITEMS[id].category==="equipment";
