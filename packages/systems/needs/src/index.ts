@@ -10,6 +10,7 @@ export function eatFood(npc:Character,itemId:string,tick=0):boolean {
  const item=foodItem(itemId);
  if(!item||npc.health<=0||(npc.inventory?.[itemId]??0)<1||(npc.satiety??100)>=SATIETY_MAX)return false;
  npc.inventory![itemId]--;npc.satiety=Math.min(SATIETY_MAX,(npc.satiety??100)+item.satiety);
+ removeEffect(npc,"food:"+npc.id);
  applyEffect(npc,itemId==="meal"?"prepared_meal":"raw_meal","food",tick,"food:"+npc.id);
  return true;
 }
