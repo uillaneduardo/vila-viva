@@ -1,3 +1,5 @@
+import {PerformanceWindow} from '../../packages/renderer/src/performance-window.js';
+import {createMotionRenderAdapter} from '../../packages/renderer/src/motion-render-adapter.js';
 import {createLayeredRenderAdapter} from '../../packages/renderer/src/layered-render-adapter.js';
 import {createTickRenderAdapter} from '../../packages/renderer/src/tick-render-adapter.js';
 import {connectWorld} from '../../packages/client-sdk/src/world-stream.js';
@@ -15,7 +17,7 @@ const el=id=>document.getElementById(id),role=document.body.dataset.role;
 applyUiTheme(document.documentElement);
 const surface=new Scene(el('game'),{spriteLibrary:new SpriteLibrary({pack:getWorldVisualPack(new URLSearchParams(location.search).get('visualPack')??undefined)})});
 const rendererMode=new URLSearchParams(location.search).get('renderer');
-const scene=rendererMode==='legacy'?surface:rendererMode==='tick'?createTickRenderAdapter(surface):createLayeredRenderAdapter(surface);
+const scene=rendererMode==='legacy'?surface:rendererMode==='tick'?createTickRenderAdapter(surface):rendererMode==='layered'?createLayeredRenderAdapter(surface):createMotionRenderAdapter(surface);
 const inspector=createInspector({
  onHarvest:(id)=>void harvestSelected(id),
  onConstruction:(id,action,parameters)=>void executeConstruction(id,action,parameters)
@@ -25,6 +27,8 @@ let snapshot=null,catalog=null,selectedId=null,hoverId=null,tool='inspect',brush
 let pan=null,painting=new Map(),loading=false,inspection=null,lastSpeed=1;
 let stream=null,inspectAt=0,inspectSequence=0,visualEpoch=0,frames=0,fps=0,lastEpoch=null,lastHudAt=-Infinity;
 const keys=new Set();
+const frameIntervals=new PerformanceWindow(),paintCosts=new PerformanceWindow(),sampleGaps=new PerformanceWindow();
+let lastVisualSample=null,lastFrameTime=null;
 const request=async(path,options)=>{
  const response=await fetch(path,options),data=await response.json();
  if(!response.ok)throw Error(data.error||data.result?.error||'Falha na comunicação');
@@ -191,6 +195,9 @@ function applyWorld(data,{reset=false,epoch=null,sampleTime}={}){
  if(epoch!==null)lastEpoch=epoch;
  snapshot=data;scene.setWorld(data.world,{reset:reset||changed,epoch,sampleTime,speed:data.clock.speed,paused:data.clock.paused});
  const now=performance.now();
+ if(reset||changed){sampleGaps.clear();lastVisualSample=null;}
+ if(lastVisualSample!==null)sampleGaps.add(now-lastVisualSample);
+ lastVisualSample=now;
  if(reset||changed||clockChanged||data.clock.paused||now-lastHudAt>=250){hud.update(data);npcActivityMonitor?.update(data);lastHudAt=now;}
  const selected=data.world.entities.find(e=>e.id===selectedId);
  if(selectedId&&!selected)setSelection(null);
@@ -441,7 +448,9 @@ function animate(now){
  const dt=Math.min(.06,(now-last)/1000);last=now;
  const x=Number(keys.has('KeyD'))-Number(keys.has('KeyA')),y=Number(keys.has('KeyS'))-Number(keys.has('KeyW'));
  if(x||y){const factor=420*dt/Math.max(1,Math.hypot(x,y));scene.camera.pan(-x*factor,-y*factor);}
- frames++;scene.paint(now);requestAnimationFrame(animate);
+ if(lastFrameTime!==null&&now-lastFrameTime<1000)frameIntervals.add(now-lastFrameTime);
+ lastFrameTime=now;
+ const paintStart=performance.now();frames++;scene.paint(now);paintCosts.add(performance.now()-paintStart);requestAnimationFrame(animate);
 }
 requestAnimationFrame(animate);
 el('worldTick').textContent='Carregando mundo…';
@@ -449,7 +458,7 @@ el('introHint').replaceChildren(createUiVisual('action.inspect',{size:15}),docum
 refresh();
 stream=connectWorld({onState:(data,meta)=>applyWorld(data,meta),
  onStatus:state=>{const node=el('connection');node.textContent=state==='live'?'Ao vivo':state==='connecting'?'Conectando…':'Reconectando…';node.classList.toggle('offline',state!=='live');},
- onMetrics:({updates,bytes,rtt})=>{fps=frames;frames=0;const node=el('connection');node.title=fps+' FPS · '+updates+' atualizações/s · '+Math.round(bytes/1024)+' KiB/s · RTT '+(rtt===null?'—':Math.round(rtt)+' ms');}
+ onMetrics:({updates,bytes,rtt})=>{fps=frames;frames=0;const node=el('connection');const ms=v=>v===null?'—':v.toFixed(1)+' ms';node.title=fps+' FPS · '+updates+' atualizações/s · '+Math.round(bytes/1024)+' KiB/s · RTT '+(rtt===null?'—':Math.round(rtt)+' ms')+' · frame p95 '+ms(frameIntervals.summary().p95)+' · desenho p95 '+ms(paintCosts.summary().p95)+' · intervalo de estados p95 '+ms(sampleGaps.summary().p95);}
 });
 setInterval(()=>{if(!stream.live)void refresh();},650);
 addEventListener('pagehide',event=>{if(!event.persisted)stream.close();});

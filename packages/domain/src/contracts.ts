@@ -3,12 +3,14 @@ export type EntityKind = "character" | "resource" | "obstacle" | "construction";
 export type ActionId = "mine.extract" | "item.pickup" | "entity.inspect" | "movement.move" | "npc.spawn" | "resource.spawn" | "resource.harvest" | "obstacle.spawn" | "construction.place" | "construction.deliver" | "construction.work" | "construction.admin_supply" | "construction.admin_work" | "resource.gather" | "storage.deposit" | "storage.withdraw" | "storage.admin_supply" | "construction.remove" | "construction.destroy" | "npc.admin_equip" | "npc.eat" | "farming.zone.create" | "farming.plant" | "nature.cut" | "burial.pickup" | "burial.inter" | "burial.drop" | "construction.propose" | "production.order" | "production.work" | "npc.equip";
 export type FailureCode = "UNAUTHORIZED" | "NOT_FOUND" | "INVALID_TARGET" | "INVALID_PAYLOAD" | "OUT_OF_BOUNDS" | "BLOCKED" | "DUPLICATE_COMMAND" | "EXHAUSTED" | "INVENTORY_FULL" | "NOT_READY" | "ALREADY_COMPLETED";
 export interface Position { x: number; y: number }
+/** Visual record of an accepted cell move, not a reservation or future gameplay action. */
+export interface MovementSegment { from:Position; to:Position; startTick:number; endTick:number }
 import type {ActiveEffect,AttributeId} from "./effects.ts";
 export type NaturalStage = "seedling" | "young" | "mature" | "old" | "dead";
 export type Inventory = Record<string,number>;
 export interface Character { id: string; kind: "character"; name: string; position: Position; health: number; energy: number; ownerId?: string; inventory?: Inventory; ai?:NpcDecisionState; attributes?: Partial<Record<AttributeId,number>>; effects?: ActiveEffect[];
  homeId?:string; satiety?:number; equipment?:{tool?:string}; injuries?:number;
- nextMoveTick?:number;
+ nextMoveTick?:number; movementSegment?:MovementSegment;
  traits?:string[]; deathTick?:number; causeOfDeath?:string; bodyCarriedBy?:string;
  communityRole?:"leader"; leadership?:{lastPlanTick:number;lastBlueprintId?:string;lastReason:string;lastSiteId?:string;
  lastProductionTick?:number;lastRecipeId?:string;productionReason?:string}; }
