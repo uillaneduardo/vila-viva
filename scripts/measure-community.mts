@@ -2,6 +2,7 @@ import {performance} from "node:perf_hooks";
 import {createWorld,applyCommand,advanceTick} from "../packages/engine/src/engine.ts";
 import {bootstrapSeededWorld} from "../packages/content/src/world-seeds.ts";
 import {FOOD_ITEMS} from "../packages/content/src/foods.ts";
+import {validateWorld} from "../packages/protocol/src/world-snapshot.ts";
 import {createCommunityDiagnostics} from "./community-diagnostics.mts";
 const diagnostics=createCommunityDiagnostics();
 const seed=process.argv[2]??"oturo-starter-v1";
@@ -34,11 +35,11 @@ const sample=()=>{
   temporaryStorage:{count:temporary.length,empty:temporary.filter(e=>stockTotal(e)===0).length,stock:temporary.reduce((a,e)=>a+stockTotal(e),0)},
   conventionalStorage:{count:conventional.length,stock:conventional.reduce((a,e)=>a+stockTotal(e),0)}};
 };
-samples.push(sample());diagnostics.observe(w);const start=performance.now();
+validateWorld(w);samples.push(sample());diagnostics.observe(w);const start=performance.now();
 for(let i=0;i<ticks;i++){
  advanceTick(w,a=>{actions[a.action]=(actions[a.action]??0)+1;});
  diagnostics.observe(w);
- if((i+1)%1000===0||i+1===ticks)samples.push(sample());
+ if((i+1)%1000===0||i+1===ticks){validateWorld(w);samples.push(sample());}
 }
 const elapsedMs=performance.now()-start;
-console.log(JSON.stringify({seed,ticks,elapsedMs,msPerTick:elapsedMs/ticks,actions,samples,diagnostics:diagnostics.report(),timingIncludesDiagnostics:true},null,2));
+console.log(JSON.stringify({seed,ticks,elapsedMs,msPerTick:elapsedMs/ticks,actions,samples,diagnostics:diagnostics.report(),timingIncludesDiagnostics:true,snapshotValidationEveryTicks:1000},null,2));
