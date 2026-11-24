@@ -1,0 +1,59 @@
+import {WORLD_FORMAT_VERSION} from "../../domain/src/activity.ts";
+import type {WorldSnapshot} from "../../domain/src/activity.ts";
+import type {World,Position} from "../../domain/src/contracts.ts";
+const object=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==="object"&&!Array.isArray(v);
+const safeInt=(v:unknown,max=Number.MAX_SAFE_INTEGER):v is number=>
+ typeof v==="number"&&Number.isSafeInteger(v)&&v>=0&&v<=max;
+const position=(v:unknown,w:number,h:number):v is Position=>
+ object(v)&&safeInt(v.x,w-1)&&safeInt(v.y,h-1);
+export const MAX_SNAPSHOT_BYTES=8*1024*1024;
+export function validateWorld(value:unknown):asserts value is World {
+ if(!object(value)||typeof value.id!=="string"||!/^[\w-]{1,80}$/.test(value.id)||
+  !safeInt(value.width,256)||value.width<1||!safeInt(value.height,256)||value.height<1||
+  !safeInt(value.tick)||!Array.isArray(value.entities)||value.entities.length>20000||
+  !Array.isArray(value.appliedCommands)||value.appliedCommands.length>200000)
+  throw Error("INVALID_WORLD");
+ if(value.seed!==undefined&&(typeof value.seed!=="string"||value.seed.length>80))throw Error("INVALID_WORLD");
+ if(value.appliedCommands.some(v=>typeof v!=="string"||v.length>90))throw Error("INVALID_WORLD");
+ const ids=new Set<string>();
+ for(const entity of value.entities){
+  if(!object(entity)||typeof entity.id!=="string"||!/^[\w:-]{1,120}$/.test(entity.id)||
+   ids.has(entity.id)||!position(entity.position,value.width,value.height))throw Error("INVALID_WORLD");
+  ids.add(entity.id);
+  if(!["character","construction","resource","obstacle","planting_zone"].includes(String(entity.kind)))
+   throw Error("INVALID_WORLD");
+  if(entity.kind==="character"&&(
+   typeof entity.name!=="string"||entity.name.length>120||!safeInt(entity.health,100)||
+   !safeInt(entity.energy,100)||entity.satiety!==undefined&&!safeInt(entity.satiety,100)))
+   throw Error("INVALID_WORLD");
+  if(entity.kind==="construction"||entity.kind==="planting_zone"){
+   if(!object(entity.footprint)||!safeInt(entity.footprint.width,12)||entity.footprint.width<1||
+    !safeInt(entity.footprint.height,12)||entity.footprint.height<1||
+    entity.position.x+entity.footprint.width>value.width||
+    entity.position.y+entity.footprint.height>value.height)throw Error("INVALID_WORLD");
+  }
+  if(entity.kind==="construction"&&(
+   typeof entity.blueprintId!=="string"||
+   !["site","completed","destroyed"].includes(String(entity.status))||
+   !safeInt(entity.stageIndex,50)||!safeInt(entity.workDone,100000)))throw Error("INVALID_WORLD");
+  if(entity.kind==="resource"&&(!safeInt(entity.quantity,1e9)||!safeInt(entity.maximum,1e9)))throw Error("INVALID_WORLD");
+ }
+}
+export function validateSnapshot(value:unknown):asserts value is WorldSnapshot {
+ if(!object(value)||value.formatVersion!==WORLD_FORMAT_VERSION||
+  typeof value.savedAt!=="string"||!Number.isFinite(Date.parse(value.savedAt))||
+  typeof value.timelineId!=="string"||!/^[a-f\d-]{36}$/.test(value.timelineId)||
+  !safeInt(value.lastSequence)||
+  !object(value.clock)||![0,1,2,4].includes(value.clock.speed as number))
+  throw Error("INVALID_SNAPSHOT");
+ validateWorld(value.world);
+ if(value.seed!==undefined&&(typeof value.seed!=="string"||value.seed.length>80))
+  throw Error("INVALID_SNAPSHOT");
+}
+export function parseSnapshot(text:string):WorldSnapshot {
+ if(Buffer.byteLength(text,"utf8")>MAX_SNAPSHOT_BYTES)throw Error("SNAPSHOT_TOO_LARGE");
+ let value:unknown;
+ try{value=JSON.parse(text);}catch{throw Error("INVALID_SNAPSHOT");}
+ validateSnapshot(value);
+ return value;
+}
