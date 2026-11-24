@@ -10,8 +10,11 @@ export class Camera {
 }
 export function hitTest(entities,camera,screenX,screenY){
  const p=camera.screenToWorld(screenX,screenY);
+ const stacks=entities.filter(e=>e.kind==='item'&&e.position.x===Math.floor(p.x/camera.tile)&&e.position.y===Math.floor(p.y/camera.tile)).sort((a,b)=>a.itemId.localeCompare(b.itemId));
+ for(let i=0;i<stacks.length;i++){const e=stacks[i],x=(e.position.x+.5+(i%3-1)*.25)*camera.tile,y=(e.position.y+.73+Math.floor(i/3)*.18)*camera.tile;if(Math.hypot(x-p.x,y-p.y)<camera.tile*.16)return e;}
  let result=null,distance=Infinity;
  for(const e of entities){
+  if(e.kind==='item')continue;
   if(e.kind==='planting_zone'){
    const x0=e.position.x*camera.tile,y0=e.position.y*camera.tile;
    const x1=x0+e.footprint.width*camera.tile,y1=y0+e.footprint.height*camera.tile;

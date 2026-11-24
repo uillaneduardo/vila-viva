@@ -1,3 +1,4 @@
+import {isItem} from "../../content/src/items.ts";
 import {WORLD_FORMAT_VERSION} from "../../domain/src/activity.ts";
 import type {WorldSnapshot} from "../../domain/src/activity.ts";
 import type {World,Position} from "../../domain/src/contracts.ts";
@@ -20,7 +21,7 @@ export function validateWorld(value:unknown):asserts value is World {
   if(!object(entity)||typeof entity.id!=="string"||!/^[\w:-]{1,120}$/.test(entity.id)||
    ids.has(entity.id)||!position(entity.position,value.width,value.height))throw Error("INVALID_WORLD");
   ids.add(entity.id);
-  if(!["character","construction","resource","obstacle","planting_zone"].includes(String(entity.kind)))
+  if(!["character","construction","resource","obstacle","planting_zone","item"].includes(String(entity.kind)))
    throw Error("INVALID_WORLD");
   if(entity.kind==="character"&&(
    typeof entity.name!=="string"||entity.name.length>120||!safeInt(entity.health,100)||
@@ -36,6 +37,7 @@ export function validateWorld(value:unknown):asserts value is World {
    typeof entity.blueprintId!=="string"||
    !["site","completed","destroyed"].includes(String(entity.status))||
    !safeInt(entity.stageIndex,50)||!safeInt(entity.workDone,100000)))throw Error("INVALID_WORLD");
+  if(entity.kind==="item"&&(typeof entity.itemId!=="string"||!isItem(entity.itemId)||!safeInt(entity.quantity,1e9)||entity.quantity<1||!safeInt(entity.createdTick,value.tick)))throw Error("INVALID_WORLD");
   if(entity.kind==="resource"&&(!safeInt(entity.quantity,1e9)||!safeInt(entity.maximum,1e9)))throw Error("INVALID_WORLD");
  }
 }

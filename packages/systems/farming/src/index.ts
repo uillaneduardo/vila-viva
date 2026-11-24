@@ -22,13 +22,13 @@ export function canCreateZone(world:World,sourceId:string,position:Position,widt
   width<MIN_ZONE_SIZE||height<MIN_ZONE_SIZE||width>MAX_ZONE_SIZE||height>MAX_ZONE_SIZE||
   !inBounds(world,position)||!inBounds(world,{x:position.x+width-1,y:position.y+height-1}))return false;
  for(let y=position.y;y<position.y+height;y++)for(let x=position.x;x<position.x+width;x++)
-  if(world.entities.some(e=>e.kind!=="character"&&occupiesCell(e,{x,y})))return false;
+  if(world.entities.some(e=>e.kind!=="character"&&e.kind!=="item"&&occupiesCell(e,{x,y})))return false;
  return true;
 }
 /** Physical plant takes exactly one seed, in a free plot inside a matching zone. */
 export function canPlantAt(world:World,zone:FarmingZone,cell:Position):boolean {
  return zoneContains(zone,cell)&&inBounds(world,cell)&&
-  !world.entities.some(e=>e.id!==zone.id&&occupiesCell(e,cell));
+  !world.entities.some(e=>e.id!==zone.id&&e.kind!=="item"&&occupiesCell(e,cell));
 }
 export function availablePlots(world:World,zone:FarmingZone):Position[] {
  return zoneCells(zone).filter(cell=>canPlantAt(world,zone,cell));

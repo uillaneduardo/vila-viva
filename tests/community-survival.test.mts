@@ -11,9 +11,9 @@ test("hungry NPC with two free slots harvests one apple and its seed",()=>{
  npc.inventory={wood:10};npc.satiety=30;
  assert.ok(admin(w,"apple","resource.spawn",{x:3,y:2},{resourceType:"food",sourceId:"apple_tree",ageTicks:120,quantity:10}).ok);
  for(let i=0;i<3;i++)advanceTick(w);
- assert.equal(npc.inventory.apple,1);
- assert.equal(npc.inventory.apple_seed,1);
- for(let i=0;i<3;i++)advanceTick(w);
+ assert.ok(w.entities.some(e=>e.kind==='item'&&e.itemId==='apple'));
+ assert.equal(npc.inventory.apple??0,0);
+ for(let i=0;i<9;i++)advanceTick(w);
  assert.ok(npc.satiety>30);
 });
 test("critical hunger without food suspends nonessential gathering",()=>{
@@ -39,7 +39,7 @@ test("injured NPC with moderate satiety obtains food for recovery",()=>{
  const npc=w.entities[0] as Character;npc.inventory={};npc.health=30;npc.satiety=50;
  assert.ok(admin(w,"apple","resource.spawn",{x:3,y:2},{resourceType:"food",sourceId:"apple_tree",ageTicks:120,quantity:10}).ok);
  for(let i=0;i<3;i++)advanceTick(w);
- assert.ok((npc.inventory?.apple??0)>0);
+ assert.ok(w.entities.some(e=>e.kind==='item'&&e.itemId==='apple'));
 });
 test("exhausted NPC recovers energy even if a distant bed exists",()=>{
  const w=createWorld("zero-energy",16,12);

@@ -240,7 +240,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
       production:b.production??null
     }])),
     naturalSources:Object.fromEntries(Object.values(NATURAL_SOURCES).map(s=>[s.id,{
-      label:s.label,productId:s.productId,seedItem:s.seedItem,seedsPerHarvest:s.seedsPerHarvest,
+      label:s.label,productId:s.productId,seedItem:s.seedItem,seedsPerHarvest:s.seedsPerHarvest,drop:s.drop,
       growthMode:s.growthMode,production:s.production,stages:s.stages,blocksMovement:s.blocksMovement
      }])),
     foods:Object.fromEntries(Object.values(FOOD_ITEMS).map(f=>[f.id,{label:f.label,satiety:f.satiety}])),

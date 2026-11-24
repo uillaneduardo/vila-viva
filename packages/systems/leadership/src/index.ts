@@ -106,7 +106,7 @@ export function planAgriculture(world:World,leader:Character){
  const foodIds=Object.keys(FOOD_ITEMS);
  const total=(item:string)=>world.entities.reduce((sum,e)=>sum+
   (e.kind==="character"&&e.health>0&&!e.ownerId?(e.inventory?.[item]??0):
-   e.kind==="construction"&&e.status==="completed"?(e.stock?.[item]??0):0),0);
+   e.kind==="construction"&&e.status==="completed"?(e.stock?.[item]??0):e.kind==="item"&&e.itemId===item?e.quantity:0),0);
  const food=foodIds.reduce((n,item)=>n+total(item),0);
  const nutrition=Object.values(FOOD_ITEMS).reduce((n,item)=>n+total(item.id)*item.satiety,0);
  // 2 satiety every 8 ticks; target a 240-tick day of consumption per citizen.

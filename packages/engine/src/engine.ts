@@ -29,6 +29,8 @@ export function createWorld(id: string, width=64, height=48): World {
  return {id, width, height, tick:0, entities:[], appliedCommands:[]};
 }
 export const MAX_CARRY_ITEMS=12;
+function rollDrop(world:World,command:Command,channel:string,min:number,max:number){let h=2166136261;for(const ch of [world.seed??world.id,world.tick,command.commandId,channel].join("|")){h=Math.imul(h^ch.charCodeAt(0),16777619);}return min+(h>>>0)%(max-min+1);}
+function dropItem(world:World,position:Position,itemId:string,quantity:number){if(quantity<=0)return;const existing=world.entities.find(e=>e.kind==="item"&&e.itemId===itemId&&e.position.x===position.x&&e.position.y===position.y);if(existing?.kind==="item"){existing.quantity+=quantity;return;}world.entities.push({id:"drop:"+position.x+":"+position.y+":"+itemId,kind:"item",position:{...position},itemId,quantity,createdTick:world.tick});}
 const reject = (command: Command, error: Extract<Result,{ok:false}>["error"]): Result =>
  ({ok:false,status:"rejected",commandId:command.commandId,error});
 export const inventoryLoad=(actor:Character):number=>
@@ -183,8 +185,7 @@ export function applyCommand(world: World, command: Command,
   if(!actor)return reject(command,"UNAUTHORIZED");
   if(!orthogonallyAdjacent(actor.position,tree.position)||actor.health<=0||actor.energy<=0)
    return reject(command,"BLOCKED");
-  if(MAX_CARRY_ITEMS-inventoryLoad(actor)<4)return reject(command,"INVENTORY_FULL");
-  actor.inventory??={};actor.inventory.wood=(actor.inventory.wood??0)+4;actor.energy=Math.max(0,actor.energy-1);
+  dropItem(world,actor.position,"wood",rollDrop(world,command,"cut",3,5));actor.energy=Math.max(0,actor.energy-1);
   world.entities.splice(index,1);
   riskActor=actor;riskActivity="resource.gather:wood";
   additionalEvents.push({type:"nature.tree_cut",entityId:tree.id});
@@ -309,6 +310,18 @@ export function applyCommand(world: World, command: Command,
   }
   if(actor)actor.energy=Math.max(0,actor.energy-1);
   additionalEvents.push({type:command.action==="storage.withdraw"?"storage.withdrawn":"storage.deposited",entityId:target.id});
+ } else if(command.action==="item.pickup"){
+  if(admin)return reject(command,"UNAUTHORIZED");
+  const item=world.entities.find(e=>e.id===command.targetId);
+  if(!item)return reject(command,"NOT_FOUND");
+  if(item.kind!=="item")return reject(command,"INVALID_TARGET");
+  const actor=actorForCommand(world,command);
+  if(!actor)return reject(command,"UNAUTHORIZED");
+  if(actor.health<=0||actor.energy<=0||Math.abs(actor.position.x-item.position.x)+Math.abs(actor.position.y-item.position.y)>1)return reject(command,"BLOCKED");
+  const amount=Math.min(item.quantity,MAX_CARRY_ITEMS-inventoryLoad(actor));
+  if(amount<=0)return reject(command,"INVENTORY_FULL");
+  actor.inventory??={};actor.inventory[item.itemId]=(actor.inventory[item.itemId]??0)+amount;item.quantity-=amount;
+  if(item.quantity===0)world.entities.splice(world.entities.indexOf(item),1);
  } else if(command.action==="resource.gather"){
   if(admin)return reject(command,"UNAUTHORIZED");
   const source=world.entities.find(e=>e.id===command.targetId);
@@ -318,11 +331,8 @@ export function applyCommand(world: World, command: Command,
   if(!actor)return reject(command,"UNAUTHORIZED");
   if(!orthogonallyAdjacent(actor.position,source.position)||actor.health<=0||actor.energy<=0)return reject(command,"BLOCKED");
   if(source.quantity<=0)return reject(command,"EXHAUSTED");
-  const free=MAX_CARRY_ITEMS-inventoryLoad(actor);
-  if(free<=0)return reject(command,"INVENTORY_FULL");
-  const amount=Math.min(3,source.quantity,free);
-  source.quantity-=amount;actor.inventory??={};
-  actor.inventory[source.resourceType]=(actor.inventory[source.resourceType]??0)+amount;
+  const amount=Math.min(source.quantity,rollDrop(world,command,"resource",1,3));
+  source.quantity-=amount;dropItem(world,actor.position,source.resourceType,amount);
   actor.energy=Math.max(0,actor.energy-1);
   riskActor=actor;riskActivity=("resource.gather:"+source.resourceType) as typeof riskActivity;
  } else if(command.action==="movement.move"){
@@ -349,13 +359,10 @@ export function applyCommand(world: World, command: Command,
   if(!actor)return reject(command,"UNAUTHORIZED");
   if(!orthogonallyAdjacent(actor.position,source.position)||actor.health<=0||actor.energy<=0)return reject(command,"BLOCKED");
   if(source.life.stage==="dead"||source.quantity<=0)return reject(command,"EXHAUSTED");
-  const free=MAX_CARRY_ITEMS-inventoryLoad(actor);
-  if(free<=def.seedsPerHarvest)return reject(command,"INVENTORY_FULL");
-  const take=Math.min(def.production.harvestBatch,source.quantity,free-def.seedsPerHarvest);
-  if(take<1)return reject(command,"INVENTORY_FULL");
+  const take=Math.min(source.quantity,rollDrop(world,command,"food",def.drop.min,def.drop.max));
   source.quantity-=take;
-  actor.inventory??={};actor.inventory[def.productId]=(actor.inventory[def.productId]??0)+take;
-  actor.inventory[def.seedItem]=(actor.inventory[def.seedItem]??0)+def.seedsPerHarvest;
+  dropItem(world,actor.position,def.productId,take);
+  dropItem(world,actor.position,def.seedItem,rollDrop(world,command,"seed",def.drop.seedMin,def.drop.seedMax));
   actor.energy=Math.max(0,actor.energy-1);
   additionalEvents.push({type:"farming.seeds_collected",entityId:source.id});
   // Vegetables are single-harvest plants. Their plot becomes free immediately after harvest.

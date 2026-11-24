@@ -4,7 +4,7 @@ import {nearFootprint} from "../../construction/src/index.ts";
 const DIRECTIONS:readonly Position[]=[{x:0,y:-1},{x:1,y:0},{x:0,y:1},{x:-1,y:0}];
 const key=(p:Position)=>p.x+","+p.y;
 export const adjacentToEntity=(point:Position,target:Entity):boolean=>
- target.kind==="construction"?nearFootprint(point,target):orthogonallyAdjacent(point,target.position);
+ target.kind==="construction"?nearFootprint(point,target):target.kind==="item"?(point.x===target.position.x&&point.y===target.position.y)||orthogonallyAdjacent(point,target.position):orthogonallyAdjacent(point,target.position);
 /** BFS over authoritative occupied world cells. Returns [start,...,adjacent goal]; null if unreachable. */
 export function routeToEntity(world:World,start:Position,target:Entity,ignoreActorId?:string):Position[]|null {
  if(adjacentToEntity(start,target))return [{...start}];

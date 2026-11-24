@@ -33,6 +33,9 @@ export class Scene {
    }:previous.position;
    this.motion.set(entity.id,{from,to:{...entity.position},startedAt:now,duration});
   }
+  this.dropBirth??=new Map();
+  for(const e of world.entities)if(e.kind==="item"&&(!oldById.has(e.id)||oldById.get(e.id).quantity<e.quantity))this.dropBirth.set(e.id,now);
+  for(const id of this.dropBirth.keys())if(!world.entities.some(e=>e.id===id))this.dropBirth.delete(id);
   this.world=world;
  }
  setSelection(id){this.selected=id;}
@@ -84,7 +87,7 @@ export class Scene {
    }
   }
   // Only real entities from /api/world are visualized. No fake houses, stocks or paths.
-  for(const e of this.world.entities.filter(e=>e.kind!=='planting_zone'&&
+  for(const e of this.world.entities.filter(e=>e.kind!=='item'&&e.kind!=='planting_zone'&&
    !(e.kind==='character'&&e.bodyCarriedBy)&&
    !(e.kind==='construction'&&e.blueprintId==='building.cemetery'&&e.status==='completed')).sort((a,b)=>(a.position.y+(a.kind==='construction'?a.footprint.height:1))-(b.position.y+(b.kind==='construction'?b.footprint.height:1)))){
    let pos=e.position;
@@ -229,6 +232,24 @@ export class Scene {
     c.strokeStyle=e.id===this.selected?'#f2e3a7':'rgba(241,251,225,.75)';c.lineWidth=e.id===this.selected?2.7:1.5;c.stroke();
    }
   }
+  // Ground stacks are rendered above the terrain with a short drop bounce and persistent glint.
+  const groups=new Map();
+  for(const item of this.world.entities.filter(e=>e.kind==='item')){
+   const key=item.position.x+','+item.position.y;
+   if(!groups.has(key))groups.set(key,[]);groups.get(key).push(item);
+  }
+  const colors={wood:'#b68a58',stone:'#bac2c4',iron_ore:'#8ea6b7',copper_ore:'#d69a68',apple:'#e36d65',carrot:'#ef9e49',potato:'#cfb17b'};
+  for(const items of groups.values())items.sort((a,b)=>a.itemId.localeCompare(b.itemId)).forEach((e,i)=>{
+   const p=k.worldToScreen((e.position.x+.5)*t,(e.position.y+.5)*t),s=t*k.zoom;
+   const x=p.x+(i%3-1)*s*.25,y=p.y+s*.23+Math.floor(i/3)*s*.18;
+   const age=Math.max(0,now-(this.dropBirth?.get(e.id)??now)),bounce=age<550?Math.sin(age/550*Math.PI)*s*.3:0;
+   const radius=Math.max(4,s*.12),pulse=.6+.4*Math.sin(now/240+i);
+   c.save();c.fillStyle='rgba(0,0,0,.35)';c.beginPath();c.ellipse(x,y+radius*.5,radius*1.2,radius*.45,0,0,Math.PI*2);c.fill();
+   c.shadowBlur=7+pulse*5;c.shadowColor='#e7d48e';c.fillStyle=colors[e.itemId]??'#b8d68a';
+   c.strokeStyle='#f6e5b3';c.lineWidth=1.2;c.beginPath();c.arc(x,y-bounce,radius,0,Math.PI*2);c.fill();c.stroke();c.shadowBlur=0;
+   if(s>22){c.font='bold '+Math.max(9,s*.19)+'px system-ui';c.textAlign='center';c.fillStyle='#fff3cc';c.fillText(String(e.quantity),x,y-bounce-radius-3);}
+   c.restore();
+  });
   if(this.hover&&this.hoverRoute?.length>1){
    c.beginPath();
    this.hoverRoute.forEach((point,i)=>{

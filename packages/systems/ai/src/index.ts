@@ -301,6 +301,7 @@ function choose(world:World,npc:Character):Task|null{
  if(equipment?.action==="npc.equip")return equipment;
  const cargo=storedCargo(world,npc);
  if(cargo)return cargo;
+ const pickup=groundTask(world,npc);if(pickup)return pickup;
  // Annual crops cannot regrow after expiry; rescue ripe crops before new projects.
  const free=CARRY_LIMIT-load(npc);
  const ripe=selectTask(world,npc,resources(world).filter(r=>{
@@ -324,8 +325,14 @@ function record(npc:Character,world:World,activity:string|null,reason:string,tar
 }
 
 /** Survival outranks construction, with real fruit consumption and no created food. */
+function groundTask(world:World,npc:Character,foodOnly=false):Task|null {
+ if(load(npc)>=CARRY_LIMIT)return null;
+ const items=world.entities.filter(e=>e.kind==="item"&&(!foodOnly||Object.hasOwn(FOOD_ITEMS,e.itemId)));
+ return selectTask(world,npc,items,"Recolhendo itens","Recolher recursos físicos no chão","item.pickup");
+}
 function foodTask(world:World,npc:Character):Task|null {
  const warehouses=depots(world),free=CARRY_LIMIT-load(npc);
+ const ground=groundTask(world,npc,true);if(ground)return ground;
  if(free>0){
   for(const food of Object.values(FOOD_ITEMS)){
    const stored=selectTask(world,npc,warehouses.filter(d=>stocked(d,food.id)>0),
@@ -338,13 +345,13 @@ function foodTask(world:World,npc:Character):Task|null {
   const def=r.sourceId?naturalSource(r.sourceId):undefined;
   return !!def&&Object.hasOwn(FOOD_ITEMS,def.productId)&&r.life?.stage!=="dead";
  });
- const harvest=selectTask(world,npc,edibleSources.filter(r=>free>(naturalSource(r.sourceId!)?.seedsPerHarvest??0)),
+ const harvest=selectTask(world,npc,free>0?edibleSources:[],
   "Colhendo alimento","Saciedade baixa; colher alimento pronto para consumo","resource.harvest");
  if(harvest)return harvest;
  // Free only cargo that can be physically deposited, and only when a reachable
  // food source or stocked warehouse can benefit from the extra capacity.
  const reachable=edibleSources.filter(r=>routeToEntity(world,npc.position,r,npc.id));
- const required=Math.min(...reachable.map(r=>(naturalSource(r.sourceId!)?.seedsPerHarvest??0)+1),
+ const required=Math.min(...reachable.map(()=>1),...(world.entities.some(e=>e.kind==="item"&&Object.hasOwn(FOOD_ITEMS,e.itemId)&&routeToEntity(world,npc.position,e,npc.id))?[1]:[]),
   ...(warehouses.some(d=>Object.keys(FOOD_ITEMS).some(id=>stocked(d,id)>0)&&routeToEntity(world,npc.position,d,npc.id))?[1]:[]));
  if(free>=required||!Number.isFinite(required))return null;
  for(const [item,amount] of Object.entries(npc.inventory??{})){
