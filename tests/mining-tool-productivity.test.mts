@@ -19,7 +19,7 @@ test("surface mineral yield is minimal without an equipped pickaxe and higher wi
   assert.equal(pile.quantity+source.quantity,20);
   source.quantity=1;
   assert.ok(act("last","resource.gather",source.id).ok);assert.equal(source.quantity,0);
- });
+ }
 });
 test("leader counts actual mining demand and does not manufacture phantom equipment",()=>{
  const w=createWorld("mining-demand",20,20);
