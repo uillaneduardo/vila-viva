@@ -8,6 +8,7 @@ import {naturalSource} from "../../../content/src/natural-sources.ts";
 import {availablePlots} from "../../farming/src/index.ts";
 import type {FarmingZone} from "../../../domain/src/contracts.ts";
 import {resolveAttributes} from "../../effects/src/resolver.ts";
+import {visibleCorpses,carriedCorpse,availableGraves} from "../../mortality/src/index.ts";
 
 export const NPC_ACTION_INTERVAL=3;
 export const NPC_REST_THRESHOLD=20;
@@ -89,9 +90,24 @@ function plantingTask(world:World,npc:Character):Task|null {
  return null;
 }
 
+/** Funeral assistance is a real navigational job, above farming and construction. */
+function burialTask(world:World,npc:Character):Task|null {
+ const cemeteries=world.entities.filter((e):e is Construction=>e.kind==="construction"&&availableGraves(e)>0);
+ if(!cemeteries.length)return null;
+ const carrying=carriedCorpse(world,npc.id);
+ if(carrying){
+  return selectTask(world,npc,cemeteries,"Sepultando",
+   "Transportando "+carrying.name+" para um cemitério com vaga","burial.inter");
+ }
+ const corpses=visibleCorpses(world).filter(e=>!e.ownerId);
+ return selectTask(world,npc,corpses,"Recolhendo falecido",
+  "Sepultamento prioritário: corpo visível causa mal-estar no entorno","burial.pickup");
+}
 function choose(world:World,npc:Character):Task|null {
  const inventory=npc.inventory??{},free=CARRY_LIMIT-load(npc);
  const warehouses=depots(world),constructionSites=sites(world);
+ const funeral=burialTask(world,npc);
+ if(funeral)return funeral;
  const cultivation=plantingTask(world,npc);
  if(cultivation)return cultivation;
  const materials=constructionSites.map(site=>({site,remaining:materialsRemaining(site)}));
