@@ -21,6 +21,8 @@ const sample=()=>{
   meanSatiety:alive.length?alive.reduce((n,e)=>n+(e.satiety??100),0)/alive.length:null,
   personalNutrition:alive.reduce((n,e)=>n+nutrition(e.inventory),0),
   storedNutrition:buildings.filter(e=>e.status==="completed").reduce((n,e)=>n+nutrition(e.stock),0),
+  groundItems:w.entities.filter(e=>e.kind==='item').reduce((n,e)=>n+e.quantity,0),
+  groundSeeds:w.entities.filter(e=>e.kind==='item'&&e.itemId.endsWith('_seed')).reduce((n,e)=>n+e.quantity,0),
   cropFood:crops.reduce((n,e)=>n+e.quantity,0),deadCrops:crops.filter(e=>e.life?.stage==="dead").length,
   completed:buildings.filter(e=>e.status==="completed").length,
   blocked:alive.filter(e=>e.ai?.activity==="Bloqueado").length};
