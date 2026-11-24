@@ -356,8 +356,7 @@ function foodTask(world:World,npc:Character):Task|null {
  const harvest=selectTask(world,npc,free>0?edibleSources:[],
   "Colhendo alimento","Saciedade baixa; colher alimento pronto para consumo","resource.harvest");
  if(harvest)return harvest;
- // Free only cargo that can be physically deposited, and only when a reachable
- // food source or stocked warehouse can benefit from the extra capacity.
+ // Free capacity only when a reachable food source can benefit.
  const reachable=edibleSources.filter(r=>routeToEntity(world,npc.position,r,npc.id));
  const required=Math.min(...reachable.map(()=>1),...(world.entities.some(e=>e.kind==="item"&&Object.hasOwn(FOOD_ITEMS,e.itemId)&&routeToEntity(world,npc.position,e,npc.id))?[1]:[]),
   ...(warehouses.some(d=>Object.keys(FOOD_ITEMS).some(id=>stocked(d,id)>0)&&routeToEntity(world,npc.position,d,npc.id))?[1]:[]));
@@ -367,7 +366,18 @@ function foodTask(world:World,npc:Character):Task|null {
   const task=selectTask(world,npc,warehouses.filter(d=>acceptedBy(d,item)&&storageFree(d)>0),
    "Liberando espaço para alimento","Preciso comer; liberar capacidade para coleta",
    "storage.deposit",target=>({materialId:item,quantity:Math.min(amount,storageFree(target as Construction),required-free)}));
-  if(task)return task;
+  if(task&&(npc.satiety??100)>10)return task;
+  if(task&&task.route.length===1)return task;
+ }
+ // Emergency: a physical drop is preferable to dying with a full inventory.
+ // Seeds, tools and medicine are retained preferentially, but no item is destroyed.
+ if((npc.satiety??100)<=10){
+  const rank=(item:string)=>({raw:0,processed:1,seed:2,medicine:3,equipment:4}[ITEMS[item]?.category]??5);
+  const cargo=Object.entries(npc.inventory??{}).filter(([item,amount])=>amount>0&&Object.hasOwn(ITEMS,item)&&!Object.hasOwn(FOOD_ITEMS,item))
+   .sort((a,b)=>rank(a[0])-rank(b[0])||b[1]-a[1]||a[0].localeCompare(b[0]));
+  if(cargo.length)return {target:npc,route:[{...npc.position}],activity:"Liberando espaço para alimento",
+   reason:"Fome crítica: deixar carga física no chão para obter alimento",action:"item.drop",
+   parameters:{materialId:cargo[0][0],quantity:Math.min(cargo[0][1],required-free)}};
  }
  return null;
 }
