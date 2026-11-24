@@ -348,7 +348,7 @@ function choose(world:World,npc:Character):Task|null{
    const item=Object.keys(area.stock??{}).find(k=>(area.stock?.[k]??0)>0&&permanent.some(d=>acceptedBy(d,k)&&routeToEntity(world,area.position,d,npc.id)));
    if(item){const task=selectTask(world,npc,[area],"Consolidando estoque","Transferir carga temporária ao depósito convencional","storage.withdraw",()=>({materialId:item,quantity:Math.min(CARRY_LIMIT-load(npc),area.stock![item],Math.max(...permanent.filter(d=>acceptedBy(d,item)).map(storageFree)))}));if(task)return task;}
   }
-  if(permanent.length){const empty=selectTask(world,npc,temporary.filter(d=>Object.values(d.stock??{}).every(n=>n===0)),"Removendo depósito temporário","Área vazia; armazenamento convencional disponível","storage.temporary.remove");if(empty)return empty;}
+
  }
  if(load(npc)<CARRY_LIMIT&&depots(world).some(d=>d.blueprintId==="building.depot"&&storageFree(d)>0)){
   const mineStock=selectTask(world,npc,depots(world).filter(d=>d.blueprintId==="building.mine"&&Object.values(d.stock??{}).some(n=>n>0)),"Transportando minério","Retirar produção da mina","storage.withdraw",e=>{const d=e as Construction;const item=Object.keys(d.stock??{}).find(k=>(d.stock?.[k]??0)>0)!;return {materialId:item,quantity:Math.min(CARRY_LIMIT-load(npc),d.stock![item])};});if(mineStock)return mineStock;
@@ -365,7 +365,15 @@ function choose(world:World,npc:Character):Task|null{
  const farming=plantingTask(world,npc);
  const mine=selectTask(world,npc,world.entities.filter(e=>e.kind==="construction"&&e.blueprintId==="building.mine"&&storageFree(e)>0&&Object.values(e.mineRemaining??{}).some(n=>n>0)),"Operando mina","Extrair depósito subterrâneo finito","mine.extract",e=>({materialId:Object.keys((e as Construction).mineRemaining??{}).find(k=>((e as Construction).mineRemaining?.[k]??0)>0)}));
  const demanded=choosePreferred(npc,[mine?{...mine,domain:"mining"}:null,farming,construction.work,production,construction.source,equipment]);
- return demanded??stockpileTask(world,npc);
+ if(demanded)return demanded;
+ // Empty areas need no hauling capacity. Keep one nearby spare if all permanent storage is full.
+ const temporary=depots(world).filter(isTemporaryStorage);
+ const empty=temporary.filter(d=>Object.values(d.stock??{}).every(n=>n===0));
+ const permanent=depots(world).filter(d=>d.blueprintId==="building.depot");
+ const spare=permanent.some(d=>storageFree(d)>0)?undefined:empty.slice().sort((a,b)=>a.id.localeCompare(b.id))[0]?.id;
+ const cleanup=selectTask(world,npc,empty.filter(d=>d.id!==spare),"Removendo depósito temporário",
+  "Área vazia sem necessidade imediata de armazenamento","storage.temporary.remove");
+ return cleanup??stockpileTask(world,npc);
 }
 function record(npc:Character,world:World,activity:string|null,reason:string,targetId?:string,route:Position[]=[]){
  npc.ai??={activity:null,reason:"",route:[],lastDecisionTick:world.tick,history:[]};
