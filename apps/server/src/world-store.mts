@@ -53,7 +53,10 @@ export class FileWorldStore {
  }
  private trimUncommitted(timelineId:string,lastSequence:number):void {
   const path=this.logPath(timelineId);
-  if(!existsSync(path))return;
+  if(!existsSync(path)){
+   if(lastSequence>0)throw Error("JOURNAL_INCOMPLETE");
+   return;
+  }
   const input=readFileSync(path,"utf8").split("\n").filter(Boolean);
   const lines:string[]=[];
   let expected=1;

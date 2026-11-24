@@ -29,3 +29,9 @@ O Cloudflare Tunnel existente deve continuar direcionado a `http://localhost:848
 **Exceção explícita de homologação:** a interface e os endpoints administrativos não têm autenticação, mesmo com HTTPS. Um endereço difícil de adivinhar NÃO protege o ambiente: scanners e qualquer usuário com o link podem controlar a simulação. Recomendação: adicionar Cloudflare Access ou restrições de acesso assim que possível. A porta no host permanece vinculada a 127.0.0.1 para evitar exposição direta de Docker.
 A simulação vNext é um protótipo em memória; reiniciar ou atualizar o container zera o mundo. Volumes antigos são preservados, mas **a nova aplicação não migra automaticamente seus dados**.
 O pipeline preserva a infraestrutura antiga para rollback. A arte mostra árvores de alimento de forma temporária até haver espécies reais e estados de crescimento.
+
+## Persistência vNext (a partir do incremento de snapshots)
+- Serviço `web` usa o volume nomeado `oturo_world_data` em `/opt/oturo/data` (gravável pelo usuário `node`); o container pode ser recriado sem apagar o mundo. **Não executar `down -v`, prune, nem excluir o volume.**
+- Ao subir, a API sempre reinicia pausada (`speed=0`). Se `active.json` existe, carrega-o; se não, `OTURO_WORLD_SEED=oturo-starter-v1` gera mundo inicial com materiais, macieiras, área de pomar e NPC líder. Nenhuma construção é concluída automaticamente.
+- Primeira atualização a partir da vNext em memória: `deploy-vnext.sh` captura a versão anterior de `/api/world` e guarda um JSON importável em `.deploy/world-backups`; depois de atualizar, importa, valida o tick e preserva o backup. A versão anterior não tinha journal histórico, portanto só ações posteriores podem ser exportadas.
+- `/api/world/save` e `/api/world/load` são o contrato de salvamentos nomeados; `/api/world/activity/export` entrega logs por ticks válidos em JSONL; `/api/world/export` entrega o snapshot. Todos são acessíveis pelo menu **Mundo** no Modo Deus.

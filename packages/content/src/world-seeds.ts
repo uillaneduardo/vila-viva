@@ -22,10 +22,11 @@ export function starterCommands(seed:string,world:World):StarterCommand[]{
   ["resource.spawn","apple-a",7,12,{resourceType:"food",sourceId:"apple_tree",ageTicks:120,quantity:12}],
   ["resource.spawn","apple-b",10,12,{resourceType:"food",sourceId:"apple_tree",ageTicks:120,quantity:12}],
   ["resource.spawn","apple-c",15,3,{resourceType:"food",sourceId:"apple_tree",ageTicks:120,quantity:12}],
-  ["resource.spawn","apple-d",17,9,{resourceType:"food",sourceId:"apple_tree",ageTicks:120,quantity:12}]
+  ["resource.spawn","apple-d",17,9,{resourceType:"food",sourceId:"apple_tree",ageTicks:120,quantity:12}],
+  ["farming.zone.create","starter-orchard",18,6,{sourceId:"apple_tree",width:3,height:3}]
  ];
  return entries.map(([action,id,x,y,parameters])=>({
-  action,commandId:"seed-"+id,position:{x:mirror?world.width-1-x:x,y},parameters
+  action,commandId:"seed-"+id,position:{x:mirror?world.width-1-x-(action==="farming.zone.create"?2:0):x,y},parameters
  }));
 }
 /** Requires an authoritative command executor so initial state and journal use the same validations. */
