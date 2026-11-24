@@ -9,7 +9,7 @@ import {makeNaturalSource,advanceNaturalSources} from "../../systems/nature/src/
 import {canEnter,orthogonallyAdjacent,canPlaceFootprint,canPlaceEntity,movementCost} from "../../systems/collision/src/index.ts";
 import {buildingBlueprint} from "../../content/src/buildings/registry.ts";
 import {createConstructionSite,createCompletedBuilding,currentStage,materialsRemaining,hasMaterials,nearFootprint,acceptMaterial,applyConstructionWork,storageDefinition,storageFree} from "../../systems/construction/src/index.ts";
-import {advanceNpcDecisions} from "../../systems/ai/src/index.ts";
+import {advanceNpcDecisions,NPC_ACTION_INTERVAL} from "../../systems/ai/src/index.ts";
 import {advanceNeeds,eatFood,updateNeedEffects} from "../../systems/needs/src/index.ts";
 import {miningYield,isMineral} from "../../content/src/extraction.ts";
 import {TOOL_PRESETS,evaluateActionRisk,correctTool} from "../../systems/risk/src/index.ts";
@@ -367,7 +367,7 @@ export function applyCommand(world: World, command: Command,
     !orthogonallyAdjacent(character.position,command.position)||!canEnter(world,command.position,character.id))return reject(command,"BLOCKED");
   if(world.tick<(character.nextMoveTick??0))return reject(command,"NOT_READY");
   const cost=movementCost(world,command.position,character.id);
-  const interval=command.actorRole==="npc"?3:1;
+  const interval=command.actorRole==="npc"?NPC_ACTION_INTERVAL:1;
   // Charge destination traversal time, retaining fractional progress between consecutive steps.
   const prior=character.nextMoveTick??world.tick;
   const base=world.tick-prior<interval?prior:world.tick;
