@@ -200,3 +200,44 @@ button:focus-visible,input:focus-visible,canvas:focus-visible{outline:2px solid 
  .npc-monitor-summary{padding:7px;min-height:45px}
  .npc-monitor-history{max-height:123px}
 }
+
+/* God Mode action stack: hierarchy and square tiles share the dock visual language.
+   No gameplay state is encoded in styling; all option IDs come from the menu catalog. */
+.god-action-stack{position:absolute;bottom:100px;left:50%;transform:translateX(-50%);
+ z-index:7;display:flex;flex-direction:column;align-items:center;gap:7px;
+ width:max-content;max-width:calc(100vw - 20px);pointer-events:none}
+.god-action-stack>*{pointer-events:auto}
+.god-action-stack .brush{position:static;bottom:auto;left:auto;transform:none;max-width:100%;
+ justify-content:center;flex-wrap:wrap;white-space:normal}
+.god-submenu{width:max-content;max-width:100%;border-radius:18px;padding:8px 10px;
+ display:flex;flex-direction:column;gap:6px;overflow:hidden}
+.god-submenu-section{display:flex;align-items:center;gap:10px;min-width:0;max-width:100%}
+.god-submenu-caption{flex:0 0 71px;max-width:71px;color:#a6bca9;font-weight:680;
+ font-size:10px;letter-spacing:.02em}
+.god-submenu-tiles{display:flex;gap:4px;align-items:stretch;min-width:0;max-width:calc(100vw - 125px);
+ overflow-x:auto;overscroll-behavior-inline:contain;scrollbar-width:thin;scrollbar-color:#68826b transparent;padding:1px 1px 4px}
+.god-submenu-tile{flex:0 0 74px;min-width:74px;min-height:70px;max-width:74px;
+ padding:5px 3px 4px;border:1px solid rgba(255,255,255,.055);border-radius:13px;
+ background:rgba(255,255,255,.025);display:flex;flex-direction:column;align-items:center;
+ justify-content:center;gap:3px;transition:background .15s,color .15s,border-color .15s}
+.god-submenu-tile:hover{background:#344e3d}
+.god-submenu-tile.active{background:linear-gradient(180deg,#55755b,#3c5846);
+ border-color:rgba(183,214,173,.42);color:#f6fff2}
+.god-submenu-tile .glyph{height:29px;width:32px;flex:none}
+.god-submenu-tile-label{font-size:10px;font-weight:670;line-height:1.14;text-align:center;
+ max-width:100%;overflow-wrap:break-word}
+.god-submenu-tile-meta{display:block;font-size:9px;color:#b4c8b5;line-height:1.05;text-align:center;
+ max-width:100%;white-space:normal}
+.god-submenu-modes{border-top:1px solid var(--line);padding-top:6px}
+.god-submenu-modes .god-submenu-tile{min-height:64px}
+@media(max-width:740px){
+ .god-action-stack{bottom:75px;gap:5px;max-width:calc(100vw - 12px)}
+ .god-action-stack .brush{padding:6px 8px;gap:5px}
+ .god-submenu{padding:6px 7px;border-radius:14px;max-height:min(47vh,300px);overflow-y:auto}
+ .god-submenu-section{gap:6px}
+ .god-submenu-caption{flex-basis:49px;max-width:49px;font-size:9px}
+ .god-submenu-tiles{max-width:calc(100vw - 82px)}
+ .god-submenu-tile{flex-basis:65px;min-width:65px;max-width:65px;min-height:65px;padding:5px 2px}
+ .god-submenu-tile-label{font-size:9px}
+ .god-submenu-tile-meta{font-size:8px}
+}
