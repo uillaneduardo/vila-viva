@@ -356,10 +356,31 @@ scene.canvas.addEventListener('lostpointercapture',e=>{
  if(touchPointer(e)&&touch.has(e.pointerId))touch.abort();
 });
 addEventListener('blur',()=>touch.abort());
-const compactUi=matchMedia('(max-width: 740px), (pointer: coarse) and (max-height: 600px)');
+const compactUi=matchMedia('(max-width: 1190px), (max-height: 650px)');
 const activityToggle=el('npcActivityToggle');
 const collapseActivities=()=>{if(compactUi.matches&&activityToggle?.getAttribute('aria-expanded')==='true')activityToggle.click();};
 collapseActivities();compactUi.addEventListener('change',collapseActivities);
+const stockToggle=document.createElement('button');
+stockToggle.type='button';stockToggle.className='hud-toggle';stockToggle.textContent='◇';
+stockToggle.title='Estoque dos depósitos';stockToggle.setAttribute('aria-label','Estoque dos depósitos');
+stockToggle.setAttribute('aria-expanded','false');
+const hudTools=document.createElement('div');hudTools.className='hud-tools';hudTools.append(stockToggle);
+el('interface').append(hudTools);
+stockToggle.addEventListener('click',()=>{
+ const open=el('interface').classList.toggle('hud-stock-open');
+ stockToggle.setAttribute('aria-expanded',String(open));
+});
+const connectionNode=el('connection');
+const syncConnectionLabel=()=>{
+ const value=connectionNode.textContent;
+ connectionNode.dataset.state=value==='Sem conexão'?'disconnected':value==='Ao vivo'?'live':'pending';
+ connectionNode.parentElement.title=value;
+ connectionNode.parentElement.setAttribute('aria-label',value);
+};
+new MutationObserver(syncConnectionLabel).observe(connectionNode,{childList:true,characterData:true,subtree:true});
+syncConnectionLabel();
+if(activityToggle){const labelActivity=()=>{activityToggle.textContent=activityToggle.getAttribute('aria-expanded')==='true'?'−':'☰';};new MutationObserver(labelActivity).observe(activityToggle,{attributes:true,attributeFilter:['aria-expanded']});labelActivity();}
+
 
 scene.canvas.addEventListener('wheel',e=>{e.preventDefault();const p=eventCoordinates(e);scene.camera.zoomAt(p.x,p.y,e.deltaY<0?1.12:1/1.12);el('zoom').textContent=Math.round(scene.camera.zoom*100)+'%';},{passive:false});
 scene.canvas.addEventListener('pointerdown',e=>{
