@@ -23,11 +23,12 @@ test("completed structures allow movement but not placement; sites and ruins sta
 test("A* takes the faster route around a slow footprint",()=>{
  const w=createWorld("test",12,7);
  const b=createCompletedBuilding("house",at(3,2),COMMUNITY_HOUSE,0);w.entities.push(b);
+ b.footprint={width:3,height:2};
  const target:Entity={id:"target",kind:"obstacle",obstacleType:"wall",position:at(8,2),blocksMovement:true};
  w.entities.push(target);
  const route=routeToEntity(w,at(1,2),target)!;
- assert.ok(route);assert.ok(routeCost(w,route)<=8);
- assert.ok(route.every(p=>p.x!==3||p.y!==2));
+ assert.ok(route);assert.equal(routeCost(w,route),8);
+ assert.ok(route.every(p=>p.x<3||p.x>5||p.y<2||p.y>3));
 });
 test("apple tree and cultivation cost movement without permitting placement",()=>{
  const w=createWorld("test",10,10);
