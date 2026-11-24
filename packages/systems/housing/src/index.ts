@@ -3,6 +3,17 @@ import {buildingBlueprint} from "../../../content/src/buildings/registry.ts";
 import {applyEffect,removeEffect} from "../../effects/src/manager.ts";
 import {nearFootprint} from "../../construction/src/index.ts";
 export const BED_RESERVATION_TTL=180;
+export function advanceResidences(world:World):void {
+ const homes=world.entities.filter((e):e is Construction=>e.kind==="construction"&&bedsIn(e)>0&&!!buildingBlueprint(e.blueprintId)?.housing?.permanent);
+ for(const home of homes)home.residents=(home.residents??[]).filter(id=>world.entities.some(e=>e.kind==="character"&&e.id===id&&e.health>0&&e.homeId===home.id)).slice(0,bedsIn(home));
+ for(const npc of world.entities){if(npc.kind!=="character"||npc.ownerId)continue;
+  if(npc.health<=0){delete npc.homeId;continue;}
+  if(homes.some(h=>h.id===npc.homeId&&h.residents?.includes(npc.id)))continue;
+  delete npc.homeId;
+  const home=homes.find(h=>(h.residents?.length??0)<bedsIn(h));
+  if(home){releaseBed(world,npc);home.residents??=[];home.residents.push(npc.id);npc.homeId=home.id;}
+ }
+}
 export function bedsIn(house:Construction):number {
  if(house.status!=="completed"||house.availability!=="available")return 0;
  const def=buildingBlueprint(house.blueprintId);
@@ -11,7 +22,7 @@ export function bedsIn(house:Construction):number {
 export function reservationCount(house:Construction):number {return Object.keys(house.bedReservations??{}).length;}
 export function reservedHouse(world:World,npc:Character):Construction|undefined {
  return world.entities.find((entity):entity is Construction=>entity.kind==="construction"&&
-  bedsIn(entity)>0&&!!entity.bedReservations?.[npc.id]&&entity.bedReservations[npc.id].expiresTick>=world.tick);
+  bedsIn(entity)>0&&(!buildingBlueprint(entity.blueprintId)?.housing?.permanent||entity.residents?.includes(npc.id))&&!!entity.bedReservations?.[npc.id]&&entity.bedReservations[npc.id].expiresTick>=world.tick);
 }
 function removeShelterBuff(npc:Character):void {
  const entry=npc.effects?.find(e=>e.definitionId==="well_sheltered"&&e.instanceId==="housing:rest:"+npc.id);
@@ -27,7 +38,8 @@ export function clearHouse(world:World,house:Construction):void {
   const npc=world.entities.find((entity):entity is Character=>entity.kind==="character"&&entity.id===id);
   if(npc){removeShelterBuff(npc);if(npc.ai)npc.ai.resting=false;}
  }
- house.bedReservations={};
+ for(const npc of world.entities)if(npc.kind==="character"&&npc.homeId===house.id)delete npc.homeId;
+ house.residents=[];house.bedReservations={};
 }
 export function pruneBeds(world:World):void {
  for(const entity of world.entities){
@@ -45,6 +57,7 @@ export function pruneBeds(world:World):void {
 /** Reserve one logical bed before walking; never exceed capacity or duplicate a reservation. */
 export function reserveBed(world:World,npc:Character,house:Construction):boolean {
  if(npc.health<=0||bedsIn(house)<=0)return false;
+ if(buildingBlueprint(house.blueprintId)?.housing?.permanent&&!house.residents?.includes(npc.id))return false;
  const existing=reservedHouse(world,npc);
  if(existing&&existing.id!==house.id)return false;
  house.bedReservations??={};
