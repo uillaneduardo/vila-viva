@@ -49,8 +49,8 @@ function selectTask(world:World,npc:Character,targets:Entity[],activity:string,r
 }
 const acceptedBy=(depot:Construction,item:string):boolean=>!!storageDefinition(depot)?.accepted.includes(item);
 const stocked=(depot:Construction,item:string):number=>depot.stock?.[item]??0;
-function reachablePlots(world:World,npc:Character,zone:FarmingZone){
- return availablePlots(world,zone).filter(position=>!reservedPlot(world,npc,zone,position)).map(position=>{
+function reachablePlots(world:World,npc:Character,zone:FarmingZone,respectClaims=true){
+ return availablePlots(world,zone).filter(position=>!respectClaims||!reservedPlot(world,npc,zone,position)).map(position=>{
   const target:Resource={id:zone.id+":plot:"+position.x+":"+position.y,kind:"resource",
    resourceType:"food",position,quantity:0,maximum:0};
   const route=routeToEntity(world,npc.position,target,npc.id);
@@ -177,7 +177,7 @@ function storedCargo(world:World,npc:Character):Task|null {
   if(quantity<=reserve)continue;
   // Keep seeds needed by an existing plot in hand until planting has been attempted.
   if(ITEMS[item].category==="seed"&&world.entities.some(e=>e.kind==="planting_zone"&&
-    naturalSource(e.sourceId)?.seedItem===item&&reachablePlots(world,npc,e).length>0))continue;
+    naturalSource(e.sourceId)?.seedItem===item&&reachablePlots(world,npc,e,false).length>0)&&load(npc)<CARRY_LIMIT)continue;
   const task=selectTask(world,npc,warehouses.filter(d=>acceptedBy(d,item)&&storageFree(d)>0),
    "Armazenando recursos","Armazenar "+quantity+" "+ITEMS[item].label+
    " com transporte físico","storage.deposit",
