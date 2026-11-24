@@ -2,7 +2,7 @@ import type {World,Character,Entity,Resource,Construction,Command,Result,Positio
 import {canEnter,blockingEntity} from "../../collision/src/index.ts";
 import {routeToEntity,routeCost} from "../../pathfinding/src/index.ts";
 import {materialsRemaining,hasMaterials,storageDefinition,storageFree} from "../../construction/src/index.ts";
-import {bedsIn,reservationCount,reserveBed,reservedHouse,releaseBed,enterHouse,sleepRecovery} from "../../housing/src/index.ts";
+import {bedsIn,reservationCount,reserveBed,reservedHouse,releaseBed,enterHouse,exitHouse,sleepRecovery} from "../../housing/src/index.ts";
 import {EAT_THRESHOLD} from "../../needs/src/index.ts";
 import {FOOD_ITEMS} from "../../../content/src/foods.ts";
 import {naturalSource} from "../../../content/src/natural-sources.ts";
@@ -466,6 +466,11 @@ export function advanceNpcDecisions(world:World,execute:ActionHandler):void {
   if(npc.health<=0){
    releaseBed(world,npc);
    record(npc,world,null,"Sem condições de agir: saúde zero");continue;
+  }
+  // Leave before planning any outdoor task. If exits are occupied, retry next decision.
+  if(npc.sleepingInId&&(!reservedHouse(world,npc)||(npc.satiety??100)<=EAT_THRESHOLD||npc.health<=35&&npc.energy>0&&(npc.satiety??100)<65||npc.energy>=NPC_REST_RECOVER_TO&&(npc.health>=65||(npc.satiety??100)<=25))){
+   if(!exitHouse(world,npc)){record(npc,world,"Aguardando saída","Entrada ocupada; aguardando célula livre",npc.sleepingInId);continue;}
+   releaseBed(world,npc);if(npc.ai)npc.ai.resting=false;
   }
   // Survival comes first. Hunger interrupts travel, work, and even sleep.
   if((npc.satiety??100)<=EAT_THRESHOLD){

@@ -1,3 +1,4 @@
+import {canEnter} from "../../collision/src/index.ts";
 import type {World,Character,Construction} from "../../../domain/src/contracts.ts";
 import {buildingBlueprint} from "../../../content/src/buildings/registry.ts";
 import {applyEffect,removeEffect} from "../../effects/src/manager.ts";
@@ -28,8 +29,27 @@ function removeShelterBuff(npc:Character):void {
  const entry=npc.effects?.find(e=>e.definitionId==="well_sheltered"&&e.instanceId==="housing:rest:"+npc.id);
  if(entry)removeEffect(npc,entry.instanceId);
 }
+/** Prefer original entrance; otherwise choose a free perimeter cell. */
+export function exitHouse(world:World,npc:Character):boolean {
+ if(!npc.sleepingInId)return true;
+ if(npc.health<=0){delete npc.sleepingInId;return true;}
+ const house=world.entities.find((e):e is Construction=>e.kind==="construction"&&e.id===npc.sleepingInId);
+ const candidates=[{...npc.position}];
+ if(house){
+  for(let x=house.position.x;x<house.position.x+house.footprint.width;x++){
+   candidates.push({x,y:house.position.y-1},{x,y:house.position.y+house.footprint.height});
+  }
+  for(let y=house.position.y;y<house.position.y+house.footprint.height;y++){
+   candidates.push({x:house.position.x-1,y},{x:house.position.x+house.footprint.width,y});
+  }
+ }
+ if(!house)candidates.push({x:npc.position.x+1,y:npc.position.y},{x:npc.position.x-1,y:npc.position.y},{x:npc.position.x,y:npc.position.y+1},{x:npc.position.x,y:npc.position.y-1});
+ const exit=candidates.find(p=>canEnter(world,p,npc.id));
+ if(!exit)return false;
+ npc.position={...exit};delete npc.sleepingInId;delete npc.movementSegment;return true;
+}
 export function releaseBed(world:World,npc:Character):void {
- delete npc.sleepingInId;
+ if(!exitHouse(world,npc))return;
  for(const entity of world.entities)
   if(entity.kind==="construction"&&entity.bedReservations?.[npc.id])delete entity.bedReservations[npc.id];
  removeShelterBuff(npc);
@@ -37,7 +57,7 @@ export function releaseBed(world:World,npc:Character):void {
 export function clearHouse(world:World,house:Construction):void {
  for(const id of Object.keys(house.bedReservations??{})){
   const npc=world.entities.find((entity):entity is Character=>entity.kind==="character"&&entity.id===id);
-  if(npc){delete npc.sleepingInId;removeShelterBuff(npc);if(npc.ai)npc.ai.resting=false;}
+  if(npc){exitHouse(world,npc);removeShelterBuff(npc);if(npc.ai)npc.ai.resting=false;}
  }
  for(const npc of world.entities)if(npc.kind==="character"&&npc.homeId===house.id)delete npc.homeId;
  house.residents=[];house.bedReservations={};
@@ -50,7 +70,7 @@ export function pruneBeds(world:World):void {
    const npc=world.entities.find(e=>e.id===id&&e.kind==="character");
    if(record.expiresTick<world.tick||!npc||npc.kind!=="character"||npc.health<=0){
     delete entity.bedReservations[id];
-    if(npc?.kind==="character"){delete npc.sleepingInId;removeShelterBuff(npc);}
+    if(npc?.kind==="character"){exitHouse(world,npc);removeShelterBuff(npc);}
    }
   }
  }
