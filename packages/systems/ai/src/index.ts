@@ -301,7 +301,7 @@ function choose(world:World,npc:Character):Task|null{
  const production=productionTask(world,npc);
  if(production?.action==="storage.deposit")return production;
  const equipment=equipmentTask(world,npc);
- if(equipment?.action==="npc.equip")return equipment;
+ if(equipment)return equipment;
  const cargo=storedCargo(world,npc);
  if(cargo)return cargo;
  const pickup=groundTask(world,npc);if(pickup)return pickup;
@@ -385,7 +385,7 @@ function rest(world:World,npc:Character,execute:ActionHandler):boolean {
  if(house&&!route){releaseBed(world,npc);house=undefined;}
  if(!house){
   const candidates=world.entities.filter((e):e is Construction=>e.kind==="construction"&&
-   bedsIn(e)>0&&reservationCount(e)<bedsIn(e)&&(!e.residents||e.residents.includes(npc.id)));
+   bedsIn(e)>0&&reservationCount(e)<bedsIn(e)&&(e.blueprintId!=="building.family_house"||e.residents?.includes(npc.id)));
   const reachable=candidates.map(target=>({target,route:routeToEntity(world,npc.position,target,npc.id)}))
    .filter((entry):entry is {target:Construction;route:Position[]}=>!!entry.route)
    .sort((a,b)=>Number(b.target.id===npc.homeId)-Number(a.target.id===npc.homeId)||a.route.length-b.route.length||a.target.id.localeCompare(b.target.id));
