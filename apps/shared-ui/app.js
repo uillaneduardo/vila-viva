@@ -49,10 +49,11 @@ async function refreshInspector(entity){
 }
 /** God Mode may test a real NPC harvest only when one stands next to the source. */
 function harvestActor(entity){
- if(!snapshot||entity?.kind!=='resource'||entity.sourceId!=='apple_tree'||entity.quantity<=0||entity.life?.stage==='dead')return null;
+ if(!snapshot||entity?.kind!=='resource'||!catalog?.naturalSources?.[entity.sourceId]||
+   entity.quantity<=0||entity.life?.stage==='dead')return null;
  const eligible=e=>e.kind==='character'&&e.health>0&&e.energy>0&&
   Math.abs(e.position.x-entity.position.x)+Math.abs(e.position.y-entity.position.y)===1&&
-  Object.values(e.inventory||{}).reduce((sum,value)=>sum+value,0)<12;
+  Object.values(e.inventory||{}).reduce((sum,value)=>sum+value,0)<(12-(catalog?.naturalSources?.[entity.sourceId]?.seedsPerHarvest??1));
  if(role==='admin')return snapshot.world.entities.find(e=>!e.ownerId&&eligible(e))||null;
  return snapshot.world.entities.find(e=>e.id===snapshot.playerId&&eligible(e))||null;
 }
@@ -65,7 +66,7 @@ async function harvestSelected(sourceId){
  try{
   const data=await request('/api/commands',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(command)});
   if(!data.result?.ok)throw Error(data.result?.error||'Falha na coleta');
-  status(actor.name+' coletou maçãs. O produto está no inventário, não no depósito.');
+  status(actor.name+' colheu alimento e sementes. Itens transportados no inventário.');
   await refresh();
  }catch(error){status('Falha na coleta: '+error.message);}
 }
@@ -73,7 +74,8 @@ async function harvestSelected(sourceId){
 async function executeConstruction(siteId,action,parameters){
  const removal=action==='construction.remove'||action==='farming.zone.remove',
   destruction=action==='construction.destroy';
- if((removal||destruction)&&!window.confirm(removal?
+ if((removal||destruction)&&!window.confirm(action==='farming.zone.remove'?
+   'Remover esta zona de cultivo? As plantas existentes permanecerão no mapa.':removal?
    'Remover definitivamente? A obra, estoque e reservas serão perdidos sem reembolso.':
    'Destruir? O edifício ficará em ruínas, bloqueando o terreno, com serviços e camas cancelados.'))return;
  try{

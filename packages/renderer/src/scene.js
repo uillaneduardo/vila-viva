@@ -199,7 +199,9 @@ export class Scene {
     let blocked=false;
     for(let y=anchor.y;y<anchor.y+height;y++)for(let x=anchor.x;x<anchor.x+width;x++){
      if(x<0||y<0||x>=this.world.width||y>=this.world.height||
-      this.world.entities.some(e=>e.kind==='construction'?
+      this.world.entities.some(e=>e.kind==='planting_zone'?
+       (this.brush.kind==='farm'&&x>=e.position.x&&x<e.position.x+e.footprint.width&&y>=e.position.y&&y<e.position.y+e.footprint.height):
+       (this.brush.kind==='farm'&&e.kind==='character')?false:e.kind==='construction'?
        x>=e.position.x&&x<e.position.x+e.footprint.width&&y>=e.position.y&&y<e.position.y+e.footprint.height:
        e.position.x===x&&e.position.y===y))blocked=true;
     }

@@ -25,12 +25,14 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
   if(!entity||selectedId!==entity.id)return;
   const isNpc=entity.kind==='character';
   el('portrait').textContent=isNpc?entity.name?.charAt(0).toUpperCase()||'?':
-   entity.kind==='construction'?'⌂':entity.kind==='obstacle'?'▣':({wood:'♣',stone:'◆',food:'●'})[entity.resourceType]||'■';
-  el('panelName').textContent=isNpc?entity.name:entity.kind==='construction'?
+   entity.kind==='construction'?'⌂':entity.kind==='planting_zone'?'▦':entity.kind==='obstacle'?'▣':({wood:'♣',stone:'◆',food:'●'})[entity.resourceType]||'■';
+  el('panelName').textContent=isNpc?entity.name:entity.kind==='planting_zone'?
+   ('Plantio · '+(catalog?.naturalSources?.[entity.sourceId]?.label??entity.sourceId)):entity.kind==='construction'?
    (catalog?.buildingBlueprints?.[entity.blueprintId]?.label||'Construção'):entity.kind==='obstacle'?
    (catalog?.scenery?.[entity.obstacleType]||'Obstáculo'):
    (entity.sourceId?catalog?.naturalSources?.[entity.sourceId]?.label:catalog?.resources?.[entity.resourceType])||'Recurso';
-  el('panelDesc').textContent=isNpc?(entity.ownerId?'Personagem jogador · Controle manual':'Habitante · Decisões autônomas'):entity.kind==='construction'?
+  el('panelDesc').textContent=isNpc?(entity.ownerId?'Personagem jogador · Controle manual':'Habitante · Decisões autônomas'):entity.kind==='planting_zone'?
+   'Área de plantio · Sem bloqueio de passagem':entity.kind==='construction'?
    (entity.status==='destroyed'?'Ruína · Edificação destruída':entity.status==='completed'?'Edificação concluída':'Canteiro de obras · Construção em andamento'):entity.kind==='obstacle'?
    'Elemento estático · Não coletável':entity.sourceId?'Fonte viva · Produção renovável':'Fonte de recurso';
   const allowed=isNpc?['overview','health','effects']:['overview'];
@@ -79,7 +81,10 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
       '</select></label><button class="context-action" id="equipNpc" type="button">Aplicar equipamento (Modo Deus)</button>';
     }
     html+='<h3>Inventário carregado</h3>';
-    for(const resourceId of ['wood','stone','apple'])html+=row(({wood:'Madeira',stone:'Pedra',apple:'Maçãs'})[resourceId],entity.inventory?.[resourceId]??0);
+    for(const resourceId of ['wood','stone','apple','carrot','potato','apple_seed','carrot_seed','potato_seed'])
+     html+=row(({wood:'Madeira',stone:'Pedra',apple:'Maçãs',carrot:'Cenoura',potato:'Batata',
+      apple_seed:'Semente de maçã',carrot_seed:'Semente de cenoura',potato_seed:'Batata-semente'})[resourceId],
+      entity.inventory?.[resourceId]??0);
     html+=row('Capacidade',Object.values(entity.inventory??{}).reduce((a,b)=>a+b,0)+' / 12');
    } else if(active==='health'){
     if(values){
@@ -114,7 +119,8 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
      const storage=details.construction.storage;
      html+='<h3>Estoque físico</h3>'+row('Ocupação',storage.total+' / '+storage.capacity)+row('Espaço livre',storage.free);
      for(const item of storage.accepted){
-      const name=({wood:'Madeira',stone:'Pedra',apple:'Maçãs'})[item]||item;
+      const name=({wood:'Madeira',stone:'Pedra',apple:'Maçãs',carrot:'Cenoura',potato:'Batata',
+       apple_seed:'Sementes de maçã',carrot_seed:'Sementes de cenoura',potato_seed:'Batatas-semente'})[item]||item;
       html+=row(name,storage.stock?.[item]??0);
       if(options.role==='admin'&&storage.free>0)
        html+='<button type="button" class="context-action" data-construction-action="storage.admin_supply" data-material="'+safe(item)+'" data-amount="'+Math.min(12,storage.free)+'">Adicionar '+Math.min(12,storage.free)+' '+name+' (teste)</button>';
@@ -144,6 +150,20 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
     html+='<p class="empty">A remoção descarta todo material/estoque associado. Não há reembolso nesta versão.</p>';
    }
    html+=row('Posição',entity.position.x+', '+entity.position.y);
+  }else if(entity.kind==='planting_zone'){
+   const def=catalog?.naturalSources?.[entity.sourceId],farm=details?.farming;
+   html='<h3>Zona de cultivo</h3>'+
+    row('Espécie',def?.label??entity.sourceId)+
+    row('Área',entity.footprint.width+' × '+entity.footprint.height+' células')+
+    row('Plantadas',farm?.planted??0)+
+    row('Livres',Math.max(0,(farm?.capacity??0)-(farm?.planted??0)))+
+    row('Prontas para colher',farm?.ready??0)+
+    row('Semente exigida',def?.seedItem??'—')+
+    row('Sementes por colheita',def?.seedsPerHarvest??0)+
+    row('Ciclo',def?.growthMode==='perennial'?'Perene':'Safra única')+
+    row('Colisão','Área atravessável');
+   html+='<p class="empty">Os habitantes precisam carregar sementes reais ou retirá-las do depósito para plantar.</p>';
+   if(options.role==='admin')html+='<button type="button" class="context-action" data-construction-action="farming.zone.remove">Remover zona (manter plantas)</button>';
   }else if(entity.kind==='obstacle'){
    html='<h3>Elemento de cenário</h3>'+row('Tipo',catalog?.scenery?.[entity.obstacleType]||entity.obstacleType)+
     row('Impede passagem',entity.blocksMovement?'Sim':'Não')+row('Minerável','Não')+
@@ -154,15 +174,17 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
    html='<h3>Ciclo de vida · '+safe(def?.label||entity.sourceId)+'</h3>'+
     row('Etapa',stages[entity.life.stage]||entity.life.stage)+row('Idade',entity.life.ageTicks+' ticks')+
     bar('Saúde',entity.life.health,'#a8cca1')+
-    row('Produz','Maçãs')+row('Disponível',entity.quantity+' / '+entity.maximum)+
+    row('Produz',catalog?.foods?.[entity.productId]?.label??entity.productId)+row('Disponível',entity.quantity+' / '+entity.maximum)+
+    row('Semente gerada',def?.seedItem+' × '+def?.seedsPerHarvest)+
+    row('Ciclo',def?.growthMode==='single_harvest'?'Safra única':'Perene')+
     row('Produção',entity.life.stage==='mature'||entity.life.stage==='old'?
-      '+'+def?.production?.amount+' / '+def?.production?.intervalTicks+' ticks':'Inativa nesta etapa')+
+      def?.growthMode==='single_harvest'?'Colheita única':'+'+def?.production?.amount+' / '+def?.production?.intervalTicks+' ticks':'Inativa nesta etapa')+
     row('Progresso',entity.life.productionProgress+' / '+(def?.production?.intervalTicks??'—')+' ticks')+
-    row('Colisão','Bloqueia passagem')+row('Posição',entity.position.x+', '+entity.position.y);
-   html+='<h3>Coleta física</h3><p class="empty">A colheita coloca maçãs no inventário do personagem, não no depósito.</p>';
+    row('Colisão',def?.blocksMovement?'Bloqueia passagem':'Atravessável')+row('Posição',entity.position.x+', '+entity.position.y);
+   html+='<h3>Coleta física</h3><p class="empty">A colheita produz alimento e sementes no inventário do personagem, não no depósito.</p>';
    if(options.role==='admin'||options.role==='player')
     html+='<button type="button" id="harvestSelected" class="context-action" '+(options.canHarvest?'':'disabled')+'>'+
-     (options.role==='admin'?'Testar coleta com NPC adjacente':'Colher frutos')+'</button>'+
+     (options.role==='admin'?'Testar colheita com NPC adjacente':'Colher alimento')+'</button>'+
      (options.canHarvest?'':'<p class="empty">Requer personagem adjacente, energia e espaço livre.</p>');
   }else html='<h3>Fonte de recurso</h3>'+row('Tipo',catalog?.resources?.[entity.resourceType]||entity.resourceType)+row('Disponível',entity.quantity+' unidades')+row('Capacidade',entity.maximum+' unidades')+row('Posição',entity.position.x+', '+entity.position.y);
   if(lastContent!==html){const scroll=el('panelScroll');const previous=scroll.scrollTop;el('panelBody').innerHTML=html;scroll.scrollTop=previous;lastContent=html;
