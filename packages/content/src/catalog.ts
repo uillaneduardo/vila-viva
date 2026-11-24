@@ -6,6 +6,7 @@ export function createBaseRegistry():DefinitionRegistry {
   {id:"resource.wood",displayName:{"pt-BR":"Fonte de madeira"},kind:"resource",components:["position","resourceSource","regeneration","renderable"],description:"Fonte regenerável de madeira"},
   {id:"resource.food",displayName:{"pt-BR":"Cultivo alimentar"},kind:"resource",components:["position","resourceSource","regeneration","lifecycle","production","collision","renderable"],description:"Fontes alimentares definidas por espécie: perenes ou de colheita única"},
   {id:"resource.stone",displayName:{"pt-BR":"Fonte de pedra"},kind:"resource",components:["position","resourceSource","regeneration","renderable"],description:"Fonte regenerável de pedra"},
+  {id:"resource.ore",displayName:{"pt-BR":"Jazida mineral"},kind:"resource",components:["position","resourceSource","regeneration","renderable"],description:"Jazida de ferro ou cobre"},
   {id:"obstacle.scenery",displayName:{"pt-BR":"Obstáculo de cenário"},kind:"obstacle",components:["position","collision","renderable"],description:"Elemento sólido e não coletável do cenário"},
   {id:"storage.depot",displayName:{"pt-BR":"Depósito"},kind:"storage",components:["position","storage","inventory","renderable"],description:"Depósito com capacidade e regras de entrega"},
   {id:"construction.site",displayName:{"pt-BR":"Canteiro de obras"},kind:"construction",components:["position","construction","inventory","renderable"],description:"Canteiro por etapas"},
@@ -22,6 +23,9 @@ export function createBaseRegistry():DefinitionRegistry {
   {id:"resource.gather",displayName:{"pt-BR":"Extrair recursos"},roles:["player","npc"],targets:["resource"],requires:["position","energy","inventory","resourceSource"],readonly:false,description:"Coleta física de madeira ou pedra no inventário do personagem"},
   {id:"construction.place",displayName:{"pt-BR":"Criar canteiro"},roles:["admin"],targets:["position"],requires:[],readonly:false,description:"Reservar terreno livre para um projeto registrado"},
   {id:"construction.propose",displayName:{"pt-BR":"Planejar construção"},roles:["npc"],targets:["position"],requires:["position","construction"],readonly:false,description:"Um líder decide um projeto e terreno, criando somente um canteiro sem recursos ou trabalho fictícios"},
+  {id:"production.order",displayName:{"pt-BR":"Planejar fabricação"},roles:["npc","admin"],targets:["construction"],requires:["production"],readonly:false,description:"Adicionar ordem de receita à fila da oficina"},
+  {id:"production.work",displayName:{"pt-BR":"Fabricar lote"},roles:["npc","player"],targets:["construction"],requires:["production","energy"],readonly:false,description:"Trabalhar em ordem com ingredientes reais"},
+  {id:"npc.equip",displayName:{"pt-BR":"Equipar item físico"},roles:["npc","player"],targets:["character"],requires:["inventory"],readonly:false,description:"Transferir ferramenta do inventário para slot de equipamento"},
   {id:"construction.deliver",displayName:{"pt-BR":"Entregar materiais"},roles:["npc","player"],targets:["construction"],requires:["position","energy","inventory","construction"],readonly:false,description:"Mover recursos do inventário do ator para o canteiro"},
   {id:"construction.work",displayName:{"pt-BR":"Trabalhar no canteiro"},roles:["npc","player"],targets:["construction"],requires:["position","energy","construction"],readonly:false,description:"Realizar trabalho com materiais da etapa entregues"},
   {id:"construction.admin_supply",displayName:{"pt-BR":"Injetar materiais para teste"},roles:["admin"],targets:["construction"],requires:["construction"],readonly:false,description:"Comando explícito de homologação, sem simular transporte"},
@@ -47,7 +51,9 @@ export const baseRegistry=createBaseRegistry();
 export const RESOURCE_PRESETS=Object.freeze({
  wood:{definitionId:"resource.wood",label:"Madeira",resourceType:"wood"},
  food:{definitionId:"resource.food",label:"Alimento",resourceType:"food"},
- stone:{definitionId:"resource.stone",label:"Pedra",resourceType:"stone"}
+ stone:{definitionId:"resource.stone",label:"Pedra",resourceType:"stone"},
+ iron_ore:{definitionId:"resource.ore",label:"Minério de ferro",resourceType:"iron_ore"},
+ copper_ore:{definitionId:"resource.ore",label:"Minério de cobre",resourceType:"copper_ore"}
 });
 export function resourcePreset(type:string):typeof RESOURCE_PRESETS[keyof typeof RESOURCE_PRESETS]|undefined {
  return Object.values(RESOURCE_PRESETS).find(p=>p.resourceType===type);
