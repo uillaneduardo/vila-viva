@@ -19,7 +19,7 @@ export function connectWorld({onState,onStatus,onMetrics}){
     const next=reset?m.data:applyDelta(state,m.data);
     if(!next?.world||!Array.isArray(next.world.entities))throw Error('STATE');
     state=next;revision=m.revision;epoch=m.epoch;updates++;live=true;
-    onStatus('live');onState(state,{reset});
+    onStatus('live');onState(state,{reset,revision,epoch,sampleTime:m.sampleTime});
    }catch{ws.close();}
   };
   ws.onerror=()=>ws.close();

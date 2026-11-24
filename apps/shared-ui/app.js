@@ -1,3 +1,4 @@
+import {createTickRenderAdapter} from '../../packages/renderer/src/tick-render-adapter.js';
 import {connectWorld} from '../../packages/client-sdk/src/world-stream.js';
 import {createUiVisual} from '../../packages/ui/assets/visual.js';
 import {applyUiTheme} from '../../packages/ui/assets/themes/index.js';
@@ -8,14 +9,16 @@ import {createInspector} from '../../packages/ui/src/inspector.js';
 import {createNpcActivityMonitor} from '../../packages/ui/src/npc-activity-monitor.js';
 const el=id=>document.getElementById(id),role=document.body.dataset.role;
 applyUiTheme(document.documentElement);
-const scene=new Scene(el('game')),inspector=createInspector({
+const surface=new Scene(el('game'));
+const scene=new URLSearchParams(location.search).get('renderer')==='legacy'?surface:createTickRenderAdapter(surface);
+const inspector=createInspector({
  onHarvest:(id)=>void harvestSelected(id),
  onConstruction:(id,action,parameters)=>void executeConstruction(id,action,parameters)
 });
 const npcActivityMonitor=role==='admin'?createNpcActivityMonitor(el('npcActivityMonitor')):null;
 let snapshot=null,catalog=null,selectedId=null,hoverId=null,tool='inspect',brushSize=1,brushShape='square',preset='apple_adult',buildMode='site';
 let pan=null,painting=new Map(),loading=false,inspection=null,lastSpeed=1;
-let stream=null,inspectAt=0,inspectSequence=0,visualEpoch=0,frames=0,fps=0;
+let stream=null,inspectAt=0,inspectSequence=0,visualEpoch=0,frames=0,fps=0,lastEpoch=null,lastHudAt=-Infinity;
 const keys=new Set();
 const request=async(path,options)=>{
  const response=await fetch(path,options),data=await response.json();
@@ -177,11 +180,14 @@ function changeSpeed(speed){
  .then(data=>{if(speed)lastSpeed=speed;if(snapshot){snapshot.clock=data.clock;hud.update(snapshot);}status(speed?'Velocidade '+speed+'×':'Simulação pausada');})
  .catch(error=>status('Falha no relógio: '+error.message));
 }
-function applyWorld(data,{reset=false}={}){
- const changed=reset||snapshot?.timelineId!==data.timelineId||data.world.tick<(snapshot?.world.tick??0);
- if(changed){visualEpoch++;setSelection(null);}
- snapshot=data;scene.setWorld(data.world,{reset:changed,paused:data.clock.paused});hud.update(data);
- npcActivityMonitor?.update(data);
+function applyWorld(data,{reset=false,epoch=null,sampleTime}={}){
+ const changed=!!snapshot&&(snapshot.timelineId!==data.timelineId||data.world.tick<snapshot.world.tick||(epoch!==null&&lastEpoch!==null&&epoch!==lastEpoch));
+ const clockChanged=snapshot?.clock.speed!==data.clock.speed;
+ if(changed){visualEpoch++;setSelection(null);scene.world=null;}
+ if(epoch!==null)lastEpoch=epoch;
+ snapshot=data;scene.setWorld(data.world,{reset:reset||changed,epoch,sampleTime,speed:data.clock.speed,paused:data.clock.paused});
+ const now=performance.now();
+ if(reset||changed||clockChanged||data.clock.paused||now-lastHudAt>=250){hud.update(data);npcActivityMonitor?.update(data);lastHudAt=now;}
  const selected=data.world.entities.find(e=>e.id===selectedId);
  if(selectedId&&!selected)setSelection(null);
  else if(selected&&performance.now()-inspectAt>=500)void refreshInspector(selected);
@@ -299,7 +305,7 @@ if(role==='admin'&&el('worldManagerToggle')){
   if(!confirm('Criar novo mundo com a seed '+seed+'? Salve o atual antes se quiser recuperá-lo.'))return;
   const dimensions=el('newWorldSize').value.split('x').map(Number);
   await execute('/api/world/new',{seed,width:dimensions[0],height:dimensions[1]});
-  scene.world=null;setSelection(null);
+  setSelection(null);
   status('Novo mundo criado e pausado. Inicie pelos controles 1×/2×/4×.');
  }));
  el('worldExport').addEventListener('click',()=>download('/api/world/export'));

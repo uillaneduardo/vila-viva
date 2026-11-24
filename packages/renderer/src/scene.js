@@ -39,7 +39,13 @@ export class Scene {
  setHover(id){this.hover=id;}
  setRoute(waypoints){this.hoverRoute=Array.isArray(waypoints)?waypoints:null;}
  setBrush(brush){this.brush=brush;}
- pick(x,y){return this.world?hitTest(this.world.entities,this.camera,x,y):null;}
+ pick(x,y){
+  if(!this.world)return null;
+  const entities=this.world.entities.filter(e=>!e.bodyCarriedBy);
+  if(!this.positionProvider)return hitTest(entities,this.camera,x,y);
+  const now=performance.now(),picked=hitTest(entities.map(e=>e.kind==='character'?{...e,position:this.positionProvider(e,now)}:e),this.camera,x,y);
+  return picked?entities.find(e=>e.id===picked.id):null;
+ }
  paint(now=0){
   const c=this.ctx,k=this.camera,w=k.width,h=k.height,t=k.tile;
   c.clearRect(0,0,w,h);c.fillStyle='#2c4b38';c.fillRect(0,0,w,h);
@@ -87,8 +93,8 @@ export class Scene {
   for(const e of this.world.entities.filter(e=>e.kind!=='planting_zone'&&
    !(e.kind==='character'&&e.bodyCarriedBy)&&
    !(e.kind==='construction'&&e.blueprintId==='building.cemetery'&&e.status==='completed')).sort((a,b)=>(a.position.y+(a.kind==='construction'?a.footprint.height:1))-(b.position.y+(b.kind==='construction'?b.footprint.height:1)))){
-   let pos=e.position;
-   if(e.kind==='character'){
+   let pos=this.positionProvider?this.positionProvider(e,now):e.position;
+   if(e.kind==='character'&&!this.positionProvider){
     const animation=this.motion.get(e.id);
     if(animation){
      const alpha=Math.min(1,(now-animation.startedAt)/animation.duration);
