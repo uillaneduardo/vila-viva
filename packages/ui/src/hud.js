@@ -1,3 +1,4 @@
+import {brushCells} from '../../renderer/src/camera.js';
 import {createUiVisual} from '../assets/visual.js';
 import {godMenuOptions,BUILD_MODES,HAS_GOD_SUBMENU} from './god-menu-definitions.js';
 const toolDefs=[
@@ -24,10 +25,7 @@ export function createHud({role,onTool,onClock,onSize,onShape=()=>{},onPreset=()
  const range=el('brushSize'),minus=el('brushMinus'),plus=el('brushPlus'),shapeButton=el('brushShape');
  let brushShape='square';
  const updateBrushCount=n=>{
-  const world={width:100,height:100};
-  let count=0;
-  for(let y=0;y<n;y++)for(let x=0;x<n;x++)
-   if(brushShape!=='circle'||Math.hypot(x-(n-1)/2,y-(n-1)/2)<=n/2)count++;
+  const count=brushCells({x:20,y:20},n,{width:40,height:40},currentTool==='farm'?'square':brushShape).length;
   el('brushCount').textContent=count+' célula'+(count===1?'':'s');
  };
  const renderShape=()=>{
@@ -143,7 +141,7 @@ export function createHud({role,onTool,onClock,onSize,onShape=()=>{},onPreset=()
    const isHouse=id==='house';
    range.disabled=isHouse;minus.disabled=isHouse;plus.disabled=isHouse;
    shapeButton.hidden=isHouse||id==='farm';
-   if(isHouse)range.value='1';
+   if(!isHouse){const n=Number(range.value);el('brushValue').textContent=n+' × '+n;updateBrushCount(n);}
    el('brushPanel').hidden=!brush;
    el('brushName').textContent=brushTitles[id]??'';
    el('toolBadge').textContent=tips[id]??id;
