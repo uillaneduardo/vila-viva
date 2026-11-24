@@ -157,7 +157,7 @@ async function submitBrush(){
    kind==='scenery'?{obstacleType:preset}:
    kind==='house'?{blueprintId:preset,mode:buildMode}:
    kind==='farm'?{sourceId:preset,width:brushSize,height:brushSize}:
-   kind==='food'?{resourceType:'food',sourceId:'apple_tree',ageTicks:preset==='apple_seedling'?0:120,quantity:preset==='apple_seedling'?0:6}:
+   kind==='food'?(preset==='medicinal_herb_adult'?{resourceType:'food',sourceId:'medicinal_herb',ageTicks:45,quantity:3}:{resourceType:'food',sourceId:'apple_tree',ageTicks:preset==='apple_seedling'?0:120,quantity:preset==='apple_seedling'?0:6}):
    kind==='stone'?{resourceType:preset||'stone',quantity:30}:
    {resourceType:kind,quantity:25}
  }));
