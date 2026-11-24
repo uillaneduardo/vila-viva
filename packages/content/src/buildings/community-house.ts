@@ -8,11 +8,11 @@ export interface BuildingStage {
  id:string; label:string; displayName:LocalizedText; materials:Readonly<Record<string,number>>; workUnits:number;
 }
 export interface BuildingBlueprint {
- id:string; version:number; label:string; displayName:LocalizedText; stages:readonly BuildingStage[];
+ id:string; version:number; label:string; displayName:LocalizedText; footprint:Readonly<{width:number;height:number}>; stages:readonly BuildingStage[];
  effects:readonly {capability:string;value:number;unit:string}[];
 }
 export const COMMUNITY_HOUSE:Readonly<BuildingBlueprint>=Object.freeze({
- id:"building.community_house",version:1,label:"Casa Comunitária",displayName:{"pt-BR":"Casa Comunitária"},
+ id:"building.community_house",version:1,label:"Casa Comunitária",displayName:{"pt-BR":"Casa Comunitária"},footprint:{width:2,height:2},
  stages:[
   {id:"foundation",label:"Fundação",displayName:{"pt-BR":"Fundação"},materials:{stone:12,wood:4},workUnits:30},
   {id:"structure",label:"Estrutura",displayName:{"pt-BR":"Estrutura"},materials:{wood:24,stone:6},workUnits:45},
