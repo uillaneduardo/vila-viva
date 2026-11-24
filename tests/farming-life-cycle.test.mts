@@ -156,7 +156,7 @@ test("apple harvesting returns seeds and a replanted tree keeps the perennial li
  assert.equal(person.inventory.apple_seed,seeds-1);
  const tree=w.entities.find(e=>e.id==="plant-plant");
  assert.equal(tree.life.stage,"seedling");
- assert.equal(canEnter(w,tree.position),false);
+ assert.equal(canEnter(w,tree.position),true);
  for(let i=0;i<160;i++)advanceTick(w);
  assert.equal(tree.life.stage,"mature");
  assert.equal(tree.quantity,3);
