@@ -89,7 +89,8 @@ async function executeConstruction(siteId,action,parameters){
    'farming.zone.remove':'Zona removida; plantas existentes preservadas.',
    'construction.destroy':'Construção destruída; ruínas continuam bloqueando o terreno.',
    'npc.admin_equip':'Equipamento de teste aplicado ao NPC.',
-   'construction.admin_work':'Trabalho aplicado à etapa atual.'
+   'construction.admin_work':'Trabalho aplicado à etapa atual.',
+   'production.order':'Ordem de fabricação criada na oficina.'
   };
   status(messages[action]||'Comando de Modo Deus executado.');
   if(removal)setSelection(null);
@@ -145,6 +146,7 @@ async function submitBrush(){
    kind==='house'?{blueprintId:preset,mode:buildMode}:
    kind==='farm'?{sourceId:preset,width:brushSize,height:brushSize}:
    kind==='food'?{resourceType:'food',sourceId:'apple_tree',ageTicks:preset==='apple_seedling'?0:120,quantity:preset==='apple_seedling'?0:6}:
+   kind==='stone'?{resourceType:preset||'stone',quantity:30}:
    {resourceType:kind,quantity:25}
  }));
  painting.clear();

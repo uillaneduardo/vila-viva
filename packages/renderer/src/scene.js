@@ -192,6 +192,13 @@ export class Scene {
     }else if(e.resourceType==='wood'){
      c.fillStyle='#6b8f65';c.beginPath();c.arc(-s*.09,0,s*.22,0,Math.PI*2);c.arc(s*.1,-s*.07,s*.22,0,Math.PI*2);c.fill();
      c.fillStyle='#9f8464';c.fillRect(-s*.035,s*.13,s*.07,s*.17);
+    }else if(e.resourceType==='iron_ore'||e.resourceType==='copper_ore'){
+     c.fillStyle=e.resourceType==='iron_ore'?'#6f8290':'#bc845f';
+     c.beginPath();c.moveTo(-s*.29,s*.2);c.lineTo(-s*.2,-s*.21);
+     c.lineTo(s*.04,-s*.29);c.lineTo(s*.3,-s*.06);
+     c.lineTo(s*.23,s*.25);c.closePath();c.fill();
+     c.fillStyle=e.resourceType==='iron_ore'?'#b6c3cb':'#dcb08d';
+     c.fillRect(-s*.1,-s*.14,s*.13,s*.1);c.fillRect(s*.07,s*.03,s*.1,s*.14);
     }else if(e.resourceType==='stone'){
      c.fillStyle='#a6b0a7';c.beginPath();c.moveTo(-s*.26,s*.16);c.lineTo(-s*.16,-s*.18);c.lineTo(s*.12,-s*.26);c.lineTo(s*.27,s*.07);c.lineTo(s*.14,s*.22);c.closePath();c.fill();
     }else{
