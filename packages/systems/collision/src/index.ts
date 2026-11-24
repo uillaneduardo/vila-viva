@@ -11,7 +11,7 @@ export const blocksMovement=(entity:Entity):boolean=>
  entity.kind==="planting_zone"?false:entity.kind==="construction"?true:entity.kind==="character";
 export const sameCell=(a:Position,b:Position):boolean=>a.x===b.x&&a.y===b.y;
 export function occupiesCell(entity:Entity,cell:Position):boolean {
- if(entity.kind==="construction")return cell.x>=entity.position.x&&cell.y>=entity.position.y&&
+ if(entity.kind==="construction"||entity.kind==="planting_zone")return cell.x>=entity.position.x&&cell.y>=entity.position.y&&
   cell.x<entity.position.x+entity.footprint.width&&cell.y<entity.position.y+entity.footprint.height;
  return sameCell(entity.position,cell);
 }

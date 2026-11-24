@@ -97,6 +97,7 @@ test("potato crop has finite yield, produces viable seed and disappears when it 
  assert.equal(player(w,"first","farming.plant",field.id,{position:{x:2,y:2}}).ok,true);
  assert.equal(player(w,"move","movement.move",person.id,{position:{x:3,y:1}}).ok,true);
  assert.equal(player(w,"second","farming.plant",field.id,{position:{x:3,y:2}}).ok,true);
+ assert.equal(player(w,"return","movement.move",person.id,{position:{x:2,y:1}}).ok,true);
  for(let i=0;i<80;i++)advanceTick(w);
  const ripe=w.entities.find(e=>e.id==="plant-first");
  assert.equal(ripe.quantity,4);
@@ -146,7 +147,7 @@ test("NPC obtains real seeds from the depot and plants carrots without teleporta
  assert.ok((warehouse.stock.carrot_seed??0)<7);
  assert.equal(w.tick,start+95,"AI internal actions never advance world tick");
  assert.ok(npc.ai.history.length>0);
- assert.equal(npc.inventory.carrot_seed??0<=7,true);
+ assert.ok((npc.inventory.carrot_seed??0)<=7);
 });
 test("God Mode API exposes species, fields, food and seed warehouse stock",async()=>{
  const {server}=makePrototype();await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
