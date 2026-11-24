@@ -12,6 +12,12 @@ export function hitTest(entities,camera,screenX,screenY){
  const p=camera.screenToWorld(screenX,screenY);
  let result=null,distance=Infinity;
  for(const e of entities){
+  if(e.kind==='construction'){
+   const x0=e.position.x*camera.tile,y0=e.position.y*camera.tile;
+   const x1=x0+e.footprint.width*camera.tile,y1=y0+e.footprint.height*camera.tile;
+   if(p.x>=x0&&p.x<x1&&p.y>=y0&&p.y<y1){result=e;distance=0;}
+   continue;
+  }
   const x=(e.position.x+.5)*camera.tile,y=(e.position.y+.5)*camera.tile;
   const d=Math.hypot(x-p.x,y-p.y),radius=camera.tile*(e.kind==='character'?.43:.46);
   if(d<radius&&d<distance){result=e;distance=d;}

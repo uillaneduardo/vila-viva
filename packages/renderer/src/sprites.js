@@ -3,7 +3,8 @@ export const SPRITES=Object.freeze({
  'character.human':{id:'entities/human',states:['idle','moving','working','resting']},
  'resource.wood':{id:'resources/tree',states:['available','exhausted']},
  'resource.food':{id:'vegetation/apple_tree',states:['leafless','foliage','fruit_sparse','fruit_ripe']},
- 'resource.stone':{id:'resources/stone',states:['available','exhausted']}
+ 'resource.stone':{id:'resources/stone',states:['available','exhausted']},
+ 'building.community_house':{id:'buildings/community_house',states:['site','foundation','structure','roof','completed']}
 });
 
 /** Atlas source is local, transparent, and deliberately independent of UI icons. */
@@ -19,6 +20,11 @@ export const WORLD_ATLASES=Object.freeze({
 /** Map authoritative entity state to an appearance without changing the entity. */
 export function resolveWorldSprite(entity){
  if(entity?.kind==='character')return {id:'entities/human',state:'idle',scale:.79};
+ if(entity?.kind==='construction'){
+  const state=entity.status==='completed'?'completed':
+   ['site','foundation','structure','roof'][Math.min(3,entity.stageIndex)];
+  return {id:'buildings/community_house',state,scale:1};
+ }
  if(entity?.kind!=='resource')return null;
  if(entity.resourceType==='food'){
   // Species-specific projection; old generic food sources retain a compatible fallback.

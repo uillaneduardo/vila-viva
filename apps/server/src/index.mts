@@ -2,6 +2,8 @@ import {displayText} from "../../../packages/domain/src/localization.ts";
 import {baseRegistry,RESOURCE_PRESETS} from "../../../packages/content/src/catalog.ts";
 import {EFFECTS} from "../../../packages/content/src/effects/catalog.ts";
 import {COMMUNITY_HOUSE} from "../../../packages/content/src/buildings/community-house.ts";
+import {BUILDING_BLUEPRINTS} from "../../../packages/content/src/buildings/registry.ts";
+import {currentStage,materialsRemaining,hasMaterials,buildingCapabilities} from "../../../packages/systems/construction/src/index.ts";
 import {NATURAL_SOURCES} from "../../../packages/content/src/natural-sources.ts";
 import {SCENERY_PRESETS} from "../../../packages/content/src/scenery.ts";
 import {resolveAttributes} from "../../../packages/systems/effects/src/resolver.ts";
@@ -55,6 +57,11 @@ export function makePrototype(){
     resources:Object.fromEntries(Object.values(RESOURCE_PRESETS).map(p=>[p.resourceType,displayText(baseRegistry.entity(p.definitionId).displayName)])),
     effects:Object.fromEntries(Object.values(EFFECTS).map(e=>[e.id,displayText(e.displayName)])),
     buildings:{[COMMUNITY_HOUSE.id]:displayText(COMMUNITY_HOUSE.displayName)},
+    buildingBlueprints:Object.fromEntries(Object.values(BUILDING_BLUEPRINTS).map(b=>[b.id,{
+      id:b.id,label:displayText(b.displayName),footprint:b.footprint,version:b.version,
+      stages:b.stages.map(s=>({id:s.id,label:displayText(s.displayName),materials:s.materials,workUnits:s.workUnits})),
+      effects:b.effects
+    }])),
     naturalSources:Object.fromEntries(Object.values(NATURAL_SOURCES).map(s=>[s.id,{label:s.label,productId:s.productId,production:s.production,stages:s.stages}])),
     scenery:Object.fromEntries(Object.values(SCENERY_PRESETS).map(s=>[s.id,s.label]))
    });
@@ -79,6 +86,12 @@ export function makePrototype(){
        production:NATURAL_SOURCES[entity.sourceId]?.production??null
       }:null,
       scenery:entity.kind==="obstacle"?{type:entity.obstacleType,blocksMovement:entity.blocksMovement,harvestable:false}:null,
+      construction:entity.kind==="construction"?{
+       blueprintId:entity.blueprintId,blueprintVersion:entity.blueprintVersion,
+       stage:currentStage(entity)?.id??null,remaining:materialsRemaining(entity),
+       materialsReady:hasMaterials(entity),capabilities:buildingCapabilities(entity),
+       stageIndex:entity.stageIndex,status:entity.status,availability:entity.availability
+      }:null,
       needs:null,social:null,decisions:null
     });
    }
@@ -114,7 +127,7 @@ export function makePrototype(){
     const results=[];
     for(const c of input.commands){
      if(!c||typeof c.commandId!=="string"||!/^[-\w]{1,80}$/.test(c.commandId))return json(res,422,{error:"INVALID_PAYLOAD"});
-     if(c.action!=="npc.spawn"&&c.action!=="resource.spawn"&&c.action!=="obstacle.spawn")return json(res,422,{error:"INVALID_PAYLOAD"});
+     if(c.action!=="npc.spawn"&&c.action!=="resource.spawn"&&c.action!=="obstacle.spawn"&&c.action!=="construction.place")return json(res,422,{error:"INVALID_PAYLOAD"});
     }
     for(const c of input.commands)results.push(applyCommand(world,{worldId:world.id,actorRole:"admin",commandId:c.commandId,action:c.action,position:c.position,parameters:c.parameters}));
     return json(res,200,{results,world,clock:clockView()});
