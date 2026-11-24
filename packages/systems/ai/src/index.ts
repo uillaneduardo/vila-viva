@@ -301,6 +301,13 @@ function choose(world:World,npc:Character):Task|null{
  if(equipment?.action==="npc.equip")return equipment;
  const cargo=storedCargo(world,npc);
  if(cargo)return cargo;
+ // Annual crops cannot regrow after expiry; rescue ripe crops before new projects.
+ const free=CARRY_LIMIT-load(npc);
+ const ripe=selectTask(world,npc,resources(world).filter(r=>{
+  const def=r.sourceId?naturalSource(r.sourceId):undefined;
+  return def?.growthMode==="single_harvest"&&r.life?.stage==="old"&&free>def.seedsPerHarvest;
+ }),"Colhendo safra","Colher cultura envelhecida antes de perder a safra","resource.harvest");
+ if(ripe)return {...ripe,domain:"farming"};
  // New work is chosen by affinities; no trait can bypass survival or valid physical actions.
  const farming=plantingTask(world,npc);
  const demanded=choosePreferred(npc,[farming,construction.work,production,construction.source,equipment,deadwoodTask(world,npc)]);
@@ -356,7 +363,7 @@ function rest(world:World,npc:Character,execute:ActionHandler):boolean {
  npc.ai??={activity:null,reason:"",route:[],lastDecisionTick:world.tick,history:[]};
  npc.ai.resting=true;
  // Continue resting until both energy and injury recovery goals are met.
- if(npc.energy>=NPC_REST_RECOVER_TO&&(npc.health>=65||(npc.health<65&&(npc.satiety??100)<=20))){
+ if(npc.energy>=NPC_REST_RECOVER_TO&&(npc.health>=65||(npc.satiety??100)<=25)){
   npc.ai.resting=false;releaseBed(world,npc);return false;
  }
  let house=reservedHouse(world,npc);
@@ -371,6 +378,9 @@ function rest(world:World,npc:Character,execute:ActionHandler):boolean {
   for(const entry of reachable){
    if(reserveBed(world,npc,entry.target)){house=entry.target;route=entry.route;break;}
   }
+ }
+ if(house&&route&&route.length>1&&npc.energy<=0){
+  releaseBed(world,npc);house=undefined;route=null;
  }
  if(house&&route&&route.length>1){
   const next=route[1];
@@ -440,6 +450,16 @@ export function advanceNpcDecisions(world:World,execute:ActionHandler):void {
    }
    const task=npc.energy>0?foodTask(world,npc):null;
    if(task){releaseBed(world,npc);npc.ai&&(npc.ai.resting=false);executeTask(world,npc,task,execute);continue;}
+  }
+  // An injured NPC needs nutrition to recover; do not wait for severe hunger.
+  if(npc.health<=35&&npc.energy>0&&(npc.satiety??100)>EAT_THRESHOLD&&(npc.satiety??100)<65){
+   const edible=Object.values(FOOD_ITEMS).find(food=>(npc.inventory?.[food.id]??0)>0);
+   if(edible){
+    const result=execute({commandId:"ai-recovery-eat-"+world.tick+"-"+npc.id,worldId:world.id,actorRole:"npc",actorId:npc.id,action:"npc.eat",targetId:npc.id,parameters:{itemId:edible.id}});
+    record(npc,world,result.ok?"Alimentando-se":"Aguardando alimento","Nutrição para recuperar saúde");continue;
+   }
+   const task=foodTask(world,npc);
+   if(task){releaseBed(world,npc);executeTask(world,npc,task,execute);continue;}
   }
   if(rest(world,npc,execute))continue;
   if((npc.satiety??100)<=10){
