@@ -21,6 +21,7 @@ export const NPC_REST_THRESHOLD=20;
 export const NPC_REST_RECOVER_TO=80;
 export const NPC_REST_GAIN=4; // resting outside a house, tuned by endurance; beds recover faster
 const CARRY_LIMIT=12;
+const FOOD_RESERVE_SATIETY=35;
 type ActionHandler=(command:Command)=>Result;
 type Task={
  target:Entity; route:Position[]; activity:string; reason:string;
@@ -141,13 +142,16 @@ function storedCargo(world:World,npc:Character):Task|null {
  const inventory=npc.inventory??{},warehouses=depots(world).filter(d=>d.blueprintId==="building.depot");
  for(const [item,quantity] of Object.entries(inventory)){
   if(quantity<=0||!ITEMS[item])continue;
+  // Keep a small personal food reserve; surplus remains available for collective storage.
+  const reserve=Object.hasOwn(FOOD_ITEMS,item)?Math.min(quantity,Math.ceil(FOOD_RESERVE_SATIETY/FOOD_ITEMS[item].satiety)):0;
+  if(quantity<=reserve)continue;
   // Keep seeds needed by an existing plot in hand until planting has been attempted.
   if(ITEMS[item].category==="seed"&&world.entities.some(e=>e.kind==="planting_zone"&&
     naturalSource(e.sourceId)?.seedItem===item&&reachablePlots(world,npc,e).length>0))continue;
   const task=selectTask(world,npc,warehouses.filter(d=>acceptedBy(d,item)&&storageFree(d)>0),
    "Armazenando recursos","Armazenar "+quantity+" "+ITEMS[item].label+
    " com transporte físico","storage.deposit",
-   d=>({materialId:item,quantity:Math.min(quantity,storageFree(d as Construction))}));
+   d=>({materialId:item,quantity:Math.min(quantity-reserve,storageFree(d as Construction))}));
   if(task)return {...task,domain:"hauling"};
  }
  return null;
