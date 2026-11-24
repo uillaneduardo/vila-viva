@@ -18,6 +18,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22.18.0'
+      - name: Install runtime dependencies
+        run: npm install --no-package-lock --ignore-scripts
       - name: Run domain, effects, localization, renderer and API tests
         run: node --experimental-strip-types --test tests/*.test.mts
       - name: Measure deterministic community baseline (15000 ticks)
@@ -36,7 +38,7 @@ jobs:
         run: |
           node --check apps/shared-ui/app.js
           node --check packages/i18n/src/index.js
-          for source in packages/renderer/src/*.js packages/ui/src/*.js packages/ui/assets/*.js packages/ui/assets/icons/*.js packages/ui/assets/themes/*.js; do
+          for source in packages/protocol/src/*.js packages/client-sdk/src/*.js packages/renderer/src/*.js packages/ui/src/*.js packages/ui/assets/*.js packages/ui/assets/icons/*.js packages/ui/assets/themes/*.js; do
             node --check "$source"
           done
   image_smoke:

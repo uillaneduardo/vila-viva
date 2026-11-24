@@ -4,6 +4,7 @@ ENV NODE_ENV=production HOST=0.0.0.0 PORT=8086
 ARG SOURCE_SHA=unknown
 ENV SOURCE_SHA=${SOURCE_SHA}
 COPY --chown=node:node package.json ./
+RUN npm install --omit=dev --no-package-lock --ignore-scripts
 COPY --chown=node:node apps ./apps
 COPY --chown=node:node packages ./packages
 COPY --chown=node:node public ./public
