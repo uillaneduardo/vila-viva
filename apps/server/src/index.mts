@@ -1,3 +1,4 @@
+import {TimingMetrics} from "./timing-metrics.mts";
 import {displayText} from "../../../packages/domain/src/localization.ts";
 import {baseRegistry,RESOURCE_PRESETS} from "../../../packages/content/src/catalog.ts";
 import {EFFECTS} from "../../../packages/content/src/effects/catalog.ts";
@@ -74,6 +75,8 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
   store?.switchWorld(world,options.seed);
   initialize(options.seed);
  }
+ const timings=new TimingMetrics();
+ let lastTickAt:number|null=null;
  let publishRevision=()=>{};
  const executeCommand=(command:Command)=>{
   const actions:AcceptedAction[]=[];
@@ -83,15 +86,17 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
  };
  const progressOneTick=()=>{
   const actions:AcceptedAction[]=[];
-  advanceTick(world,a=>actions.push(a));
-  store?.commit(world,world.seed,actions);publishRevision();
+  const now=performance.now();if(lastTickAt!==null)timings.record("tickInterval",now-lastTickAt);lastTickAt=now;
+  timings.measure("simulation",()=>advanceTick(world,a=>actions.push(a)));
+  timings.measure("persistence",()=>store?.commit(world,world.seed,actions));
+  timings.measure("publish",()=>publishRevision());
  };
  const clockView=()=>({speed:clock.speed,paused:clock.speed===0,tick:world.tick,day:1+Math.floor(world.tick/240),hour:Math.floor(world.tick/10)%24,minute:(world.tick%10)*6});
  // Tick is independent from browser refresh. Command-triggered ticks remain
  // a known M1 migration debt and are not hidden as a completed gameplay loop.
  let phase=0;
  const timer=setInterval(()=>{
-  if(clock.speed===0){phase=0;return;}
+  if(clock.speed===0){phase=0;lastTickAt=null;return;}
   phase+=clock.speed;
   if(phase<4)return;
   phase-=4;
@@ -386,10 +391,10 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
    json(res,500,{error:"INTERNAL_ERROR"});
   }
  });
- const stream=attachWorldStream(server,projectWorld,()=>generation);
+ const stream=attachWorldStream(server,()=>timings.measure('projection',projectWorld),()=>generation);
  publishRevision=stream.publish;
  server.on("close",()=>clearInterval(timer));
- return {server,get world(){return world;},clock,store};
+ return {server,get world(){return world;},clock,store,timings};
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  const {server}=makePrototype({dataDir:process.env.OTURO_DATA_DIR,
