@@ -2,7 +2,7 @@ import type {World,Character,Entity,Resource,Construction,Command,Result,Positio
 import {canEnter,blockingEntity} from "../../collision/src/index.ts";
 import {routeToEntity,routeCost} from "../../pathfinding/src/index.ts";
 import {materialsRemaining,hasMaterials,storageDefinition,storageFree} from "../../construction/src/index.ts";
-import {bedsIn,reservationCount,reserveBed,reservedHouse,releaseBed,sleepRecovery} from "../../housing/src/index.ts";
+import {bedsIn,reservationCount,reserveBed,reservedHouse,releaseBed,enterHouse,sleepRecovery} from "../../housing/src/index.ts";
 import {EAT_THRESHOLD} from "../../needs/src/index.ts";
 import {FOOD_ITEMS} from "../../../content/src/foods.ts";
 import {naturalSource} from "../../../content/src/natural-sources.ts";
@@ -39,7 +39,7 @@ const sites=(world:World):Construction[]=>
 function selectTask(world:World,npc:Character,targets:Entity[],activity:string,reason:string,
  action:Command["action"],parameters?:(e:Entity)=>Record<string,unknown>|undefined):Task|null {
  const reachable=targets.map(target=>{
-  const route=routeToEntity(world,npc.position,target,npc.id);
+  const route=routeToEntity(world,npc.position,target,npc.id,action==="nature.cut");
   return route?{target,route}:null;
  }).filter((item):item is {target:Entity;route:Position[]}=>!!item);
  reachable.sort((a,b)=>routeCost(world,a.route,npc.id)-routeCost(world,b.route,npc.id)||a.target.id.localeCompare(b.target.id));
@@ -69,7 +69,7 @@ function plantingTask(world:World,npc:Character):Task|null {
    const deadTrees=world.entities.filter((e):e is Resource=>e.kind==="resource"&&
     e.plantedInZoneId===zone.id&&e.sourceId==="apple_tree"&&
     (e.life?.stage==="old"||e.life?.stage==="dead"));
-   if(free>=4){
+   {
     const clear=selectTask(world,npc,deadTrees,"Renovando pomar",
      "Macieira envelhecida: aproveitar madeira e liberar espaço","nature.cut");
     if(clear)return {...clear,domain:"farming"};
@@ -267,7 +267,6 @@ function stockpileTask(world:World,npc:Character):Task|null {
 }
 /** Dead wood is a physical resource even outside cultivated zones. */
 function deadwoodTask(world:World,npc:Character):Task|null{
- if(CARRY_LIMIT-load(npc)<4)return null;
  const trees=world.entities.filter((e):e is Resource=>e.kind==="resource"&&
   e.sourceId==="apple_tree"&&e.life?.stage==="dead");
  const task=selectTask(world,npc,trees,"Cortando madeira seca","Remover macieira morta e recuperar madeira","nature.cut");
@@ -317,9 +316,10 @@ function choose(world:World,npc:Character):Task|null{
  }),"Colhendo safra","Colher cultura envelhecida antes de perder a safra","resource.harvest");
  if(ripe)return {...ripe,domain:"farming"};
  // New work is chosen by affinities; no trait can bypass survival or valid physical actions.
+ const deadwood=deadwoodTask(world,npc);if(deadwood)return deadwood;
  const farming=plantingTask(world,npc);
  const mine=selectTask(world,npc,world.entities.filter(e=>e.kind==="construction"&&e.blueprintId==="building.mine"&&storageFree(e)>0&&Object.values(e.mineRemaining??{}).some(n=>n>0)),"Operando mina","Extrair depósito subterrâneo finito","mine.extract",e=>({materialId:Object.keys((e as Construction).mineRemaining??{}).find(k=>((e as Construction).mineRemaining?.[k]??0)>0)}));
- const demanded=choosePreferred(npc,[mine?{...mine,domain:"mining"}:null,farming,construction.work,production,construction.source,equipment,deadwoodTask(world,npc)]);
+ const demanded=choosePreferred(npc,[mine?{...mine,domain:"mining"}:null,farming,construction.work,production,construction.source,equipment]);
  return demanded??stockpileTask(world,npc);
 }
 function record(npc:Character,world:World,activity:string|null,reason:string,targetId?:string,route:Position[]=[]){
@@ -422,8 +422,8 @@ function rest(world:World,npc:Character,execute:ActionHandler):boolean {
   return true;
  }
  if(house)reserveBed(world,npc,house);
- const sheltered=!!house;
- const gain=sleepRecovery(world,npc,house);
+ const sheltered=!!house&&enterHouse(world,npc,house);
+ const gain=sleepRecovery(world,npc,sheltered?house:undefined);
  npc.energy=Math.min(100,npc.energy+gain);
  // Healing is owned by systems/health; never double-apply during rest.
  record(npc,world,sheltered?"Dormindo":"Descansando",
@@ -471,6 +471,7 @@ export function advanceNpcDecisions(world:World,execute:ActionHandler):void {
   if((npc.satiety??100)<=EAT_THRESHOLD){
    const edible=Object.values(FOOD_ITEMS).find(food=>(npc.inventory?.[food.id]??0)>0);
    if(edible){
+    releaseBed(world,npc);
     const result=execute({commandId:"ai-eat-"+world.tick+"-"+npc.id,worldId:world.id,
      actorRole:"npc",actorId:npc.id,action:"npc.eat",targetId:npc.id,parameters:{itemId:edible.id}});
     record(npc,world,result.ok?"Alimentando-se":"Aguardando alimento",
@@ -484,6 +485,7 @@ export function advanceNpcDecisions(world:World,execute:ActionHandler):void {
   if(npc.health<=35&&npc.energy>0&&(npc.satiety??100)>EAT_THRESHOLD&&(npc.satiety??100)<65){
    const edible=Object.values(FOOD_ITEMS).find(food=>(npc.inventory?.[food.id]??0)>0);
    if(edible){
+    releaseBed(world,npc);
     const result=execute({commandId:"ai-recovery-eat-"+world.tick+"-"+npc.id,worldId:world.id,actorRole:"npc",actorId:npc.id,action:"npc.eat",targetId:npc.id,parameters:{itemId:edible.id}});
     record(npc,world,result.ok?"Alimentando-se":"Aguardando alimento","Nutrição para recuperar saúde");continue;
    }

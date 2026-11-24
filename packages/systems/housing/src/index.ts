@@ -29,6 +29,7 @@ function removeShelterBuff(npc:Character):void {
  if(entry)removeEffect(npc,entry.instanceId);
 }
 export function releaseBed(world:World,npc:Character):void {
+ delete npc.sleepingInId;
  for(const entity of world.entities)
   if(entity.kind==="construction"&&entity.bedReservations?.[npc.id])delete entity.bedReservations[npc.id];
  removeShelterBuff(npc);
@@ -36,7 +37,7 @@ export function releaseBed(world:World,npc:Character):void {
 export function clearHouse(world:World,house:Construction):void {
  for(const id of Object.keys(house.bedReservations??{})){
   const npc=world.entities.find((entity):entity is Character=>entity.kind==="character"&&entity.id===id);
-  if(npc){removeShelterBuff(npc);if(npc.ai)npc.ai.resting=false;}
+  if(npc){delete npc.sleepingInId;removeShelterBuff(npc);if(npc.ai)npc.ai.resting=false;}
  }
  for(const npc of world.entities)if(npc.kind==="character"&&npc.homeId===house.id)delete npc.homeId;
  house.residents=[];house.bedReservations={};
@@ -49,7 +50,7 @@ export function pruneBeds(world:World):void {
    const npc=world.entities.find(e=>e.id===id&&e.kind==="character");
    if(record.expiresTick<world.tick||!npc||npc.kind!=="character"||npc.health<=0){
     delete entity.bedReservations[id];
-    if(npc?.kind==="character")removeShelterBuff(npc);
+    if(npc?.kind==="character"){delete npc.sleepingInId;removeShelterBuff(npc);}
    }
   }
  }
@@ -65,9 +66,13 @@ export function reserveBed(world:World,npc:Character,house:Construction):boolean
  house.bedReservations[npc.id]={expiresTick:world.tick+BED_RESERVATION_TTL};
  return true;
 }
+export function enterHouse(world:World,npc:Character,house:Construction):boolean {
+ if(npc.health<=0||reservedHouse(world,npc)?.id!==house.id||!nearFootprint(npc.position,house))return false;
+ npc.sleepingInId=house.id;return true;
+}
 export function sleepRecovery(world:World,npc:Character,house?:Construction):number {
  const valid=house&&!!house.bedReservations?.[npc.id]&&bedsIn(house)>0&&
-  nearFootprint(npc.position,house);
+  npc.sleepingInId===house.id&&nearFootprint(npc.position,house);
  if(valid){
   applyEffect(npc,"well_sheltered",house.id,world.tick,"housing:rest:"+npc.id);
   const def=buildingBlueprint(house.blueprintId);

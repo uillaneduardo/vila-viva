@@ -45,7 +45,7 @@ export class Scene {
  setBrush(brush){this.brush=brush;}
  pick(x,y){
   if(!this.world)return null;
-  const entities=this.world.entities.filter(e=>!e.bodyCarriedBy);
+  const entities=this.world.entities.filter(e=>!e.bodyCarriedBy&&!e.sleepingInId);
   if(!this.positionProvider)return hitTest(entities,this.camera,x,y);
   const now=performance.now(),picked=hitTest(entities.map(e=>e.kind==='character'?{...e,position:this.positionProvider(e,now)}:e),this.camera,x,y);
   return picked?entities.find(e=>e.id===picked.id):null;
@@ -100,8 +100,9 @@ export class Scene {
   const opacityFor=createOcclusionResolver(this.world.entities,e=>this.positionProvider?this.positionProvider(e,now):e.position);
   // Only real entities from /api/world are visualized. No fake houses, stocks or paths.
   const positionFor=e=>this.positionProvider?this.positionProvider(e,now):e.position;
-  const drawPlan=this.entityPlanner?this.entityPlanner(this.world.entities,positionFor,{x0,y0,x1,y1}):
-   this.world.entities.filter(e=>e.kind!=='item'&&e.kind!=='planting_zone'&&
+  const visible=this.world.entities.filter(e=>!e.sleepingInId);
+  const drawPlan=this.entityPlanner?this.entityPlanner(visible,positionFor,{x0,y0,x1,y1}):
+   visible.filter(e=>e.kind!=='item'&&e.kind!=='planting_zone'&&
    !(e.kind==='character'&&e.bodyCarriedBy)&&
    !(e.kind==='construction'&&e.blueprintId==='building.cemetery'&&e.status==='completed')).sort((a,b)=>(a.position.y+(a.kind==='construction'?a.footprint.height:1))-(b.position.y+(b.kind==='construction'?b.footprint.height:1))).map(entity=>({entity,pos:positionFor(entity)}));
   for(const row of drawPlan){
