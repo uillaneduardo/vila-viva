@@ -19,6 +19,11 @@ import {resolve,extname,sep} from "node:path";
 import {fileURLToPath} from "node:url";
 import {createWorld,applyCommand,advanceTick} from "../../../packages/engine/src/engine.ts";
 import {availableActions} from "../../../packages/engine/src/capabilities.ts";
+import {FileWorldStore} from "./world-store.mts";
+import {bootstrapSeededWorld} from "../../../packages/content/src/world-seeds.ts";
+import {parseSnapshot,MAX_SNAPSHOT_BYTES} from "../../../packages/protocol/src/world-snapshot.ts";
+import type {AcceptedAction} from "../../../packages/domain/src/activity.ts";
+import {LEADERSHIP_PROJECTS} from "../../../packages/content/src/leadership.ts";
 import type {Command,Role,Position} from "../../../packages/domain/src/contracts.ts";
 
 // Explicit opt-in homologation server. There is no authentication/RBAC yet.
@@ -26,26 +31,60 @@ import type {Command,Role,Position} from "../../../packages/domain/src/contracts
 const root=resolve(fileURLToPath(new URL("../../../",import.meta.url)));
 const host=process.env.HOST||"127.0.0.1";
 const port=Number(process.env.PORT||8086);
-export function makePrototype(){
- const world=createWorld("first-world",24,16);
- const init=(action:Command["action"],commandId:string,position:Position,parameters:Record<string,unknown>)=>
-   applyCommand(world,{worldId:world.id,actorRole:"admin",commandId,action,position,parameters});
- init("npc.spawn","player-init",{x:4,y:5},{name:"Meu personagem",ownerId:"local-player"});
- init("npc.spawn","npc-init",{x:13,y:9},{name:"Ayla"});
- init("resource.spawn","wood-init",{x:7,y:8},{resourceType:"wood",quantity:30});
- const playerId="npc-player-init";
- const clock={speed:1 as 0|1|2|4};
+export function makePrototype(options:{dataDir?:string;seed?:string}={}){
+ const store=options.dataDir?new FileWorldStore(options.dataDir):null;
+ const restored=store?.loadActive();
+ let world=restored?structuredClone(restored.world):createWorld("first-world",24,16);
+ const clock={speed:0 as 0|1|2|4};
+ const playerId=()=>world.entities.find(e=>e.kind==="character"&&e.ownerId==="local-player")?.id??null;
+ const init=(action:Command["action"],commandId:string,position:Position,parameters:Record<string,unknown>)=>{
+  const actions:AcceptedAction[]=[];
+  const result=applyCommand(world,{worldId:world.id,actorRole:"admin",commandId,action,position,parameters},
+   {onAction:a=>actions.push(a)});
+  if(!result.ok)throw Error("BOOTSTRAP_FAILED:"+commandId+":"+result.error);
+  store?.commit(world,world.seed,actions);
+  return result;
+ };
+ const initialize=(seed?:string)=>{
+  if(seed){
+   bootstrapSeededWorld(world,seed,command=>init(command.action,command.commandId,command.position,command.parameters));
+  }else{
+   init("npc.spawn","player-init",{x:4,y:5},{name:"Meu personagem",ownerId:"local-player"});
+   init("npc.spawn","npc-init",{x:13,y:9},{name:"Ayla"});
+   init("resource.spawn","wood-init",{x:7,y:8},{resourceType:"wood",quantity:30});
+  }
+ };
+ if(!restored){
+  store?.switchWorld(world,options.seed);
+  initialize(options.seed);
+ }
+ const executeCommand=(command:Command)=>{
+  const actions:AcceptedAction[]=[];
+  const result=applyCommand(world,command,{onAction:a=>actions.push(a)});
+  if(result.ok)store?.commit(world,world.seed,actions);
+  return result;
+ };
+ const progressOneTick=()=>{
+  const actions:AcceptedAction[]=[];
+  advanceTick(world,a=>actions.push(a));
+  store?.commit(world,world.seed,actions);
+ };
  const clockView=()=>({speed:clock.speed,paused:clock.speed===0,tick:world.tick,day:1+Math.floor(world.tick/240),hour:Math.floor(world.tick/10)%24,minute:(world.tick%10)*6});
  // Tick is independent from browser refresh. Command-triggered ticks remain
  // a known M1 migration debt and are not hidden as a completed gameplay loop.
- const timer=setInterval(()=>{for(let i=0;i<clock.speed;i++)advanceTick(world);},250);
+ const timer=setInterval(()=>{
+  if(clock.speed===0)return;
+  try{for(let i=0;i<clock.speed;i++)progressOneTick();}
+  catch(error){clock.speed=0;console.error("Simulation paused: persistence failed",error);}
+ },250);
  timer.unref();
  const json=(res:import("node:http").ServerResponse,status:number,data:unknown)=>{
   res.writeHead(status,{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"});
   res.end(JSON.stringify(data));
  };
  const readBody=async(req:import("node:http").IncomingMessage)=>{
-  let raw="";for await(const part of req){raw+=part.toString();if(raw.length>65536)throw Error("BODY_TOO_LARGE");}
+  const limit=req.url?.startsWith("/api/world/import")?MAX_SNAPSHOT_BYTES+1024:65536;
+  let raw="";for await(const part of req){raw+=part.toString();if(Buffer.byteLength(raw)>limit)throw Error("BODY_TOO_LARGE");}
   try{return JSON.parse(raw);}catch{throw Error("INVALID_JSON");}
  };
  const server=createServer(async(req,res)=>{
@@ -55,6 +94,72 @@ export function makePrototype(){
    if(url.pathname==="/version.txt"){
     res.writeHead(200,{"content-type":"text/plain; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"});
     return res.end(req.method==="HEAD"?"":(process.env.SOURCE_SHA||"development")+"\n");
+   }
+   if(url.pathname==="/api/world/export"&&req.method==="GET"){
+    const snapshot=store?.snapshot(world,world.seed)??{
+     formatVersion:1,savedAt:new Date().toISOString(),timelineId:"00000000-0000-4000-8000-000000000000",
+     lastSequence:0,world:structuredClone(world),clock:{speed:0}};
+    res.writeHead(200,{"content-type":"application/json; charset=utf-8",
+     "cache-control":"no-store","content-disposition":'attachment; filename="oturo-world-'+world.tick+'.json"'});
+    return res.end(JSON.stringify(snapshot,null,2));
+   }
+   if(url.pathname==="/api/world/saves"&&req.method==="GET")
+    return json(res,200,{saves:store?.listSaves()??[],persistent:!!store});
+   if(url.pathname==="/api/world/save"&&req.method==="POST"){
+    const input=await readBody(req);
+    if(input?.role!=="admin")return json(res,403,{error:"UNAUTHORIZED"});
+    if(!store)return json(res,409,{error:"PERSISTENCE_DISABLED"});
+    if(typeof input.name!=="string"||!/^[a-zA-Z0-9][\\w-]{0,63}$/.test(input.name))
+     return json(res,422,{error:"INVALID_SAVE_NAME"});
+    store.commit(world,world.seed);
+    const saved=store.saveNamed(input.name,world,world.seed);
+    return json(res,200,{name:input.name,tick:saved.world.tick,savedAt:saved.savedAt});
+   }
+   if(url.pathname==="/api/world/logs"&&req.method==="GET")
+    return json(res,200,{logs:store?.listLogs()??[],timelineId:store?.timelineId??null});
+   if(url.pathname==="/api/world/activity"&&req.method==="GET")
+    return json(res,200,{ticks:store?.recentLog(Number(url.searchParams.get("limit")||80))??[],
+     timelineId:store?.timelineId??null});
+   if(url.pathname==="/api/world/activity/export"&&req.method==="GET"){
+    if(!store)return json(res,409,{error:"PERSISTENCE_DISABLED"});
+    const timelineId=url.searchParams.get("timeline")??store.timelineId;
+    const log=store.getLog(timelineId);
+    res.writeHead(200,{"content-type":"application/x-ndjson; charset=utf-8",
+     "cache-control":"no-store","content-disposition":'attachment; filename="oturo-activity-'+timelineId+'.jsonl"'});
+    return res.end(log);
+   }
+   const isLoad=url.pathname==="/api/world/load"||url.pathname==="/api/world/import";
+   if(isLoad&&req.method==="POST"){
+    const input=await readBody(req);
+    if(input?.role!=="admin")return json(res,403,{error:"UNAUTHORIZED"});
+    if(!store)return json(res,409,{error:"PERSISTENCE_DISABLED"});
+    let loaded;
+    if(url.pathname==="/api/world/load"){
+     if(typeof input.name!=="string")return json(res,422,{error:"INVALID_SAVE_NAME"});
+     loaded=store.loadNamed(input.name);
+    }else{
+     if(!input.snapshot||typeof input.snapshot!=="object")return json(res,422,{error:"INVALID_SNAPSHOT"});
+     loaded=parseSnapshot(JSON.stringify(input.snapshot));
+    }
+    clock.speed=0;
+    const restoredWorld=structuredClone(loaded.world);
+    store.switchWorld(restoredWorld,loaded.seed??restoredWorld.seed);
+    world=restoredWorld;
+    return json(res,200,{ok:true,worldId:world.id,tick:world.tick,paused:true,
+     timelineId:store.timelineId});
+   }
+   if(url.pathname==="/api/world/new"&&req.method==="POST"){
+    const input=await readBody(req);
+    if(input?.role!=="admin")return json(res,403,{error:"UNAUTHORIZED"});
+    const seed=input.seed;
+    if(seed!==undefined&&(typeof seed!=="string"||!seed.trim()||seed.length>80))
+     return json(res,422,{error:"INVALID_SEED"});
+    clock.speed=0;
+    const next=createWorld("first-world",24,16);
+    if(store)store.switchWorld(next,seed);
+    world=next;
+    initialize(seed);
+    return json(res,200,{ok:true,tick:world.tick,paused:true,seed:seed??null});
    }
    if(url.pathname==="/api/catalog"&&req.method==="GET")return json(res,200,{
     locale:"pt-BR",
@@ -77,7 +182,8 @@ export function makePrototype(){
       growthMode:s.growthMode,production:s.production,stages:s.stages,blocksMovement:s.blocksMovement
      }])),
     foods:Object.fromEntries(Object.values(FOOD_ITEMS).map(f=>[f.id,{label:f.label,satiety:f.satiety}])),
-    scenery:Object.fromEntries(Object.values(SCENERY_PRESETS).map(s=>[s.id,s.label]))
+    scenery:Object.fromEntries(Object.values(SCENERY_PRESETS).map(s=>[s.id,s.label])),
+    leadershipProjects:LEADERSHIP_PROJECTS
    });
    if(url.pathname==="/api/world"&&req.method==="GET"){
     const depots=world.entities.filter(e=>e.kind==="construction"&&!!storageDefinition(e));
@@ -91,7 +197,8 @@ export function makePrototype(){
      activity:e.ai?.activity??null,reason:e.ai?.reason??"Sem tarefa",route:e.ai?.route??null,
      targetId:e.ai?.targetId??null
     }])),
-    playerId,mode:"local-prototype",persistent:false});
+    playerId:playerId(),mode:"local-prototype",persistent:!!store,
+    timelineId:store?.timelineId??null});
    }
    if(url.pathname==="/api/inspect"&&req.method==="GET"){
     const entity=world.entities.find(e=>e.id===url.searchParams.get("entityId"));
@@ -106,6 +213,7 @@ export function makePrototype(){
       route:entity.kind==="character"?entity.ai?.route??null:null,
       reason:entity.kind==="character"?entity.ai?.reason??"Sem tarefa":null,
       inventory:entity.kind==="character"?(entity.inventory??{}):null,
+      leadership:entity.kind==="character"?entity.leadership??null:null,
       survival:entity.kind==="character"?{
        satiety:entity.satiety??100,equipment:entity.equipment??{},injuries:entity.injuries??0,
        risk:{
@@ -152,6 +260,7 @@ export function makePrototype(){
     if(input?.role!=="admin")return json(res,403,{error:"UNAUTHORIZED"});
     if(![0,1,2,4].includes(input.speed))return json(res,422,{error:"INVALID_PAYLOAD"});
     clock.speed=input.speed;
+    store?.commit(world,world.seed);
     return json(res,200,{clock:clockView()});
    }
    if(url.pathname==="/api/actions"&&req.method==="GET"){
@@ -167,9 +276,9 @@ export function makePrototype(){
     const role:Role=input.role==="admin"?"admin":input.role==="npc"?"npc":"player";
     const command:Command={worldId:world.id,commandId:input.commandId,actorRole:role,
       actorId:role==="player"?"local-player":role==="npc"?input.actorId:undefined,
-      action:input.action,targetId:role==="player"&&input.action==="movement.move"?playerId:input.targetId,
+      action:input.action,targetId:role==="player"&&input.action==="movement.move"?playerId():input.targetId,
       position:input.position,parameters:input.parameters};
-    const result=applyCommand(world,command);
+    const result=executeCommand(command);
     return json(res,result.ok?200:422,{result,world,clock:clockView()});
    }
    if(url.pathname==="/api/brush"&&req.method==="POST"){
@@ -181,7 +290,8 @@ export function makePrototype(){
      if(!c||typeof c.commandId!=="string"||!/^[-\w]{1,80}$/.test(c.commandId))return json(res,422,{error:"INVALID_PAYLOAD"});
      if(c.action!=="npc.spawn"&&c.action!=="resource.spawn"&&c.action!=="obstacle.spawn"&&c.action!=="construction.place"&&c.action!=="farming.zone.create")return json(res,422,{error:"INVALID_PAYLOAD"});
     }
-    for(const c of input.commands)results.push(applyCommand(world,{worldId:world.id,actorRole:"admin",commandId:c.commandId,action:c.action,position:c.position,parameters:c.parameters}));
+    for(const c of input.commands)results.push(executeCommand({worldId:world.id,actorRole:"admin",
+     commandId:c.commandId,action:c.action,position:c.position,parameters:c.parameters}));
     return json(res,200,{results,world,clock:clockView()});
    }
    if(req.method!=="GET"&&req.method!=="HEAD")return json(res,405,{error:"METHOD_NOT_ALLOWED"});
@@ -201,6 +311,9 @@ export function makePrototype(){
    res.end(req.method==="HEAD"?undefined:bytes);
   }catch(e){
    const error=(e as Error).message;
+   if(["INVALID_SAVE_NAME","INVALID_TIMELINE","INVALID_SNAPSHOT","INVALID_WORLD",
+      "SNAPSHOT_TOO_LARGE","INVALID_SEED"].includes(error))
+    return json(res,422,{error});
    if(error==="BODY_TOO_LARGE")return json(res,413,{error});
    if(error==="INVALID_JSON")return json(res,400,{error});
    if((e as NodeJS.ErrnoException).code==="ENOENT")return json(res,404,{error:"NOT_FOUND"});
@@ -208,9 +321,10 @@ export function makePrototype(){
   }
  });
  server.on("close",()=>clearInterval(timer));
- return {server,world,clock};
+ return {server,get world(){return world;},clock,store};
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
- const {server}=makePrototype();
+ const {server}=makePrototype({dataDir:process.env.OTURO_DATA_DIR,
+  seed:process.env.OTURO_WORLD_SEED});
  server.listen(port,host,()=>console.log("Sandbox preview: http://"+host+":"+port+" (admin: /admin; local only)"));
 }
