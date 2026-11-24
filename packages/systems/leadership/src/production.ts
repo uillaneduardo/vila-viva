@@ -26,7 +26,7 @@ export function productionNeeds(world:World):Array<{item:string;desired:number;a
  });
 }
 export function planProduction(world:World):ProductionIntent|null{
- const workshops=world.entities.filter((e):e is Construction=>e.kind==="construction"&&!!productionDefinition(e));
+ const workshops=world.entities.filter((e):e is Construction=>e.kind==="construction"&&e.blueprintId==="building.workshop"&&!!productionDefinition(e));
  if(!workshops.length||workshops.every(e=>!!activeOrder(e)))return null;
  const needed=productionNeeds(world).find(n=>n.missing>0);
  if(!needed)return null;
