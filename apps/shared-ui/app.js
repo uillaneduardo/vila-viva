@@ -335,7 +335,7 @@ const touchPointer=e=>e.pointerType==='touch';
 scene.canvas.addEventListener('pointerdown',e=>{
  if(!touchPointer(e))return;
  e.preventDefault();scene.canvas.setPointerCapture(e.pointerId);
- clearTouchPreview();touch.down(e.pointerId,eventCoordinates(e));
+ pan=null;scene.canvas.classList.remove('dragging');clearTouchPreview();touch.down(e.pointerId,eventCoordinates(e));
 });
 scene.canvas.addEventListener('pointermove',e=>{
  if(touchPointer(e))touch.move(e.pointerId,eventCoordinates(e));
@@ -345,10 +345,7 @@ scene.canvas.addEventListener('pointerup',e=>{
 });
 scene.canvas.addEventListener('pointercancel',e=>{if(touchPointer(e))touch.abort();});
 scene.canvas.addEventListener('lostpointercapture',e=>{
- if(touchPointer(e)&&touch.active) {
-  // A normal release has already removed this ID. Only abort unexpected loss.
-  if(e.buttons!==0)touch.abort();
- }
+ if(touchPointer(e)&&touch.has(e.pointerId))touch.abort();
 });
 addEventListener('blur',()=>touch.abort());
 const compactUi=matchMedia('(max-width: 740px), (pointer: coarse) and (max-height: 600px)');
