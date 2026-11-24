@@ -13,6 +13,7 @@ export function makeNaturalSource(id:string,position:Resource["position"],source
 }
 /** Runs from the world's logical tick, not request polling or paint frames. */
 export function advanceNaturalSources(world:World):void {
+ const expired:string[]=[];
  for(const entity of world.entities) {
   if(entity.kind!=="resource"||!entity.sourceId||!entity.life)continue;
   const def=naturalSource(entity.sourceId);
@@ -21,8 +22,18 @@ export function advanceNaturalSources(world:World):void {
   life.ageTicks++;
   life.stage=stageForAge(def,life.ageTicks);
   life.health=healthForAge(def,life.ageTicks);
-  if(life.stage==="dead"){life.productionProgress=0;entity.quantity=0;continue;}
+  if(life.stage==="dead"){
+   life.productionProgress=0;entity.quantity=0;
+   // Annual crops wither and leave the cultivated cell free for reseeding.
+   if(def.growthMode==="single_harvest")expired.push(entity.id);
+   continue;
+  }
   if(life.stage!=="mature"&&life.stage!=="old")continue;
+  if(def.growthMode==="single_harvest"){
+   // One finite harvest; not a regenerating source.
+   if(life.ageTicks===def.stages.mature)entity.quantity=def.production.capacity;
+   continue;
+  }
   life.productionProgress++;
   if(life.productionProgress>=def.production.intervalTicks) {
    life.productionProgress=0;
@@ -30,4 +41,5 @@ export function advanceNaturalSources(world:World):void {
    entity.quantity=Math.min(entity.maximum,entity.quantity+yieldCount);
   }
  }
+ if(expired.length)world.entities=world.entities.filter(e=>!expired.includes(e.id));
 }

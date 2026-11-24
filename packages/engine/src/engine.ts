@@ -3,12 +3,14 @@ import {resolveAttributes} from "../../systems/effects/src/resolver.ts";
 import {baseRegistry,resourcePreset} from "../../content/src/catalog.ts";
 import {sceneryPreset} from "../../content/src/scenery.ts";
 import {naturalSource} from "../../content/src/natural-sources.ts";
+import {foodItem} from "../../content/src/foods.ts";
+import {makeZone,canCreateZone,canPlantAt,plantInZone} from "../../systems/farming/src/index.ts";
 import {makeNaturalSource,advanceNaturalSources} from "../../systems/nature/src/index.ts";
 import {canEnter,orthogonallyAdjacent,canPlaceFootprint} from "../../systems/collision/src/index.ts";
 import {buildingBlueprint} from "../../content/src/buildings/registry.ts";
 import {createConstructionSite,createCompletedBuilding,currentStage,materialsRemaining,hasMaterials,nearFootprint,acceptMaterial,applyConstructionWork,storageDefinition,storageFree} from "../../systems/construction/src/index.ts";
 import {advanceNpcDecisions} from "../../systems/ai/src/index.ts";
-import {advanceNeeds,eatApple,updateNeedEffects} from "../../systems/needs/src/index.ts";
+import {advanceNeeds,eatFood,updateNeedEffects} from "../../systems/needs/src/index.ts";
 import {TOOL_PRESETS,evaluateActionRisk} from "../../systems/risk/src/index.ts";
 import {clearHouse,pruneBeds} from "../../systems/housing/src/index.ts";
 import {inBounds} from "../../domain/src/contracts.ts";
@@ -73,6 +75,58 @@ export function applyCommand(world: World, command: Command,options:{internal?:b
     world.entities.push(resource);
    }
   }
+ } else if(command.action==="farming.zone.create"){
+  if(!admin)return reject(command,"UNAUTHORIZED");
+  const sourceId=command.parameters?.sourceId,width=command.parameters?.width,height=command.parameters?.height;
+  if(typeof sourceId!=="string"||!naturalSource(sourceId)||typeof width!=="number"||typeof height!=="number"||
+    !Number.isSafeInteger(width)||!Number.isSafeInteger(height)||width<1||height<1||width>12||height>12||
+    !command.position)return reject(command,"INVALID_PAYLOAD");
+  if(!inBounds(world,command.position)||!inBounds(world,{x:command.position.x+width-1,y:command.position.y+height-1}))
+   return reject(command,"OUT_OF_BOUNDS");
+  if(!canCreateZone(world,sourceId,command.position,width,height))return reject(command,"BLOCKED");
+  const id="zone-"+command.commandId;eventTargetId=id;
+  world.entities.push(makeZone(id,sourceId,command.position,width,height));
+ } else if(command.action==="farming.zone.remove"){
+  if(!admin)return reject(command,"UNAUTHORIZED");
+  const index=world.entities.findIndex(e=>e.id===command.targetId);
+  if(index<0)return reject(command,"NOT_FOUND");
+  const zone=world.entities[index];
+  if(zone.kind!=="planting_zone")return reject(command,"INVALID_TARGET");
+  world.entities.splice(index,1);
+  for(const e of world.entities)if(e.kind==="resource"&&e.plantedInZoneId===zone.id)delete e.plantedInZoneId;
+ } else if(command.action==="farming.plant"){
+  if(admin)return reject(command,"UNAUTHORIZED");
+  const zone=world.entities.find(e=>e.id===command.targetId);
+  if(!zone)return reject(command,"NOT_FOUND");
+  if(zone.kind!=="planting_zone")return reject(command,"INVALID_TARGET");
+  const species=naturalSource(zone.sourceId),actor=actorForCommand(world,command);
+  if(!actor)return reject(command,"UNAUTHORIZED");
+  if(!species||!command.position)return reject(command,"INVALID_PAYLOAD");
+  if(!inBounds(world,command.position))return reject(command,"OUT_OF_BOUNDS");
+  if(!canPlantAt(world,zone,command.position)||!orthogonallyAdjacent(actor.position,command.position)||
+   actor.health<=0||actor.energy<=0)return reject(command,"BLOCKED");
+  if((actor.inventory?.[species.seedItem]??0)<1)return reject(command,"EXHAUSTED");
+  actor.inventory![species.seedItem]--;
+  actor.energy=Math.max(0,actor.energy-1);
+  const id="plant-"+command.commandId;eventTargetId=id;
+  world.entities.push(plantInZone(world,id,zone,command.position));
+  additionalEvents.push({type:"farming.planted",entityId:id});
+ } else if(command.action==="nature.cut"){
+  if(admin)return reject(command,"UNAUTHORIZED");
+  const index=world.entities.findIndex(e=>e.id===command.targetId);
+  if(index<0)return reject(command,"NOT_FOUND");
+  const tree=world.entities[index];
+  if(tree.kind!=="resource"||tree.sourceId!=="apple_tree"||
+   (tree.life?.stage!=="old"&&tree.life?.stage!=="dead"))return reject(command,"INVALID_TARGET");
+  const actor=actorForCommand(world,command);
+  if(!actor)return reject(command,"UNAUTHORIZED");
+  if(!orthogonallyAdjacent(actor.position,tree.position)||actor.health<=0||actor.energy<=0)
+   return reject(command,"BLOCKED");
+  if(MAX_CARRY_ITEMS-inventoryLoad(actor)<4)return reject(command,"INVENTORY_FULL");
+  actor.inventory??={};actor.inventory.wood=(actor.inventory.wood??0)+4;actor.energy=Math.max(0,actor.energy-1);
+  world.entities.splice(index,1);
+  riskActor=actor;riskActivity="resource.gather:wood";
+  additionalEvents.push({type:"nature.tree_cut",entityId:tree.id});
  } else if(command.action==="construction.place"){
   if(!admin)return reject(command,"UNAUTHORIZED");
   const blueprintId=command.parameters?.blueprintId;
@@ -182,11 +236,17 @@ export function applyCommand(world: World, command: Command,options:{internal?:b
   if(!orthogonallyAdjacent(actor.position,source.position)||actor.health<=0||actor.energy<=0)return reject(command,"BLOCKED");
   if(source.life.stage==="dead"||source.quantity<=0)return reject(command,"EXHAUSTED");
   const free=MAX_CARRY_ITEMS-inventoryLoad(actor);
-  if(free<=0)return reject(command,"INVENTORY_FULL");
-  const take=Math.min(def.production.harvestBatch,source.quantity,free);
+  if(free<=def.seedsPerHarvest)return reject(command,"INVENTORY_FULL");
+  const take=Math.min(def.production.harvestBatch,source.quantity,free-def.seedsPerHarvest);
+  if(take<1)return reject(command,"INVENTORY_FULL");
   source.quantity-=take;
   actor.inventory??={};actor.inventory[def.productId]=(actor.inventory[def.productId]??0)+take;
+  actor.inventory[def.seedItem]=(actor.inventory[def.seedItem]??0)+def.seedsPerHarvest;
   actor.energy=Math.max(0,actor.energy-1);
+  additionalEvents.push({type:"farming.seeds_collected",entityId:source.id});
+  // Vegetables are single-harvest plants. Their plot becomes free immediately after harvest.
+  if(def.growthMode==="single_harvest"&&source.quantity===0)
+   world.entities.splice(world.entities.indexOf(source),1);
   riskActor=actor;riskActivity="resource.harvest";
  } else if(command.action==="construction.destroy"||command.action==="construction.remove"){
   if(!admin)return reject(command,"UNAUTHORIZED");
@@ -219,8 +279,10 @@ export function applyCommand(world: World, command: Command,options:{internal?:b
   if(!actor||actor.id!==command.targetId)return reject(command,"UNAUTHORIZED");
   if(actor.health<=0)return reject(command,"BLOCKED");
   if((actor.satiety??100)>=100)return reject(command,"NOT_READY");
-  if((actor.inventory?.apple??0)<1)return reject(command,"EXHAUSTED");
-  if(!eatApple(actor))return reject(command,"NOT_READY");
+  const itemId=command.parameters?.itemId??"apple";
+  if(typeof itemId!=="string"||!foodItem(itemId))return reject(command,"INVALID_PAYLOAD");
+  if((actor.inventory?.[itemId]??0)<1)return reject(command,"EXHAUSTED");
+  if(!eatFood(actor,itemId))return reject(command,"NOT_READY");
   updateNeedEffects(actor,world.tick);
   additionalEvents.push({type:"npc.ate",entityId:actor.id});
  } else if(command.action==="entity.inspect"){

@@ -1,15 +1,18 @@
 import type {World,Character} from "../../../domain/src/contracts.ts";
 import {applyEffect,removeEffect} from "../../effects/src/manager.ts";
+import {foodItem} from "../../../content/src/foods.ts";
 export const SATIETY_MAX=100;
 export const SATIETY_DECAY_INTERVAL=8;
 export const EAT_THRESHOLD=45;
 export const APPLE_SATIETY=35;
-/** Only real fruit in an inventory may be eaten; needs advance on logical ticks. */
-export function eatApple(npc:Character):boolean {
- if(npc.health<=0||(npc.inventory?.apple??0)<1|| (npc.satiety??100)>=SATIETY_MAX)return false;
- npc.inventory!.apple--;npc.satiety=Math.min(SATIETY_MAX,(npc.satiety??100)+APPLE_SATIETY);
+/** Consumes exactly one real food item from character inventory. */
+export function eatFood(npc:Character,itemId:string):boolean {
+ const item=foodItem(itemId);
+ if(!item||npc.health<=0||(npc.inventory?.[itemId]??0)<1||(npc.satiety??100)>=SATIETY_MAX)return false;
+ npc.inventory![itemId]--;npc.satiety=Math.min(SATIETY_MAX,(npc.satiety??100)+item.satiety);
  return true;
 }
+export const eatApple=(npc:Character)=>eatFood(npc,"apple");
 function syncConditional(npc:Character,definitionId:string,shouldExist:boolean,tick:number):void {
  const id="needs:"+definitionId+":"+npc.id;
  if(shouldExist){

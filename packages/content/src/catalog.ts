@@ -4,12 +4,13 @@ export function createBaseRegistry():DefinitionRegistry {
  for(const definition of [
   {id:"character.human",displayName:{"pt-BR":"Personagem humano"},kind:"character",components:["identity","position","ownership","health","energy","needs","inventory","movement","renderable"],description:"Pessoa física, jogador ou NPC"},
   {id:"resource.wood",displayName:{"pt-BR":"Fonte de madeira"},kind:"resource",components:["position","resourceSource","regeneration","renderable"],description:"Fonte regenerável de madeira"},
-  {id:"resource.food",displayName:{"pt-BR":"Macieira"},kind:"resource",components:["position","resourceSource","regeneration","lifecycle","production","collision","renderable"],description:"Macieira renovável com vida, frutos coletáveis e colisão"},
+  {id:"resource.food",displayName:{"pt-BR":"Cultivo alimentar"},kind:"resource",components:["position","resourceSource","regeneration","lifecycle","production","collision","renderable"],description:"Fontes alimentares definidas por espécie: perenes ou de colheita única"},
   {id:"resource.stone",displayName:{"pt-BR":"Fonte de pedra"},kind:"resource",components:["position","resourceSource","regeneration","renderable"],description:"Fonte regenerável de pedra"},
   {id:"obstacle.scenery",displayName:{"pt-BR":"Obstáculo de cenário"},kind:"obstacle",components:["position","collision","renderable"],description:"Elemento sólido e não coletável do cenário"},
   {id:"storage.depot",displayName:{"pt-BR":"Depósito"},kind:"storage",components:["position","storage","inventory","renderable"],description:"Depósito com capacidade e regras de entrega"},
   {id:"construction.site",displayName:{"pt-BR":"Canteiro de obras"},kind:"construction",components:["position","construction","inventory","renderable"],description:"Canteiro por etapas"},
-  {id:"item.stack",displayName:{"pt-BR":"Pilha de itens"},kind:"item",components:["position","inventory","renderable"],description:"Pilha de itens físicos no mundo"}
+  {id:"item.stack",displayName:{"pt-BR":"Pilha de itens"},kind:"item",components:["position","inventory","renderable"],description:"Pilha de itens físicos no mundo"},
+  {id:"planting.zone",displayName:{"pt-BR":"Zona de cultivo"},kind:"terrain",components:["position","renderable"],description:"Área de plantio sem colisão que recebe mudas mediante sementes reais"}
  ] as const)catalog.registerEntity(definition);
  for(const action of [
   {id:"entity.inspect",displayName:{"pt-BR":"Inspecionar"},roles:["player","npc","admin"],targets:["character","resource","item","storage","construction","terrain"],requires:[],readonly:true,description:"Inspeção autorizada sem alterar o mundo"},
@@ -30,7 +31,11 @@ export function createBaseRegistry():DefinitionRegistry {
   {id:"construction.remove",displayName:{"pt-BR":"Remover construção"},roles:["admin"],targets:["construction"],requires:[],readonly:false,description:"Remover elemento e seu conteúdo do mundo, sem reembolso"},
   {id:"construction.destroy",displayName:{"pt-BR":"Destruir construção"},roles:["admin"],targets:["construction"],requires:[],readonly:false,description:"Desabilitar prédio e deixar ruína sólida no mapa"},
   {id:"npc.admin_equip",displayName:{"pt-BR":"Equipar ferramenta de teste"},roles:["admin"],targets:["character"],requires:[],readonly:false,description:"Definir ferramenta de NPC para homologação de riscos"},
-  {id:"npc.eat",displayName:{"pt-BR":"Comer maçã"},roles:["player","npc"],targets:["character"],requires:["inventory"],readonly:false,description:"Consumir maçã carregada, aumentando saciedade"}
+  {id:"npc.eat",displayName:{"pt-BR":"Alimentar-se"},roles:["player","npc"],targets:["character"],requires:["inventory"],readonly:false,description:"Consumir alimento com regras nutricionais do catálogo"},
+  {id:"farming.zone.create",displayName:{"pt-BR":"Demarcar cultivo"},roles:["admin"],targets:["position"],requires:[],readonly:false,description:"Marcar área atravessável para plantio de espécie registrada"},
+  {id:"farming.zone.remove",displayName:{"pt-BR":"Remover zona de cultivo"},roles:["admin"],targets:["planting_zone"],requires:[],readonly:false,description:"Remover zona sem destruir plantas já cultivadas"},
+  {id:"farming.plant",displayName:{"pt-BR":"Plantar semente"},roles:["npc","player"],targets:["planting_zone"],requires:["position","inventory","energy"],readonly:false,description:"Converter uma semente física em muda na célula livre da zona"},
+  {id:"nature.cut",displayName:{"pt-BR":"Cortar árvore envelhecida"},roles:["npc","player"],targets:["resource"],requires:["position","energy","inventory"],readonly:false,description:"Converter macieira velha ou seca em madeira carregada"}
  ] as const)catalog.registerAction(action);
  return catalog;
 }

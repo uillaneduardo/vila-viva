@@ -5,6 +5,8 @@ import {COMMUNITY_HOUSE} from "../../../packages/content/src/buildings/community
 import {BUILDING_BLUEPRINTS} from "../../../packages/content/src/buildings/registry.ts";
 import {currentStage,materialsRemaining,hasMaterials,buildingCapabilities,storageDefinition,storedTotal,storageFree} from "../../../packages/systems/construction/src/index.ts";
 import {NATURAL_SOURCES} from "../../../packages/content/src/natural-sources.ts";
+import {FOOD_ITEMS} from "../../../packages/content/src/foods.ts";
+import {countZoneCrops} from "../../../packages/systems/farming/src/index.ts";
 import {SCENERY_PRESETS} from "../../../packages/content/src/scenery.ts";
 import {resolveAttributes} from "../../../packages/systems/effects/src/resolver.ts";
 import {bedsIn,reservationCount} from "../../../packages/systems/housing/src/index.ts";
@@ -65,13 +67,19 @@ export function makePrototype(){
       stages:b.stages.map(s=>({id:s.id,label:displayText(s.displayName),materials:s.materials,workUnits:s.workUnits})),
       effects:b.effects,storage:b.storage??null,housing:b.housing??null
     }])),
-    naturalSources:Object.fromEntries(Object.values(NATURAL_SOURCES).map(s=>[s.id,{label:s.label,productId:s.productId,production:s.production,stages:s.stages}])),
+    naturalSources:Object.fromEntries(Object.values(NATURAL_SOURCES).map(s=>[s.id,{
+      label:s.label,productId:s.productId,seedItem:s.seedItem,seedsPerHarvest:s.seedsPerHarvest,
+      growthMode:s.growthMode,production:s.production,stages:s.stages,blocksMovement:s.blocksMovement
+     }])),
+    foods:Object.fromEntries(Object.values(FOOD_ITEMS).map(f=>[f.id,{label:f.label,satiety:f.satiety}])),
     scenery:Object.fromEntries(Object.values(SCENERY_PRESETS).map(s=>[s.id,s.label]))
    });
    if(url.pathname==="/api/world"&&req.method==="GET"){
     const depots=world.entities.filter(e=>e.kind==="construction"&&!!storageDefinition(e));
     const storageSummary=depots.length?
-     Object.fromEntries(["wood","stone","food","apple"].map(item=>[item,depots.reduce((sum,d)=>sum+(d.stock?.[item]??0),0)])):null;
+     Object.fromEntries(["wood","stone","apple","carrot","potato","apple_seed","carrot_seed","potato_seed"].map(
+      item=>[item,depots.reduce((sum,d)=>sum+(d.stock?.[item]??0),0)])):null;
+    if(storageSummary)storageSummary.food=(storageSummary.apple??0)+(storageSummary.carrot??0)+(storageSummary.potato??0);
     return json(res,200,{world,clock:clockView(),storageSummary,
     npcViews:Object.fromEntries(world.entities.filter(e=>e.kind==="character").map(e=>[e.id,{
      mood:resolveAttributes({...e,attributes:{...e.attributes,health:e.health,energy:e.energy}},world.tick).values.mood,
@@ -106,6 +114,9 @@ export function makePrototype(){
        production:NATURAL_SOURCES[entity.sourceId]?.production??null
       }:null,
       scenery:entity.kind==="obstacle"?{type:entity.obstacleType,blocksMovement:entity.blocksMovement,harvestable:false}:null,
+      farming:entity.kind==="planting_zone"?{
+       species:entity.sourceId,...countZoneCrops(world,entity)
+      }:null,
       construction:entity.kind==="construction"?{
        blueprintId:entity.blueprintId,blueprintVersion:entity.blueprintVersion,
        stage:currentStage(entity)?.id??null,remaining:materialsRemaining(entity),
@@ -159,7 +170,7 @@ export function makePrototype(){
     const results=[];
     for(const c of input.commands){
      if(!c||typeof c.commandId!=="string"||!/^[-\w]{1,80}$/.test(c.commandId))return json(res,422,{error:"INVALID_PAYLOAD"});
-     if(c.action!=="npc.spawn"&&c.action!=="resource.spawn"&&c.action!=="obstacle.spawn"&&c.action!=="construction.place")return json(res,422,{error:"INVALID_PAYLOAD"});
+     if(c.action!=="npc.spawn"&&c.action!=="resource.spawn"&&c.action!=="obstacle.spawn"&&c.action!=="construction.place"&&c.action!=="farming.zone.create")return json(res,422,{error:"INVALID_PAYLOAD"});
     }
     for(const c of input.commands)results.push(applyCommand(world,{worldId:world.id,actorRole:"admin",commandId:c.commandId,action:c.action,position:c.position,parameters:c.parameters}));
     return json(res,200,{results,world,clock:clockView()});
