@@ -92,6 +92,11 @@ export class Scene {
     c.strokeStyle='#f2e3a7';c.lineWidth=3;c.strokeRect(start.x+2,start.y+2,width-4,height-4);
    }
   }
+  const livingPositions=this.world.entities.filter(e=>e.kind==='character'&&e.health>0)
+   .map(e=>this.positionProvider?this.positionProvider(e,now):e.position);
+  const obscuresActor=e=>livingPositions.some(p=>e.kind==='construction'?
+   p.x+.5>=e.position.x&&p.x+.5<e.position.x+e.footprint.width&&p.y+.5>=e.position.y&&p.y+.5<e.position.y+e.footprint.height:
+   Math.abs(p.x-e.position.x)<.5&&Math.abs(p.y-e.position.y)<.5);
   // Only real entities from /api/world are visualized. No fake houses, stocks or paths.
   for(const e of this.world.entities.filter(e=>e.kind!=='item'&&e.kind!=='planting_zone'&&
    !(e.kind==='character'&&e.bodyCarriedBy)&&
@@ -111,6 +116,8 @@ export class Scene {
      (pos.y+(e.kind==='construction'?e.footprint.height/2:.5))*t),s=t*k.zoom;
    if(p.x<-s||p.y<-s||p.x>w+s||p.y>h+s)continue;
    const visual=resolveWorldSprite(e,{movingVisually:Math.abs(pos.x-e.position.x)+Math.abs(pos.y-e.position.y)>.001});
+   const fade=(e.kind==='construction'&&e.status==='completed'||e.kind==='resource'&&e.sourceId==='apple_tree')&&obscuresActor(e);
+   c.save();if(fade)c.globalAlpha=.38;
    const drawn=visual&&this.sprites.draw(c,visual.id,p.x,p.y,s*visual.scale,visual.state);
    if(!drawn){
     c.save();c.translate(p.x,p.y);
@@ -231,6 +238,7 @@ export class Scene {
     if(e.kind==='resource'&&e.quantity===0){c.fillStyle='rgba(30,45,33,.58)';c.fillRect(-s*.3,-s*.3,s*.6,s*.6);}
     c.restore();
    }
+   c.restore();
    if(e.id===this.hover||e.id===this.selected){
     c.beginPath();
     if(e.kind==='construction')c.rect(p.x-s*e.footprint.width/2,p.y-s*e.footprint.height/2,s*e.footprint.width,s*e.footprint.height);
