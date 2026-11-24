@@ -36,6 +36,14 @@ export function validateBuildingBlueprint(blueprint:BuildingBlueprint):void{
     new Set(storage.accepted).size!==storage.accepted.length||
     storage.accepted.some(id=>!id.trim()))throw Error("Invalid storage");
  }
+ let previous=Object.fromEntries(blueprint.effects.map(e=>[e.capability,e.value]));
+ for(const [index,upgrade] of (blueprint.upgrades??[]).entries()){
+  if(upgrade.level!==index+2||!Number.isSafeInteger(upgrade.stage.workUnits)||upgrade.stage.workUnits<1||!Object.keys(upgrade.stage.materials).length||Object.entries(upgrade.stage.materials).some(([id,n])=>!isItem(id)||!Number.isSafeInteger(n)||n<1))throw Error("Invalid upgrade stage");
+  for(const [id,value] of Object.entries(upgrade.capacities)){
+   if(!Object.hasOwn(previous,id)||!Number.isSafeInteger(value)||value<previous[id])throw Error("Invalid upgrade capability");
+  }
+  previous={...previous,...upgrade.capacities};
+ }
  for(const effect of blueprint.effects){
   if(!effect.capability.trim()||!Number.isFinite(effect.value)||!effect.unit.trim())throw Error("Invalid capability");
  }

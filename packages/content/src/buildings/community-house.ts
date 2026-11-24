@@ -7,7 +7,9 @@ import type {LocalizedText} from "../../../domain/src/localization.ts";
 export interface BuildingStage {
  id:string; label:string; displayName:LocalizedText; materials:Readonly<Record<string,number>>; workUnits:number;
 }
+export interface BuildingUpgrade {level:number;stage:BuildingStage;capacities:Readonly<Record<string,number>>}
 export interface BuildingBlueprint {
+ upgrades?:readonly BuildingUpgrade[];
  id:string; version:number; label:string; displayName:LocalizedText; footprint:Readonly<{width:number;height:number}>; stages:readonly BuildingStage[];
  effects:readonly {capability:string;value:number;unit:string}[];
  movementSpeed?:number;

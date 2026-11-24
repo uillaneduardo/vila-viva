@@ -35,7 +35,7 @@ const resources=(world:World):Resource[]=>
 const depots=(world:World):Construction[]=>
  world.entities.filter((e):e is Construction=>e.kind==="construction"&&!!storageDefinition(e));
 const sites=(world:World):Construction[]=>
- world.entities.filter((e):e is Construction=>e.kind==="construction"&&e.status==="site");
+ world.entities.filter((e):e is Construction=>e.kind==="construction"&&(e.status==="site"||!!e.upgrade));
 
 function selectTask(world:World,npc:Character,targets:Entity[],activity:string,reason:string,
  action:Command["action"],parameters?:(e:Entity)=>Record<string,unknown>|undefined):Task|null {
