@@ -33,10 +33,11 @@ export function hitTest(entities,camera,screenX,screenY){
  }
  return result;
 }
-export function brushCells(center,size,world){
+export function brushCells(center,size,world,shape='square'){
  const n=Math.max(1,Math.min(15,Math.floor(size))),offset=Math.floor(n/2),cells=[];
  for(let y=0;y<n;y++)for(let x=0;x<n;x++){
   const cx=center.x+x-offset,cy=center.y+y-offset;
+  if(shape==='circle'&&Math.hypot(x-(n-1)/2,y-(n-1)/2)>n/2)continue;
   if(cx>=0&&cy>=0&&cx<world.width&&cy<world.height)cells.push({x:cx,y:cy});
  }
  return cells;
