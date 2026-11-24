@@ -14,13 +14,14 @@ export function createBaseRegistry():DefinitionRegistry {
   {id:"planting.zone",displayName:{"pt-BR":"Zona de cultivo"},kind:"terrain",components:["position","renderable"],description:"Área de plantio sem colisão que recebe mudas mediante sementes reais"}
  ] as const)catalog.registerEntity(definition);
  for(const action of [
+  {id:"item.pickup",displayName:{"pt-BR":"Recolher item"},roles:["npc","player"],targets:["item"],requires:["position","inventory"],readonly:false,description:"Recolher pilha física no chão"},
   {id:"entity.inspect",displayName:{"pt-BR":"Inspecionar"},roles:["player","npc","admin"],targets:["character","resource","item","storage","construction","terrain"],requires:[],readonly:true,description:"Inspeção autorizada sem alterar o mundo"},
   {id:"movement.move",displayName:{"pt-BR":"Mover"},roles:["player","npc"],targets:["position"],requires:["position","movement","energy"],readonly:false,description:"Mover ator físico"},
   {id:"npc.spawn",displayName:{"pt-BR":"Adicionar NPC"},roles:["admin"],targets:["position"],requires:[],readonly:false,description:"Criar personagem usando definição registrada"},
   {id:"resource.spawn",displayName:{"pt-BR":"Adicionar fonte"},roles:["admin"],targets:["position"],requires:[],readonly:false,description:"Criar fonte usando definição registrada"},
   {id:"obstacle.spawn",displayName:{"pt-BR":"Adicionar cenário"},roles:["admin"],targets:["position"],requires:[],readonly:false,description:"Posicionar elemento sólido não coletável"},
-  {id:"resource.harvest",displayName:{"pt-BR":"Colher frutos"},roles:["player","npc"],targets:["resource"],requires:["position","energy","inventory","resourceSource"],readonly:false,description:"Transferir frutos de fonte adjacente ao inventário físico do ator"},
-  {id:"resource.gather",displayName:{"pt-BR":"Extrair recursos"},roles:["player","npc"],targets:["resource"],requires:["position","energy","inventory","resourceSource"],readonly:false,description:"Coleta física de madeira ou pedra no inventário do personagem"},
+  {id:"resource.harvest",displayName:{"pt-BR":"Colher frutos"},roles:["player","npc"],targets:["resource"],requires:["position","energy","inventory","resourceSource"],readonly:false,description:"Gerar frutos e sementes físicos no chão"},
+  {id:"resource.gather",displayName:{"pt-BR":"Extrair recursos"},roles:["player","npc"],targets:["resource"],requires:["position","energy","inventory","resourceSource"],readonly:false,description:"Extrair recursos e gerar pilhas físicas no chão"},
   {id:"construction.place",displayName:{"pt-BR":"Criar canteiro"},roles:["admin"],targets:["position"],requires:[],readonly:false,description:"Reservar terreno livre para um projeto registrado"},
   {id:"construction.propose",displayName:{"pt-BR":"Planejar construção"},roles:["npc"],targets:["position"],requires:["position","construction"],readonly:false,description:"Um líder decide um projeto e terreno, criando somente um canteiro sem recursos ou trabalho fictícios"},
   {id:"production.order",displayName:{"pt-BR":"Planejar fabricação"},roles:["npc","admin"],targets:["construction"],requires:["production"],readonly:false,description:"Adicionar ordem de receita à fila da oficina"},
