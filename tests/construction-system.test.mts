@@ -98,6 +98,8 @@ test('nonadjacent characters cannot contribute, simulated time cannot build for 
  const deliver=applyCommand(w,{worldId:w.id,commandId:'delivery',actorRole:'npc',actorId:worker.id,
   action:'construction.deliver',targetId:site.id,parameters:{materialId:'wood',quantity:4}});
  assert.equal(deliver.error,'BLOCKED');
+ // No carried materials or sources exist: autonomous NPCs cannot conjure construction materials.
+ worker.inventory={};
  const stage=site.stageIndex,quantity=Object.keys(site.delivered).length;
  for(let i=0;i<500;i++)advanceTick(w);
  assert.equal(site.stageIndex,stage);assert.equal(Object.keys(site.delivered).length,quantity);
