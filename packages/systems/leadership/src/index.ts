@@ -114,11 +114,11 @@ export function planAgriculture(world:World,leader:Character){
  const nutrition=Object.values(FOOD_ITEMS).reduce((n,item)=>n+total(item.id)*item.satiety,0);
  // 2 satiety every 8 ticks; target a 240-tick day of consumption per citizen.
  const reserveTarget=citizens.length*60;
- const crops=world.entities.filter(e=>e.kind==="resource"&&!!e.sourceId&&e.life?.stage!=="dead");
+ const crops=world.entities.filter(e=>e.kind==="resource"&&!!e.sourceId&&e.life?.stage!=="dead"&&Object.hasOwn(FOOD_ITEMS,e.productId??""));
  const hungry=citizens.some(n=>(n.satiety??100)<=35);
  const target=Math.max(2,citizens.length*2);
  if(!hungry&&nutrition>=reserveTarget&&crops.length>=target)return undefined;
- const candidates=Object.values(NATURAL_SOURCES).map(species=>{
+ const candidates=Object.values(NATURAL_SOURCES).filter(species=>Object.hasOwn(FOOD_ITEMS,species.productId)).map(species=>{
   const seeds=total(species.seedItem);
   const zones=world.entities.filter(e=>e.kind==="planting_zone"&&e.sourceId===species.id);
   const capacity=zones.reduce((n,z)=>n+(z.kind==="planting_zone"?z.footprint.width*z.footprint.height:0),0);
