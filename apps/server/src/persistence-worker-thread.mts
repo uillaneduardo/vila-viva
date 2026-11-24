@@ -9,7 +9,7 @@ port.on('message',message=>{
  try{
   let result;
   switch(message.type){
-   case 'switch':result=store.switchWorld(message.world,message.seed);break;
+   case 'switch':result=store.switchWorld(message.world,message.seed,message.actions);break;
    case 'commit':result=store.commit(message.world,message.seed,message.actions);break;
    case 'saveNamed':result=store.saveNamed(message.name,message.world,message.seed);break;
    case 'loadNamed':result=store.loadNamed(message.name);break;

@@ -46,7 +46,7 @@ export class PersistenceWorker{
   });
  }
  commit(world:World,seed?:string,actions:AcceptedAction[]=[]){return this.submit<WorldSnapshot>('commit',{world,seed,actions});}
- switchWorld(world:World,seed?:string){return this.submit<WorldSnapshot>('switch',{world,seed});}
+ switchWorld(world:World,seed?:string,actions:AcceptedAction[]=[]){return this.submit<WorldSnapshot>('switch',{world,seed,actions});}
  saveNamed(name:string,world:World,seed?:string){return this.submit<WorldSnapshot>('saveNamed',{name,world,seed});}
  loadNamed(name:string){return this.submit<WorldSnapshot>('loadNamed',{name});}
  listSaves(){return this.submit<ReturnType<FileWorldStore['listSaves']>>('listSaves');}
