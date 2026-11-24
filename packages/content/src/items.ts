@@ -6,6 +6,7 @@ export const ITEMS:Readonly<Record<string,Readonly<ItemDefinition>>>=Object.free
  stone:{id:"stone",label:"Pedra",category:"raw",description:"Material de construção"},
  iron_ore:{id:"iron_ore",label:"Minério de ferro",category:"raw",description:"Extraído da jazida"},
  copper_ore:{id:"copper_ore",label:"Minério de cobre",category:"raw",description:"Extraído da jazida"},
+ meal:{id:"meal",label:"Refeição preparada",category:"food",description:"Alimento preparado no refeitório"},
  apple:{id:"apple",label:"Maçã",category:"food",description:"Alimento de pomar"},
  carrot:{id:"carrot",label:"Cenoura",category:"food",description:"Hortaliça"},
  potato:{id:"potato",label:"Batata",category:"food",description:"Hortaliça"},
