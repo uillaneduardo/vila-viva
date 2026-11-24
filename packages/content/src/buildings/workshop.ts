@@ -2,6 +2,7 @@ import type {BuildingBlueprint} from "./community-house.ts";
 /** Workstation with physical input/output inventory. No material appears before crafting completes. */
 export const WORKSHOP:Readonly<BuildingBlueprint>=Object.freeze({
  id:"building.workshop",version:1,label:"Oficina",displayName:{"pt-BR":"Oficina de fabricação"},footprint:{width:3,height:2},
+ movementSpeed:0.6,
  stages:[
   {id:"foundation",label:"Fundação",displayName:{"pt-BR":"Fundação"},materials:{stone:8,wood:5},workUnits:18},
   {id:"workbench",label:"Bancada",displayName:{"pt-BR":"Bancada e forja"},materials:{wood:10,stone:6},workUnits:24}
