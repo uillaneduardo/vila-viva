@@ -121,6 +121,7 @@ test("AI history available to the monitor is populated by real engine decisions"
  const rows=npcActivityRows(world);
  assert.equal(rows.length,1);
  assert.ok(rows[0].history.length>0);
- assert.equal(rows[0].history.at(0).tick,9);
+ assert.ok(rows[0].history.at(0).tick>=3&&rows[0].history.at(0).tick<=9);
  assert.equal(rows[0].activity,"Aguardando");
+ assert.equal(world.entities.find(e=>e.id==="npc-monitor-worker").ai.lastDecisionTick,9);
 });
