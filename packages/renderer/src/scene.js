@@ -187,12 +187,12 @@ export class Scene {
       c.fillStyle='#8a9993';c.beginPath();c.moveTo(-s*.37,s*.17);c.lineTo(-s*.3,-s*.12);c.lineTo(-s*.10,-s*.34);c.lineTo(s*.25,-s*.24);c.lineTo(s*.39,s*.16);c.lineTo(s*.12,s*.29);c.lineTo(-s*.31,s*.25);c.closePath();c.fill();c.stroke();
       c.fillStyle='#b3bfb6';c.beginPath();c.moveTo(-s*.3,-s*.12);c.lineTo(-s*.1,-s*.3);c.lineTo(s*.18,-s*.2);c.lineTo(0,0);c.closePath();c.fill();
      }
-    }else if(e.kind==='resource'&&(e.sourceId==='carrot'||e.sourceId==='potato')){
-     const potato=e.sourceId==='potato',stage=e.life?.stage??'seedling';
+    }else if(e.kind==='resource'&&(e.sourceId==='carrot'||e.sourceId==='potato'||e.sourceId==='medicinal_herb')){
+     const herb=e.sourceId==='medicinal_herb',potato=e.sourceId==='potato',stage=e.life?.stage??'seedling';
      const mature=stage==='mature'||stage==='old',height=stage==='seedling'?.12:stage==='young'?.25:.34;
      const count=mature?(potato?3:4):stage==='young'?2:1;
      c.strokeStyle='#345d31';c.lineWidth=Math.max(1,s*.035);
-     c.fillStyle=potato?'#84ad65':'#79b26b';
+     c.fillStyle=herb?'#57b99a':potato?'#84ad65':'#79b26b';
      for(let i=0;i<count;i++){
       const x=(i-(count-1)/2)*s*.12,y=(i%2)*s*.045;
       c.beginPath();c.moveTo(x,s*.22);c.quadraticCurveTo(x-s*.08,y-s*height,x-s*.04,y-s*height);c.stroke();
@@ -200,10 +200,10 @@ export class Scene {
       c.beginPath();c.ellipse(x+s*.04,y-s*height*.76,s*.07,s*.035,.6,0,Math.PI*2);c.fill();
      }
      if(mature){
-      c.fillStyle=potato?'#c5ac76':'#e88a43';
+      c.fillStyle=herb?'#c29ade':potato?'#c5ac76':'#e88a43';
       for(let i=0;i<(potato?3:2);i++){
        const x=(i-1)*s*.13;
-       c.beginPath();c.ellipse(x,s*.19,s*.085,s*.09,0,0,Math.PI*2);c.fill();
+       c.beginPath();c.ellipse(x,herb?-s*.3:s*.19,herb?s*.05:s*.085,herb?s*.05:s*.09,0,0,Math.PI*2);c.fill();
       }
      }
      if(stage==='old'){c.fillStyle='rgba(97,67,38,.4)';c.fillRect(-s*.3,-s*.25,s*.6,s*.54);}
@@ -238,7 +238,7 @@ export class Scene {
    const key=item.position.x+','+item.position.y;
    if(!groups.has(key))groups.set(key,[]);groups.get(key).push(item);
   }
-  const colors={wood:'#b68a58',stone:'#bac2c4',iron_ore:'#8ea6b7',copper_ore:'#d69a68',apple:'#e36d65',carrot:'#ef9e49',potato:'#cfb17b'};
+  const colors={wood:'#b68a58',stone:'#bac2c4',iron_ore:'#8ea6b7',copper_ore:'#d69a68',apple:'#e36d65',carrot:'#ef9e49',potato:'#cfb17b',medicinal_herb:'#69c6a2'};
   for(const items of groups.values())items.sort((a,b)=>a.itemId.localeCompare(b.itemId)).forEach((e,i)=>{
    const p=k.worldToScreen((e.position.x+.5)*t,(e.position.y+.5)*t),s=t*k.zoom;
    const x=p.x+(i%3-1)*s*.25,y=p.y+s*.23+Math.floor(i/3)*s*.18;
