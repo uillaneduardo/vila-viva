@@ -4,12 +4,14 @@ import {Scene} from '../../packages/renderer/src/scene.js';
 import {brushCells} from '../../packages/renderer/src/camera.js';
 import {createHud} from '../../packages/ui/src/hud.js';
 import {createInspector} from '../../packages/ui/src/inspector.js';
+import {createNpcActivityMonitor} from '../../packages/ui/src/npc-activity-monitor.js';
 const el=id=>document.getElementById(id),role=document.body.dataset.role;
 applyUiTheme(document.documentElement);
 const scene=new Scene(el('game')),inspector=createInspector({
  onHarvest:(id)=>void harvestSelected(id),
  onConstruction:(id,action,parameters)=>void executeConstruction(id,action,parameters)
 });
+const npcActivityMonitor=role==='admin'?createNpcActivityMonitor(el('npcActivityMonitor')):null;
 let snapshot=null,catalog=null,selectedId=null,hoverId=null,tool='inspect',brushSize=1,preset='apple_adult',buildMode='site';
 let pan=null,painting=new Map(),loading=false,inspection=null,lastSpeed=1;
 const keys=new Set();
@@ -180,6 +182,7 @@ async function refresh(){
    hud.setFarmingSpecies(catalog.naturalSources);
   }
   const data=await request('/api/world');snapshot=data;scene.setWorld(data.world);hud.update(data);
+  npcActivityMonitor?.update(data);
   const selected=data.world.entities.find(e=>e.id===selectedId);
   if(selectedId&&!selected)setSelection(null);
   else if(selected)refreshInspector(selected);
