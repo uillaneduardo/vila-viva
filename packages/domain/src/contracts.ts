@@ -1,6 +1,6 @@
 export type Role = "player" | "npc" | "admin";
 export type EntityKind = "character" | "resource" | "obstacle" | "construction";
-export type ActionId = "entity.inspect" | "movement.move" | "npc.spawn" | "resource.spawn" | "resource.harvest" | "obstacle.spawn" | "construction.place" | "construction.deliver" | "construction.work" | "construction.admin_supply" | "construction.admin_work" | "resource.gather" | "storage.deposit" | "storage.withdraw" | "storage.admin_supply" | "construction.remove" | "construction.destroy" | "npc.admin_equip" | "npc.eat" | "farming.zone.create" | "farming.plant" | "nature.cut" | "burial.pickup" | "burial.inter" | "burial.drop" | "construction.propose" | "production.order" | "production.work" | "npc.equip";
+export type ActionId = "item.pickup" | "entity.inspect" | "movement.move" | "npc.spawn" | "resource.spawn" | "resource.harvest" | "obstacle.spawn" | "construction.place" | "construction.deliver" | "construction.work" | "construction.admin_supply" | "construction.admin_work" | "resource.gather" | "storage.deposit" | "storage.withdraw" | "storage.admin_supply" | "construction.remove" | "construction.destroy" | "npc.admin_equip" | "npc.eat" | "farming.zone.create" | "farming.plant" | "nature.cut" | "burial.pickup" | "burial.inter" | "burial.drop" | "construction.propose" | "production.order" | "production.work" | "npc.equip";
 export type FailureCode = "UNAUTHORIZED" | "NOT_FOUND" | "INVALID_TARGET" | "INVALID_PAYLOAD" | "OUT_OF_BOUNDS" | "BLOCKED" | "DUPLICATE_COMMAND" | "EXHAUSTED" | "INVENTORY_FULL" | "NOT_READY" | "ALREADY_COMPLETED";
 export interface Position { x: number; y: number }
 import type {ActiveEffect,AttributeId} from "./effects.ts";
@@ -29,7 +29,8 @@ export interface Construction {
  productionOrders?:Array<{recipeId:string;quantity:number;workDone:number}>;
  burials?:{npcId:string;name:string;deathTick:number;burialTick:number;cause:string}[];
 }
-export type Entity = Character | Resource | Obstacle | Construction | FarmingZone;
+export interface GroundItem {id:string;kind:"item";position:Position;itemId:string;quantity:number;createdTick:number}
+export type Entity = GroundItem | Character | Resource | Obstacle | Construction | FarmingZone;
 export interface World { id: string; tick: number; width: number; height: number; entities: Entity[]; appliedCommands: string[]; seed?:string }
 export interface Command { commandId: string; worldId: string; actorRole: Role; actorId?: string; action: ActionId; targetId?: string; position?: Position; parameters?: Record<string, unknown> }
 export type Result =
