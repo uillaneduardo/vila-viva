@@ -6,7 +6,7 @@ const toolDefs=[
  ['npc','Habitante','action.add-npc'],
  ['wood','Floresta','action.add-wood'],
  ['stone','Pedreira','action.add-stone'],
- ['food','Macieira','action.add-food'],
+ ['food','Vegetação','action.add-food'],
  ['farm','Plantio','action.add-farm'],
  ['scenery','Cenário','action.add-scenery'],
  ['house','Construir','action.build'],
@@ -36,9 +36,9 @@ export function createHud({role,onTool,onClock,onSize,onShape=()=>{},onPreset=()
  };
  const brushTools=['npc','wood','stone','food','farm','scenery','house'];
  const brushTitles={npc:'Pincel · Habitante',wood:'Pincel · Floresta',stone:'Pincel · Pedreira',
-  food:'Pincel · Macieira',farm:'Pincel · Plantio',scenery:'Pincel · Cenário',house:'Pincel · Construir'};
+  food:'Pincel · Vegetação',farm:'Pincel · Plantio',scenery:'Pincel · Cenário',house:'Pincel · Construir'};
  const tips={inspect:'Modo observar',npc:'Adicionar habitantes ou líder',wood:'Adicionar fontes de madeira',
-  stone:'Adicionar pedra ou jazidas minerais',food:'Plantar macieiras',farm:'Demarcar zona de cultivo',
+  stone:'Adicionar pedra ou jazidas minerais',food:'Adicionar vegetação',farm:'Demarcar zona de cultivo',
   scenery:'Posicionar obstáculos sólidos',house:'Posicionar canteiro de obras'};
  for(const [id,label,glyph] of toolDefs){
   const b=document.createElement('button');b.type='button';b.dataset.tool=id;
