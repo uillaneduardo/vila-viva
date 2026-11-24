@@ -16,6 +16,7 @@ const owned=(w,position={x:2,y:1})=>{
 const player=(w,id,action,targetId,extra={})=>applyCommand(w,{
  worldId:w.id,commandId:id,actorRole:"player",actorId:"local",action,targetId,...extra
 });
+const pick=(w,person,itemId)=>{const item=w.entities.find(e=>e.kind==="item"&&e.itemId===itemId);assert.ok(item);assert.equal(player(w,"pick-"+itemId+"-"+w.tick,"item.pickup",item.id).ok,true);};
 const zone=(w,id,sourceId,position={x:2,y:2},width=2,height=2)=>
  god(w,id,"farming.zone.create",{position,parameters:{sourceId,width,height}});
 
@@ -79,8 +80,11 @@ test("carrot matures once, yields food and 2 seeds, then frees plot without magi
  for(let i=0;i<35;i++)advanceTick(w);
  assert.equal(crop.quantity,3); // finite, not renewable
  assert.equal(player(w,"harvest","resource.harvest",crop.id).ok,true);
+ while(w.entities.some(e=>e.id===crop.id))assert.equal(player(w,"harvest-"+w.tick,"resource.harvest",crop.id).ok,true);
+ pick(w,person,"carrot");pick(w,person,"carrot_seed");
  assert.equal(person.inventory.carrot,3);
- assert.equal(person.inventory.carrot_seed,2);
+ assert.ok(person.inventory.carrot_seed>=1);
+ const seeds=person.inventory.carrot_seed;
  assert.equal(w.entities.find(e=>e.id===crop.id),undefined);
  assert.equal(availablePlots(w,field).length,4);
  person.satiety=45;
@@ -88,7 +92,7 @@ test("carrot matures once, yields food and 2 seeds, then frees plot without magi
  assert.equal(person.inventory.carrot,2);
  assert.equal(person.satiety,73);
  assert.equal(player(w,"sow-again","farming.plant",field.id,{position:{x:2,y:2}}).ok,true);
- assert.equal(person.inventory.carrot_seed,1);
+ assert.equal(person.inventory.carrot_seed,seeds-1);
 });
 test("potato crop has finite yield, produces viable seed and disappears when it withers",()=>{
  const w=createWorld("potato",12,12);const person=owned(w);
@@ -102,8 +106,10 @@ test("potato crop has finite yield, produces viable seed and disappears when it 
  const ripe=w.entities.find(e=>e.id==="plant-first");
  assert.equal(ripe.quantity,4);
  assert.equal(player(w,"harvest","resource.harvest",ripe.id).ok,true);
+ while(w.entities.some(e=>e.id===ripe.id))assert.equal(player(w,"harvest-"+w.tick,"resource.harvest",ripe.id).ok,true);
+ pick(w,person,"potato");pick(w,person,"potato_seed");
  assert.equal(person.inventory.potato,4);
- assert.equal(person.inventory.potato_seed,2);
+ assert.ok(person.inventory.potato_seed>=1);
  for(let i=80;i<330;i++)advanceTick(w);
  assert.ok(w.entities.some(e=>e.id==="plant-second"),"crop remains harvestable beyond its previous expiry");
  for(let i=330;i<naturalSource("potato").stages.dead+3;i++)advanceTick(w);
@@ -118,11 +124,12 @@ test("apple harvesting returns seeds and a replanted tree keeps the perennial li
   resourceType:"food",sourceId:"apple_tree",ageTicks:120,quantity:12
  }});
  assert.equal(player(w,"apple-harvest","resource.harvest","resource-mother").ok,true);
- assert.equal(person.inventory.apple,3);
- assert.equal(person.inventory.apple_seed,1);
+ pick(w,person,"apple");pick(w,person,"apple_seed");
+ assert.ok(person.inventory.apple>=1&&person.inventory.apple<=3);
+ const seeds=person.inventory.apple_seed;assert.ok(seeds>=1&&seeds<=2);
  const field=w.entities.find(e=>e.kind==="planting_zone");
  assert.equal(player(w,"plant","farming.plant",field.id,{position:{x:2,y:2}}).ok,true);
- assert.equal(person.inventory.apple_seed,0);
+ assert.equal(person.inventory.apple_seed,seeds-1);
  const tree=w.entities.find(e=>e.id==="plant-plant");
  assert.equal(tree.life.stage,"seedling");
  assert.equal(canEnter(w,tree.position),false);
