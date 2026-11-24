@@ -114,11 +114,21 @@ test("resource gathering supports ore sources without arbitrary resource creatio
   parameters:{resourceType:"iron_ore",quantity:6}}).ok,true);
  assert.equal(god(w,"copper","resource.spawn",{position:{x:3,y:5},
   parameters:{resourceType:"copper_ore",quantity:6}}).ok,true);
+ npc.inventory={};
  assert.equal(cmd(w,npc,"take-iron","resource.gather","resource-iron").ok,true);
  assert.equal(cmd(w,npc,"take-copper","resource.gather","resource-copper").ok,true);
- assert.equal(npc.inventory.iron_ore,3);
- assert.equal(npc.inventory.copper_ore,3);
- assert.equal(w.entities.find(e=>e.id==="resource-iron").quantity,3);
+ for(const metal of ["iron","copper"]){
+  const itemId=metal+"_ore";
+  const pile=w.entities.find(e=>e.kind==="item"&&e.itemId===itemId);
+  assert.ok(pile);
+  const amount=pile.quantity;
+  assert.ok(amount>=1&&amount<=3);
+  assert.equal(npc.inventory[itemId]??0,0);
+  assert.equal(w.entities.find(e=>e.id==="resource-"+metal).quantity+amount,6);
+  assert.equal(cmd(w,npc,"pickup-"+metal,"item.pickup",pile.id).ok,true);
+  assert.equal(npc.inventory[itemId],amount);
+  assert.ok(!w.entities.some(e=>e.id===pile.id));
+ }
 });
 test("health traits change recovery and injury probability without healing through starvation",()=>{
  const w=createWorld("health",14,14);
