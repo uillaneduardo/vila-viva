@@ -1,4 +1,5 @@
 import type {World,Character,Entity,Resource,Construction,Command,Result,Position} from "../../../domain/src/contracts.ts";
+import {canEnter,blockingEntity} from "../../collision/src/index.ts";
 import {routeToEntity} from "../../pathfinding/src/index.ts";
 import {materialsRemaining,hasMaterials,storageDefinition,storageFree} from "../../construction/src/index.ts";
 import {bedsIn,reservationCount,reserveBed,reservedHouse,releaseBed,sleepRecovery} from "../../housing/src/index.ts";
@@ -257,6 +258,33 @@ function stockpileTask(world:World,npc:Character):Task|null {
   r.sourceId?"resource.harvest":"resource.gather"));
  return choosePreferred(npc,tasks);
 }
+/** Dead wood is a physical resource even outside cultivated zones. */
+function deadwoodTask(world:World,npc:Character):Task|null{
+ if(CARRY_LIMIT-load(npc)<4)return null;
+ const trees=world.entities.filter((e):e is Resource=>e.kind==="resource"&&
+  e.sourceId==="apple_tree"&&e.life?.stage==="dead");
+ const task=selectTask(world,npc,trees,"Cortando madeira seca","Remover macieira morta e recuperar madeira","nature.cut");
+ return task?{...task,domain:"woodcutting"}:null;
+}
+const adjacentCells=(npc:Character)=>[{x:npc.position.x+1,y:npc.position.y},{x:npc.position.x-1,y:npc.position.y},{x:npc.position.x,y:npc.position.y+1},{x:npc.position.x,y:npc.position.y-1}];
+function idleStep(world:World,npc:Character,execute:ActionHandler):boolean{
+ const cells=adjacentCells(npc).filter(p=>canEnter(world,p,npc.id));
+ if(!cells.length){
+  const blockers=adjacentCells(npc).map(p=>blockingEntity(world,p,npc.id)).filter(Boolean);
+  record(npc,world,"Bloqueado","Sem saída livre; "+(blockers.map(e=>e!.kind+":"+e!.id).join(", ")||"limites do mapa"));
+  return true;
+ }
+ if((npc.satiety??100)<=EAT_THRESHOLD||npc.energy<=40)return false;
+ // Occasional deterministic exploration, not constant walking around the depot.
+ if(world.tick%12!==0)return false;
+ const warehouses=depots(world);
+ const distance=(p:Position)=>warehouses.length?Math.min(...warehouses.map(d=>Math.abs(p.x-d.position.x)+Math.abs(p.y-d.position.y))):0;
+ cells.sort((a,b)=>distance(b)-distance(a)||a.y-b.y||a.x-b.x);
+ const next=cells[Math.floor(world.tick/12)%cells.length===0?cells.length-1:0];
+ const result=execute({worldId:world.id,commandId:"ai-idle-"+world.tick+"-"+npc.id,actorRole:"npc",actorId:npc.id,action:"movement.move",targetId:npc.id,position:next});
+ if(result.ok){record(npc,world,"Explorando","Sem tarefa produtiva disponível; explorar o entorno",undefined,[next]);return true;}
+ return false;
+}
 function choose(world:World,npc:Character):Task|null{
  const funeral=burialTask(world,npc);
  if(funeral)return funeral;
@@ -271,7 +299,7 @@ function choose(world:World,npc:Character):Task|null{
  if(cargo)return cargo;
  // New work is chosen by affinities; no trait can bypass survival or valid physical actions.
  const farming=plantingTask(world,npc);
- const demanded=choosePreferred(npc,[farming,construction.work,production,construction.source,equipment]);
+ const demanded=choosePreferred(npc,[farming,construction.work,production,construction.source,equipment,deadwoodTask(world,npc)]);
  return demanded??stockpileTask(world,npc);
 }
 function record(npc:Character,world:World,activity:string|null,reason:string,targetId?:string,route:Position[]=[]){
@@ -402,6 +430,7 @@ export function advanceNpcDecisions(world:World,execute:ActionHandler):void {
   if(rest(world,npc,execute))continue;
   const task=choose(world,npc);
   if(!task){
+   if(idleStep(world,npc,execute))continue;
    record(npc,world,null,(npc.satiety??100)<=EAT_THRESHOLD?
     "Com fome e sem alimento acessível; aguardando fonte ou estoque":
     "Sem objetivo executável: falta estoque, fonte acessível ou depósito disponível");
