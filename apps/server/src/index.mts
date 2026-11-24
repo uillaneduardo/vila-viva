@@ -109,7 +109,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
     const input=await readBody(req);
     if(input?.role!=="admin")return json(res,403,{error:"UNAUTHORIZED"});
     if(!store)return json(res,409,{error:"PERSISTENCE_DISABLED"});
-    if(typeof input.name!=="string"||!/^[a-zA-Z0-9][\\w-]{0,63}$/.test(input.name))
+    if(typeof input.name!=="string"||!/^[a-zA-Z0-9][\w-]{0,63}$/.test(input.name))
      return json(res,422,{error:"INVALID_SAVE_NAME"});
     store.commit(world,world.seed);
     const saved=store.saveNamed(input.name,world,world.seed);
