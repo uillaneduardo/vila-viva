@@ -1,6 +1,7 @@
 import type {World,Entity,Position} from "../../../domain/src/contracts.ts";
 import {inBounds} from "../../../domain/src/contracts.ts";
 import {naturalSource} from "../../../content/src/natural-sources.ts";
+import {buildingBlueprint} from "../../../content/src/buildings/registry.ts";
 export const resourceBlocksMovement=(entity:Extract<Entity,{kind:"resource"}>):boolean=>
  entity.sourceId?naturalSource(entity.sourceId)?.blocksMovement??true:entity.quantity>0;
 
@@ -8,7 +9,8 @@ export const resourceBlocksMovement=(entity:Extract<Entity,{kind:"resource"}>):b
 export const blocksMovement=(entity:Entity):boolean=>
  entity.kind==="obstacle"?entity.blocksMovement:
  entity.kind==="resource"?resourceBlocksMovement(entity):
- entity.kind==="planting_zone"?false:entity.kind==="construction"?true:
+ entity.kind==="planting_zone"?false:entity.kind==="construction"?
+  !(entity.status==="completed"&&buildingBlueprint(entity.blueprintId)?.cemetery):
  entity.kind==="character"?entity.health>0:false;
 export const sameCell=(a:Position,b:Position):boolean=>a.x===b.x&&a.y===b.y;
 export function occupiesCell(entity:Entity,cell:Position):boolean {

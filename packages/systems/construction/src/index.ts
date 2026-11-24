@@ -7,7 +7,8 @@ export function createConstructionSite(id:string,position:Position,blueprint:Bui
  return {id,kind:"construction",blueprintId:blueprint.id,blueprintVersion:blueprint.version,
   position:{...position},footprint:{...blueprint.footprint},status:"site",availability:"unavailable",
   stageIndex:0,delivered:{},workDone:0,
-  ...(blueprint.storage?{stock:{}}:{}),...(blueprint.housing?{bedReservations:{}}:{})};
+  ...(blueprint.storage?{stock:{}}:{}),...(blueprint.housing?{bedReservations:{}}:{}),
+  ...(blueprint.cemetery?{burials:[]}: {})};
 }
 export function currentStage(site:Construction):Readonly<BuildingStage>|undefined {
  if(site.status!=="site")return undefined;
