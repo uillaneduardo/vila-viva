@@ -74,25 +74,30 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
   store?.switchWorld(world,options.seed);
   initialize(options.seed);
  }
+ let publishRevision=()=>{};
  const executeCommand=(command:Command)=>{
   const actions:AcceptedAction[]=[];
   const result=applyCommand(world,command,{onAction:a=>actions.push(a)});
-  if(result.ok)store?.commit(world,world.seed,actions);
+  if(result.ok){store?.commit(world,world.seed,actions);publishRevision();}
   return result;
  };
  const progressOneTick=()=>{
   const actions:AcceptedAction[]=[];
   advanceTick(world,a=>actions.push(a));
-  store?.commit(world,world.seed,actions);
+  store?.commit(world,world.seed,actions);publishRevision();
  };
  const clockView=()=>({speed:clock.speed,paused:clock.speed===0,tick:world.tick,day:1+Math.floor(world.tick/240),hour:Math.floor(world.tick/10)%24,minute:(world.tick%10)*6});
  // Tick is independent from browser refresh. Command-triggered ticks remain
  // a known M1 migration debt and are not hidden as a completed gameplay loop.
+ let phase=0;
  const timer=setInterval(()=>{
-  if(clock.speed===0)return;
-  try{for(let i=0;i<clock.speed;i++)progressOneTick();}
-  catch(error){clock.speed=0;console.error("Simulation paused: persistence failed",error);}
- },250);
+  if(clock.speed===0){phase=0;return;}
+  phase+=clock.speed;
+  if(phase<4)return;
+  phase-=4;
+  try{progressOneTick();}
+  catch(error){clock.speed=0;phase=0;console.error("Simulation paused: persistence failed",error);}
+ },62.5);
  timer.unref();
  const json=(res:import("node:http").ServerResponse,status:number,data:unknown)=>{
   res.writeHead(status,{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"});
@@ -181,7 +186,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
     const restoredWorld=structuredClone(loaded.world);
     removeLegacyAvatar(restoredWorld);
     store.switchWorld(restoredWorld,loaded.seed??restoredWorld.seed);
-    world=restoredWorld;generation++;
+    world=restoredWorld;generation++;phase=0;publishRevision();
     return json(res,200,{ok:true,worldId:world.id,tick:world.tick,paused:true,
      timelineId:store.timelineId});
    }
@@ -198,8 +203,8 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
     clock.speed=0;
     const next=createWorld("first-world",width,height);
     if(store)store.switchWorld(next,seed);
-    world=next;generation++;
-    initialize(seed);
+    world=next;generation++;phase=0;
+    initialize(seed);publishRevision();
     return json(res,200,{ok:true,tick:world.tick,paused:true,seed:seed??null,width,height});
    }
    if(url.pathname==="/api/economy"&&req.method==="GET"){
@@ -320,8 +325,8 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
     const input=await readBody(req);
     if(input?.role!=="admin")return json(res,403,{error:"UNAUTHORIZED"});
     if(![0,1,2,4].includes(input.speed))return json(res,422,{error:"INVALID_PAYLOAD"});
-    clock.speed=input.speed;
-    store?.commit(world,world.seed);
+    clock.speed=input.speed;phase=0;
+    store?.commit(world,world.seed);publishRevision();
     return json(res,200,{clock:clockView()});
    }
    if(url.pathname==="/api/actions"&&req.method==="GET"){
@@ -381,7 +386,8 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
    json(res,500,{error:"INTERNAL_ERROR"});
   }
  });
- attachWorldStream(server,projectWorld,()=>generation);
+ const stream=attachWorldStream(server,projectWorld,()=>generation);
+ publishRevision=stream.publish;
  server.on("close",()=>clearInterval(timer));
  return {server,get world(){return world;},clock,store};
 }
