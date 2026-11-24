@@ -1,6 +1,7 @@
 import {COMMUNITY_HOUSE} from "./community-house.ts";
 import {DEPOT} from "./depot.ts";
 import {CEMETERY} from "./cemetery.ts";
+import {FAMILY_HOUSE,CAFETERIA,MINE} from "./community-expansion.ts";
 import {WORKSHOP} from "./workshop.ts";
 import type {BuildingBlueprint} from "./community-house.ts";
 import {validateBuildingBlueprint} from "../building-validation.ts";
@@ -10,7 +11,7 @@ export const BUILDING_BLUEPRINTS:Readonly<Record<string,Readonly<BuildingBluepri
  [COMMUNITY_HOUSE.id]:COMMUNITY_HOUSE,
  [DEPOT.id]:DEPOT,
  [CEMETERY.id]:CEMETERY,
- [WORKSHOP.id]:WORKSHOP
+ [WORKSHOP.id]:WORKSHOP,[FAMILY_HOUSE.id]:FAMILY_HOUSE,[CAFETERIA.id]:CAFETERIA,[MINE.id]:MINE
 });
 for(const blueprint of Object.values(BUILDING_BLUEPRINTS))validateBuildingBlueprint(blueprint);
 export function buildingBlueprint(id:string):Readonly<BuildingBlueprint>|undefined {
