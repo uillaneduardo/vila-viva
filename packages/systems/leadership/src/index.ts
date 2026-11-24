@@ -12,6 +12,7 @@ import {availablePlots,canCreateZone} from "../../farming/src/index.ts";
 import {storageFree,storageDefinition,nextUpgrade,buildingLevel} from "../../construction/src/index.ts";
 import {isTemporaryStorage} from "../../storage/src/temporary.ts";
 import {productionDefinition} from "../../production/src/index.ts";
+import {upgradeDemand,reachableUpgradeSupply} from "./upgrades.ts";
 export type ProposedConstruction={blueprintId:string;position:Position;score:number;reason:string;upgradeTargetId?:string};
 const manhattan=(a:Position,b:Position)=>Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
 const living=(world:World):Character[]=>world.entities.filter((e):e is Character=>
@@ -116,27 +117,22 @@ export function proposeNextConstruction(world:World,leader:Character):ProposedCo
     score:policy.priority+emergency+location.score,
     reason:policy.need+"; localização acessível, materiais iniciais existentes e sem sobreposição"};
   }).filter((x):x is ProposedConstruction=>!!x);
- // Compare incremental capacity per material/work cost, using only physically reachable supply.
- const pressure=storagePressure(world);
- if(pressure.needed&&!leader.sleepingInId&&!living(world).some(n=>(n.satiety??100)<=10)){
-  const policy=LEADERSHIP_PROJECTS.find(p=>p.blueprintId==="building.depot")!;
-  const blueprint=buildingBlueprint(policy.blueprintId)!;
-  const cost=(stages:readonly {materials:Readonly<Record<string,number>>;workUnits:number}[])=>stages.reduce((n,stage)=>n+Object.values(stage.materials).reduce((a,b)=>a+b,0)+stage.workUnits,0);
-  const baseEfficiency=blueprint.storage!.capacity/cost(blueprint.stages);
-  for(const target of pressure.permanent){
+ // Evaluate only capabilities with an observable shortage; no speculative family expansion.
+ if(!leader.sleepingInId&&!living(world).some(n=>(n.satiety??100)<=10)){
+  const pressure=storagePressure(world);
+  for(const target of buildings(world)){
    const upgrade=nextUpgrade(target);if(!upgrade||target.upgrade)continue;
+   const demand=upgradeDemand(world,target,pressure);if(!demand)continue;
+   const policy=LEADERSHIP_PROJECTS.find(p=>p.blueprintId===target.blueprintId);
+   const blueprint=buildingBlueprint(target.blueprintId);
+   if(!policy||!blueprint)continue;
    const route=routeToEntity(world,leader.position,target,leader.id);if(!route)continue;
-   const gain=(upgrade.capacities["storage.capacity"]??0)-(storageDefinition(target)?.capacity??0);if(gain<=0)continue;
-   const reachableSupply=(item:string)=>world.entities.reduce((sum,e)=>{
-    if(e.kind==="character")return sum+(e.health>0&&!e.ownerId&&!e.sleepingInId&&routeToEntity(world,e.position,target,e.id)?e.inventory?.[item]??0:0);
-    const quantity=e.kind==="resource"&&!e.sourceId&&e.resourceType===item?e.quantity:e.kind==="construction"&&storageDefinition(e)?e.stock?.[item]??0:e.kind==="item"&&e.itemId===item?e.quantity:0;
-    return sum+(quantity>0&&routeToEntity(world,leader.position,e,leader.id)?quantity:0);
-   },0);
-   if(Object.entries(upgrade.stage.materials).some(([item,n])=>reachableSupply(item)<n))continue;
-   const efficiency=gain/cost([upgrade.stage]);
-   const score=policy.priority-(route.length-1)*1.5+Math.max(-20,Math.min(20,10*(efficiency/baseEfficiency-1)));
+   if(Object.entries(upgrade.stage.materials).some(([item,n])=>reachableUpgradeSupply(world,leader,target,item)<n))continue;
+   const cost=(stages:readonly {materials:Readonly<Record<string,number>>;workUnits:number}[])=>stages.reduce((n,stage)=>n+Object.values(stage.materials).reduce((a,b)=>a+b,0)+stage.workUnits,0);
+   const efficiency=demand.gain/cost([upgrade.stage]),baseEfficiency=demand.base/cost(blueprint.stages);
+   const score=policy.priority+demand.urgency-(route.length-1)*1.5+Math.max(-20,Math.min(20,10*(efficiency/baseEfficiency-1)));
    candidates.push({blueprintId:target.blueprintId,position:{...target.position},upgradeTargetId:target.id,score,
-    reason:"Pressão de estoque: "+pressure.overflow+" itens temporários; ampliar nível "+buildingLevel(target)+"→"+upgrade.level+" (+"+gain+" vagas), materiais alcançáveis e sem novo terreno"});
+    reason:demand.reason+"; ampliar nível "+buildingLevel(target)+"→"+upgrade.level+" (+"+demand.gain+"), materiais alcançáveis e sem novo terreno"});
   }
  }
  candidates.sort((a,b)=>b.score-a.score||a.blueprintId.localeCompare(b.blueprintId)||(a.upgradeTargetId??"").localeCompare(b.upgradeTargetId??""));
