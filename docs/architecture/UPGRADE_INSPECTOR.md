@@ -1,0 +1,2 @@
+# Upgrade inspector and benchmark evidence
+Admin may plan or cancel through existing command handler. Level, next capability, requirements and progress shown from blueprint + entity state; no client-side authority. Benchmark records actual level, active improvements, capacity and events. Physical NPC command regression uses bounded loads, save/reload, and completion; fixture supplies inventory directly, not full autonomous collection. No new sprites or other building capabilities. #96 merged; #95 concurrent and must be revalidated.

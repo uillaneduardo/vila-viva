@@ -23,3 +23,24 @@ test('depot upgrade retains identity and inventory, applies capacity only after 
  assert.ok(god('cancel','construction.upgrade_cancel',{targetId:d.id}).ok);
  assert.equal(d.level,2);assert.equal(d.stock.wood,100);assert.equal(w.entities.find(e=>e.kind==='item'&&e.itemId==='wood').quantity,5);validateWorld(w);
 });
+
+import {mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {FileWorldStore} from '../apps/server/src/world-store.mts';
+test('physical NPC delivery and work survive save/reload and complete upgrade',()=>{
+ let w=createWorld('physical-upgrade');
+ const god=(id,action,extra={})=>applyCommand(w,{worldId:w.id,commandId:id,actorRole:'admin',action,...extra});
+ assert.ok(god('d','construction.place',{position:{x:5,y:5},parameters:{blueprintId:'building.depot',mode:'completed'}}).ok);
+ assert.ok(god('worker','npc.spawn',{position:{x:4,y:5},parameters:{name:'Worker'}}).ok);
+ assert.ok(god('start','construction.upgrade',{targetId:'construction-d'}).ok);
+ const command=(id,action,parameters={})=>applyCommand(w,{worldId:w.id,commandId:id,actorRole:'npc',actorId:'npc-worker',targetId:'construction-d',action,parameters});
+ let npc=w.entities.find(e=>e.id==='npc-worker');
+ for(const [item,total] of [['wood',30],['stone',20]])for(let left=total;left>0;){const n=Math.min(12,left);npc.inventory={[item]:n};npc.energy=100;assert.ok(command(item+left,'construction.deliver',{materialId:item,quantity:n}).ok);assert.equal(npc.inventory[item],0);left-=n;}
+ const dir=mkdtempSync(join(tmpdir(),'oturo-upgrade-'));
+ try{new FileWorldStore(dir).switchWorld(w);w=new FileWorldStore(dir).loadActive().world;}
+ finally{rmSync(dir,{recursive:true,force:true});}
+ npc=w.entities.find(e=>e.id==='npc-worker');const d=w.entities.find(e=>e.id==='construction-d');
+ for(let i=0;i<40&&d.upgrade;i++){npc.energy=100;npc.health=100;assert.ok(command('work'+i,'construction.work').ok);}
+ assert.equal(d.level,2);assert.equal(storageDefinition(d).capacity,300);assert.deepEqual(d.delivered,{});validateWorld(w);
+});

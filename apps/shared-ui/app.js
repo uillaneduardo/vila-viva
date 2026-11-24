@@ -105,6 +105,8 @@ async function executeConstruction(siteId,action,parameters){
    body:JSON.stringify({commandId:crypto.randomUUID(),role:'admin',action,targetId:siteId,parameters})});
   if(!data.result?.ok)throw Error(data.result?.error||'Comando rejeitado');
   const messages={
+   'construction.upgrade':'Melhoria planejada. Os NPCs entregarão materiais e realizarão o trabalho.',
+   'construction.upgrade_cancel':'Melhoria cancelada. Materiais entregues devolvidos ao chão.',
    'construction.admin_supply':'Materiais inseridos no canteiro.',
    'storage.admin_supply':'Estoque de teste adicionado ao depósito.',
    'construction.remove':'Construção removida permanentemente do mapa.',
