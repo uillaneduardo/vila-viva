@@ -7,6 +7,8 @@ import {currentStage,materialsRemaining,hasMaterials,buildingCapabilities,storag
 import {NATURAL_SOURCES} from "../../../packages/content/src/natural-sources.ts";
 import {SCENERY_PRESETS} from "../../../packages/content/src/scenery.ts";
 import {resolveAttributes} from "../../../packages/systems/effects/src/resolver.ts";
+import {bedsIn,reservationCount} from "../../../packages/systems/housing/src/index.ts";
+import {TOOL_PRESETS,injuryProbability} from "../../../packages/systems/risk/src/index.ts";
 import {createServer} from "node:http";
 import {readFile} from "node:fs/promises";
 import {resolve,extname,sep} from "node:path";
@@ -56,11 +58,12 @@ export function makePrototype(){
     actions:Object.fromEntries([...baseRegistry.actions].map(([id,d])=>[id,displayText(d.displayName)])),
     resources:Object.fromEntries(Object.values(RESOURCE_PRESETS).map(p=>[p.resourceType,displayText(baseRegistry.entity(p.definitionId).displayName)])),
     effects:Object.fromEntries(Object.values(EFFECTS).map(e=>[e.id,displayText(e.displayName)])),
+    tools:Object.fromEntries(Object.values(TOOL_PRESETS).map(tool=>[tool.id,tool.label])),
     buildings:Object.fromEntries(Object.values(BUILDING_BLUEPRINTS).map(b=>[b.id,displayText(b.displayName)])),
     buildingBlueprints:Object.fromEntries(Object.values(BUILDING_BLUEPRINTS).map(b=>[b.id,{
       id:b.id,label:displayText(b.displayName),footprint:b.footprint,version:b.version,
       stages:b.stages.map(s=>({id:s.id,label:displayText(s.displayName),materials:s.materials,workUnits:s.workUnits})),
-      effects:b.effects,storage:b.storage??null
+      effects:b.effects,storage:b.storage??null,housing:b.housing??null
     }])),
     naturalSources:Object.fromEntries(Object.values(NATURAL_SOURCES).map(s=>[s.id,{label:s.label,productId:s.productId,production:s.production,stages:s.stages}])),
     scenery:Object.fromEntries(Object.values(SCENERY_PRESETS).map(s=>[s.id,s.label]))
@@ -90,6 +93,14 @@ export function makePrototype(){
       route:entity.kind==="character"?entity.ai?.route??null:null,
       reason:entity.kind==="character"?entity.ai?.reason??"Sem tarefa":null,
       inventory:entity.kind==="character"?(entity.inventory??{}):null,
+      survival:entity.kind==="character"?{
+       satiety:entity.satiety??100,equipment:entity.equipment??{},injuries:entity.injuries??0,
+       risk:{
+        wood:injuryProbability(entity,"resource.gather:wood",world.tick),
+        stone:injuryProbability(entity,"resource.gather:stone",world.tick),
+        building:injuryProbability(entity,"construction.work",world.tick)
+       }
+      }:null,
       natural:entity.kind==="resource"&&entity.sourceId?{
        species:entity.sourceId,productId:entity.productId,life:entity.life??null,
        production:NATURAL_SOURCES[entity.sourceId]?.production??null
@@ -100,12 +111,19 @@ export function makePrototype(){
        stage:currentStage(entity)?.id??null,remaining:materialsRemaining(entity),
        materialsReady:hasMaterials(entity),capabilities:buildingCapabilities(entity),
        stageIndex:entity.stageIndex,status:entity.status,availability:entity.availability,
+       housing:bedsIn(entity)>0?{
+        beds:bedsIn(entity),reserved:reservationCount(entity),
+        reservations:Object.entries(entity.bedReservations??{}).map(([npcId,data])=>({
+         npcId,name:world.entities.find(e=>e.id===npcId&&e.kind==="character")?.name??npcId,
+         expiresTick:data.expiresTick
+        }))
+       }:null,
        storage:storageDefinition(entity)?{
         stock:entity.stock??{},total:storedTotal(entity),free:storageFree(entity),
         capacity:storageDefinition(entity)!.capacity,accepted:storageDefinition(entity)!.accepted
        }:null
       }:null,
-      needs:null,social:null,
+      needs:entity.kind==="character"?{satiety:entity.satiety??100,health:entity.health,energy:entity.energy}:null,social:null,
       decisions:entity.kind==="character"?entity.ai?.history??[]:null
     });
    }
