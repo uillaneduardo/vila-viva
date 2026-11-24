@@ -50,13 +50,35 @@ function selectTask(world:World,npc:Character,targets:Entity[],activity:string,r
 const acceptedBy=(depot:Construction,item:string):boolean=>!!storageDefinition(depot)?.accepted.includes(item);
 const stocked=(depot:Construction,item:string):number=>depot.stock?.[item]??0;
 function reachablePlots(world:World,npc:Character,zone:FarmingZone){
- return availablePlots(world,zone).map(position=>{
+ return availablePlots(world,zone).filter(position=>!reservedPlot(world,npc,zone,position)).map(position=>{
   const target:Resource={id:zone.id+":plot:"+position.x+":"+position.y,kind:"resource",
    resourceType:"food",position,quantity:0,maximum:0};
   const route=routeToEntity(world,npc.position,target,npc.id);
   return route?{position,route,target}:null;
  }).filter((x):x is {position:Position;route:Position[];target:Resource}=>!!x)
  .sort((a,b)=>routeCost(world,a.route,npc.id)-routeCost(world,b.route,npc.id)||a.position.y-b.position.y||a.position.x-b.position.x);
+}
+// Commit only to a concrete planting cell; survival and urgent deliveries retain priority.
+const PLANTING_STALL_TICKS=24;
+function reservedPlot(world:World,npc:Character,zone:FarmingZone,position:Position):boolean{
+ return world.entities.some(e=>e.kind==="character"&&e.id!==npc.id&&e.health>0&&
+  e.ai?.plantingCommitment?.zoneId===zone.id&&
+  e.ai.plantingCommitment.position.x===position.x&&e.ai.plantingCommitment.position.y===position.y&&
+  world.tick-e.ai.plantingCommitment.lastProgressTick<PLANTING_STALL_TICKS);
+}
+function committedPlanting(world:World,npc:Character):Task|null{
+ const intent=npc.ai?.plantingCommitment;
+ if(!intent)return null;
+ const zone=world.entities.find((e):e is FarmingZone=>e.kind==="planting_zone"&&e.id===intent.zoneId);
+ const species=zone&&naturalSource(zone.sourceId);
+ if(zone&&species&&(npc.inventory?.[species.seedItem]??0)>0&&
+   world.tick-intent.lastProgressTick<PLANTING_STALL_TICKS){
+  const choice=reachablePlots(world,npc,zone).find(p=>p.position.x===intent.position.x&&p.position.y===intent.position.y);
+  if(choice)return {...choice,targetId:zone.id,activity:"Plantando",
+   reason:"Concluir plantio de "+species.label+" no lote escolhido",action:"farming.plant",domain:"farming"};
+ }
+ delete npc.ai!.plantingCommitment;
+ return null;
 }
 /** Farming tasks require a reachable plot before procuring seeds. */
 function plantingTask(world:World,npc:Character):Task|null {
@@ -315,6 +337,7 @@ function choose(world:World,npc:Character):Task|null{
  const underfoot=world.entities.filter(e=>e.kind==="resource"&&e.sourceId==="apple_tree"&&e.life?.stage==="dead"&&e.position.x===npc.position.x&&e.position.y===npc.position.y);
  const clearing=selectTask(world,npc,underfoot,"Cortando madeira seca","Liberar a célula ocupada por macieira morta","nature.cut");
  if(clearing)return {...clearing,domain:"woodcutting"};
+ const committed=committedPlanting(world,npc);if(committed)return committed;
  const cargo=storedCargo(world,npc);
  if(cargo)return cargo;
  const pickup=groundTask(world,npc);if(pickup)return pickup;
@@ -455,6 +478,12 @@ function rest(world:World,npc:Character,execute:ActionHandler):boolean {
  return true;
 }
 function executeTask(world:World,npc:Character,task:Task,execute:ActionHandler):void {
+ if(task.action==="farming.plant"&&task.targetId&&task.position){
+  npc.ai??={activity:null,reason:"",route:[],lastDecisionTick:world.tick,history:[]};
+  const old=npc.ai.plantingCommitment;
+  if(!old||old.zoneId!==task.targetId||old.position.x!==task.position.x||old.position.y!==task.position.y)
+   npc.ai.plantingCommitment={zoneId:task.targetId,position:{...task.position},startedTick:world.tick,lastProgressTick:world.tick};
+ }else if(npc.ai)delete npc.ai.plantingCommitment;
  const effective=resolveAttributes({...npc,attributes:{...npc.attributes,energy:npc.energy,health:npc.health}},world.tick).values;
  const cycle=Math.floor(world.tick/NPC_ACTION_INTERVAL);
  if(task.route.length>1&&world.tick<(npc.nextMoveTick??0)){
@@ -472,13 +501,14 @@ function executeTask(world:World,npc:Character,task:Task,execute:ActionHandler):
   const next=task.route[1];
   const result=execute({commandId:"ai-"+world.tick+"-"+npc.id,worldId:world.id,actorRole:"npc",
    actorId:npc.id,action:"movement.move",targetId:npc.id,position:next});
-  if(result.ok)record(npc,world,"Deslocando-se",task.reason,task.targetId??task.target.id,task.route.slice(1));
+  if(result.ok){if(npc.ai?.plantingCommitment)npc.ai.plantingCommitment.lastProgressTick=world.tick;record(npc,world,"Deslocando-se",task.reason,task.targetId??task.target.id,task.route.slice(1));}
   else record(npc,world,"Bloqueado","Caminho mudou ("+result.error+"); recalculará no próximo ciclo",task.targetId??task.target.id);
   return;
  }
  const result=execute({commandId:"ai-"+world.tick+"-"+npc.id,worldId:world.id,
   actorRole:"npc",actorId:npc.id,action:task.action,targetId:task.targetId??task.target.id,
   position:task.position,parameters:task.parameters});
+ if(npc.ai)delete npc.ai.plantingCommitment;
  record(npc,world,result.ok?task.activity:"Bloqueado",
   result.ok?task.reason:"Ação rejeitada ("+result.error+"); nova decisão no próximo ciclo",task.targetId??task.target.id);
 }
@@ -486,6 +516,7 @@ export function advanceNpcDecisions(world:World,execute:ActionHandler):void {
  if(world.tick%NPC_ACTION_INTERVAL!==0)return;
  const characters=world.entities.filter((e):e is Character=>e.kind==="character"&&!e.ownerId);
  for(const npc of characters){
+  if(npc.ai&&(npc.health<=35||npc.energy<=NPC_REST_THRESHOLD||npc.ai.resting||npc.sleepingInId||(npc.satiety??100)<=EAT_THRESHOLD))delete npc.ai.plantingCommitment;
   if(npc.health<=0){
    releaseBed(world,npc);
    record(npc,world,null,"Sem condições de agir: saúde zero");continue;
@@ -537,6 +568,7 @@ export function advanceNpcDecisions(world:World,execute:ActionHandler):void {
   }
   const task=choose(world,npc);
   if(!task){
+   if(npc.ai)delete npc.ai.plantingCommitment;
    if(idleStep(world,npc,execute))continue;
    record(npc,world,null,(npc.satiety??100)<=EAT_THRESHOLD?
     "Com fome e sem alimento acessível; aguardando fonte ou estoque":
