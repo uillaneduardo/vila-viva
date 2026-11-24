@@ -21,9 +21,9 @@ const zone=(w,id,sourceId,position={x:2,y:2},width=2,height=2)=>
  god(w,id,"farming.zone.create",{position,parameters:{sourceId,width,height}});
 
 test("catalog defines only one perennial tree and two finite vegetable species",()=>{
- assert.deepEqual(Object.keys(NATURAL_SOURCES),["apple_tree","carrot","potato"]);
+ assert.deepEqual(Object.keys(NATURAL_SOURCES),["apple_tree","carrot","potato","medicinal_herb"]);
  assert.equal(naturalSource("apple_tree").growthMode,"perennial");
- for(const id of ["carrot","potato"]){
+ for(const id of ["carrot","potato","medicinal_herb"]){
   assert.equal(naturalSource(id).growthMode,"single_harvest");
   assert.equal(naturalSource(id).seedsPerHarvest,2);
   assert.equal(naturalSource(id).blocksMovement,false);
