@@ -32,6 +32,7 @@ export function createTouchGestures({pan,zoom,tap,cancel=()=>{},threshold=7}){
    if(eligible)tap(p);
   },
   abort(){reset();cancel();},
+  has(id){return points.has(id);},
   get active(){return points.size>0;}
  };
 }
