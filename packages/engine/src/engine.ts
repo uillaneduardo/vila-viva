@@ -11,6 +11,7 @@ import {buildingBlueprint} from "../../content/src/buildings/registry.ts";
 import {createConstructionSite,createCompletedBuilding,currentStage,materialsRemaining,hasMaterials,nearFootprint,acceptMaterial,applyConstructionWork,storageDefinition,storageFree} from "../../systems/construction/src/index.ts";
 import {advanceNpcDecisions} from "../../systems/ai/src/index.ts";
 import {advanceNeeds,eatFood,updateNeedEffects} from "../../systems/needs/src/index.ts";
+import {miningYield,isMineral} from "../../content/src/extraction.ts";
 import {TOOL_PRESETS,evaluateActionRisk,correctTool} from "../../systems/risk/src/index.ts";
 import {clearHouse,pruneBeds,advanceResidences} from "../../systems/housing/src/index.ts";
 import {generateCharacterProfile,generateStartingInventory} from "../../content/src/characters.ts";
@@ -228,7 +229,8 @@ export function applyCommand(world: World, command: Command,
   if(typeof item!=="string"||!["iron_ore","copper_ore","stone"].includes(item))return reject(command,"INVALID_PAYLOAD");
   const remaining=mine.mineRemaining?.[item]??0;
   if(!remaining)return reject(command,"EXHAUSTED");
-  const amount=Math.min(remaining,storageFree(mine),correctTool(actor,("resource.gather:"+item) as any)?3:2);
+  const range=miningYield(true,correctTool(actor,("resource.gather:"+item) as any));
+  const amount=Math.min(remaining,storageFree(mine),rollDrop(world,command,"mine",range.min,range.max));
   if(!amount)return reject(command,"INVENTORY_FULL");
   mine.mineRemaining![item]-=amount;mine.stock??={};mine.stock[item]=(mine.stock[item]??0)+amount;
   mine.lastMiningTick=world.tick;actor.energy=Math.max(0,actor.energy-1);
@@ -347,7 +349,9 @@ export function applyCommand(world: World, command: Command,
   if(!actor)return reject(command,"UNAUTHORIZED");
   if(!orthogonallyAdjacent(actor.position,source.position)||actor.health<=0||actor.energy<=0)return reject(command,"BLOCKED");
   if(source.quantity<=0)return reject(command,"EXHAUSTED");
-  const amount=Math.min(source.quantity,rollDrop(world,command,"resource",1,3)+(correctTool(actor,("resource.gather:"+source.resourceType) as any)?1:0));
+  const equipped=correctTool(actor,("resource.gather:"+source.resourceType) as any);
+  const range=isMineral(source.resourceType)?miningYield(false,equipped):{min:equipped?2:1,max:equipped?4:3};
+  const amount=Math.min(source.quantity,rollDrop(world,command,"resource",range.min,range.max));
   source.quantity-=amount;dropItem(world,actor.position,source.resourceType,amount);
   actor.energy=Math.max(0,actor.energy-1);
   riskActor=actor;riskActivity=("resource.gather:"+source.resourceType) as typeof riskActivity;
