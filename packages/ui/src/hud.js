@@ -37,7 +37,10 @@ export function createHud({role,onTool,onClock,onSize,onPreset=()=>{},onBuildMod
  const preset=document.createElement('select');preset.id='brushPreset';preset.setAttribute('aria-label','Tipo de elemento');
  label.append(preset);
  el('brushPanel').insertBefore(label,el('brushName').nextSibling);
- preset.addEventListener('change',()=>onPreset(preset.value));
+ preset.addEventListener('change',()=>{
+  onPreset(preset.value);
+  if(dock.querySelector('[data-tool="house"].active'))thisUpdateHouseArea();
+ });
  const modeLabel=document.createElement('label');modeLabel.className='brush-preset';modeLabel.textContent='Fase';
  const modeSelect=document.createElement('select');modeSelect.id='buildMode';modeSelect.setAttribute('aria-label','Estado inicial da construção');
  for(const [value,name] of [['site','Projeto (fase 1)'],['completed','Concluída']]){
@@ -46,6 +49,12 @@ export function createHud({role,onTool,onClock,onSize,onPreset=()=>{},onBuildMod
  modeLabel.append(modeSelect);el('brushPanel').insertBefore(modeLabel,label.nextSibling);
  modeSelect.addEventListener('change',()=>onBuildMode(modeSelect.value));
  let buildingChoices=[['building.community_house','Casa Comunitária'],['building.depot','Depósito']];
+ let blueprints={};
+ const thisUpdateHouseArea=()=>{
+  const area=blueprints[preset.value]?.footprint??{width:2,height:2};
+  el('brushValue').textContent=area.width+' × '+area.height;
+  el('brushCount').textContent=(area.width*area.height)+' células ocupadas';
+ };
  let farmingChoices=[['apple_tree','Macieira'],['carrot','Cenoura'],['potato','Batata']];
  const inhabitantChoices=[['settler','Habitante'],['leader','Líder']];
  range.addEventListener('input',()=>onSize(Number(range.value)));
@@ -56,8 +65,10 @@ export function createHud({role,onTool,onClock,onSize,onPreset=()=>{},onBuildMod
    farmingChoices=Object.entries(species??{}).map(([id,def])=>[id,def.label]);
    if(dock.querySelector('[data-tool="farm"].active'))this.tool('farm');
   },
-  setBlueprints(blueprints){
-   buildingChoices=Object.entries(blueprints??{}).map(([id,definition])=>[id,definition.label]);
+  setBlueprints(definitions){
+   blueprints=definitions??{};
+   buildingChoices=Object.entries(blueprints).map(([id,definition])=>[id,definition.label]);
+   // Keep geometry from the content blueprint, never from a hard-coded 2×2 visual.
    if(dock.querySelector('[data-tool="house"].active'))this.tool('house');
   },
   tool(id){
@@ -65,7 +76,7 @@ export function createHud({role,onTool,onClock,onSize,onPreset=()=>{},onBuildMod
    const brush=['npc','wood','stone','food','farm','scenery','house'].includes(id);
    const isHouse=id==='house';
    range.disabled=isHouse;minus.disabled=isHouse;plus.disabled=isHouse;
-   if(isHouse){range.value='1';el('brushValue').textContent='2 × 2';el('brushCount').textContent='4 células ocupadas';}
+   if(isHouse)range.value='1';
    label.hidden=id!=='food'&&id!=='scenery'&&id!=='house'&&id!=='farm'&&id!=='npc'&&id!=='stone';
    modeLabel.hidden=id!=='house';
    if(id==='food'||id==='scenery'||id==='house'||id==='farm'||id==='npc'||id==='stone'){
@@ -75,7 +86,12 @@ export function createHud({role,onTool,onClock,onSize,onPreset=()=>{},onBuildMod
      [['boulder','Pedra sólida'],['wall','Muro'],['statue','Estátua']];
     preset.replaceChildren(...items.map(([value,name])=>{const option=document.createElement('option');option.value=value;option.textContent=name;return option;}));
     onPreset(preset.value);
-    if(id==='house')onBuildMode(modeSelect.value);
+    if(id==='house'){
+     const area=blueprints[preset.value]?.footprint??{width:2,height:2};
+     el('brushValue').textContent=area.width+' × '+area.height;
+     el('brushCount').textContent=(area.width*area.height)+' células ocupadas';
+     onBuildMode(modeSelect.value);
+    }
    }
    el('brushPanel').hidden=!brush;
    el('brushName').textContent=({npc:'Pincel · Habitante',wood:'Pincel · Floresta',stone:'Pincel · Pedreira',food:'Pincel · Macieira',farm:'Pincel · Plantio',scenery:'Pincel · Cenário',house:'Pincel · Construir'})[id]||'';

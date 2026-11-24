@@ -24,10 +24,15 @@ const hud=createHud({
   tool=id;hud.tool(id);
   if(id==='farm'&&brushSize<3){brushSize=3;hud.size(brushSize);}
   scene.setBrush(['npc','wood','stone','food','farm','scenery','house'].includes(id)?
-   {kind:id,size:id==='house'?1:brushSize}:null);
+   {kind:id,size:id==='house'?1:brushSize,
+    ...(id==='house'?{footprint:catalog?.buildingBlueprints?.[preset]?.footprint??{width:2,height:2}}:{})}:null);
   hoverId=null;scene.setHover(null);el('tooltip').hidden=true;
  },
- onPreset(value){preset=value;},
+ onPreset(value){
+  preset=value;
+  if(tool==='house')scene.setBrush({kind:'house',size:1,
+   footprint:catalog?.buildingBlueprints?.[value]?.footprint??{width:2,height:2}});
+ },
  onBuildMode(value){buildMode=value;},
  onSize(n){if(tool==='house')return;brushSize=n;hud.size(n);if(scene.brush)scene.setBrush({...scene.brush,size:n});},
  onClock(speed){changeSpeed(speed);}
@@ -122,7 +127,9 @@ function addBrushAt(point){
  for(const cell of ['house','farm'].includes(tool)?[center]:brushCells(center,brushSize,snapshot.world)){
   if(painting.size>=(['house','farm'].includes(tool)?1:225))break;
   const key=cell.x+','+cell.y;
-  const width=tool==='house'?2:tool==='farm'?brushSize:1,height=width;
+  const area=tool==='house'?(catalog?.buildingBlueprints?.[preset]?.footprint??{width:2,height:2}):
+   {width:tool==='farm'?brushSize:1,height:tool==='farm'?brushSize:1};
+  const {width,height}=area;
   let occupied=false;
   for(let y=cell.y;y<cell.y+height;y++)for(let x=cell.x;x<cell.x+width;x++){
    if(x<0||y<0||x>=snapshot.world.width||y>=snapshot.world.height||

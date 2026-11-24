@@ -234,8 +234,9 @@ export class Scene {
   if(this.brush&&this.pointer){
    const center=k.tileAt(this.pointer.x,this.pointer.y),cells=brushCells(center,this.brush.size,this.world);
    for(const anchor of ['house','farm'].includes(this.brush.kind)?[center]:cells) {
-    const width=this.brush.kind==='house'?2:this.brush.kind==='farm'?this.brush.size:1;
-    const height=width;
+    const width=this.brush.kind==='house'?(this.brush.footprint?.width??2):
+     this.brush.kind==='farm'?this.brush.size:1;
+    const height=this.brush.kind==='house'?(this.brush.footprint?.height??2):width;
     let blocked=false;
     for(let y=anchor.y;y<anchor.y+height;y++)for(let x=anchor.x;x<anchor.x+width;x++){
      if(x<0||y<0||x>=this.world.width||y>=this.world.height||
