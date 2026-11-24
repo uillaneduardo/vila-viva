@@ -41,3 +41,21 @@ test('indoor sleeper does not block passage and chooses a free exit',()=>{
  const other=w.entities.find(e=>e.id==='npc-other');other.position={x:5,y:4};
  assert.equal(exitHouse(w,npc),true);assert.notDeepEqual(npc.position,other.position);assert.equal(npc.sleepingInId,undefined);
 });
+
+import {releaseBed,reservedHouse} from '../packages/systems/housing/src/index.ts';
+test('blocked indoor NPC can eat carried food, retains occupancy and exits when passage opens',()=>{
+ const w=createWorld('blocked');
+ god(w,'home','construction.place',{position:{x:6,y:4},parameters:{blueprintId:'building.community_house',mode:'completed'}});
+ god(w,'npc','npc.spawn',{position:{x:5,y:4},parameters:{name:'NPC'}});
+ const npc=w.entities.find(e=>e.id==='npc-npc'),home=w.entities.find(e=>e.id==='construction-home');
+ assert.equal(reserveBed(w,npc,home),true);assert.equal(enterHouse(w,npc,home),true);
+ const perimeter=[{x:6,y:3},{x:7,y:3},{x:6,y:6},{x:7,y:6},{x:5,y:4},{x:5,y:5},{x:8,y:4},{x:8,y:5}];
+ for(const [i,p] of perimeter.entries())w.entities.push({id:'wall-'+i,kind:'obstacle',position:p,obstacleType:'wall',blocksMovement:true});
+ npc.inventory={apple:1};npc.energy=100;npc.satiety=20;
+ assert.equal(exitHouse(w,npc),false);releaseBed(w,npc);assert.equal(reservedHouse(w,npc)?.id,home.id);
+ for(let i=0;i<3;i++)advanceTick(w);
+ assert.equal(npc.inventory.apple,0);assert.ok(npc.satiety>20);assert.equal(npc.sleepingInId,home.id);
+ w.entities=w.entities.filter(e=>e.id!=='wall-0');
+ for(let i=0;i<3;i++)advanceTick(w);
+ assert.equal(npc.sleepingInId,undefined);assert.equal(reservedHouse(w,npc),undefined);
+});

@@ -12,7 +12,7 @@ export function advanceResidences(world:World):void {
   if(homes.some(h=>h.id===npc.homeId&&h.residents?.includes(npc.id)))continue;
   delete npc.homeId;
   const home=homes.find(h=>(h.residents?.length??0)<bedsIn(h));
-  if(home){releaseBed(world,npc);home.residents??=[];home.residents.push(npc.id);npc.homeId=home.id;}
+  if(home){releaseBed(world,npc);if(npc.sleepingInId)continue;home.residents??=[];home.residents.push(npc.id);npc.homeId=home.id;}
  }
 }
 export function bedsIn(house:Construction):number {
@@ -77,7 +77,7 @@ export function pruneBeds(world:World):void {
 }
 /** Reserve one logical bed before walking; never exceed capacity or duplicate a reservation. */
 export function reserveBed(world:World,npc:Character,house:Construction):boolean {
- if(npc.health<=0||bedsIn(house)<=0)return false;
+ if(npc.health<=0||bedsIn(house)<=0||npc.sleepingInId&&npc.sleepingInId!==house.id)return false;
  if(buildingBlueprint(house.blueprintId)?.housing?.permanent&&!house.residents?.includes(npc.id))return false;
  const existing=reservedHouse(world,npc);
  if(existing&&existing.id!==house.id)return false;

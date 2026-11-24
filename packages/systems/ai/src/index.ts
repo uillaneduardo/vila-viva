@@ -469,7 +469,17 @@ export function advanceNpcDecisions(world:World,execute:ActionHandler):void {
   }
   // Leave before planning any outdoor task. If exits are occupied, retry next decision.
   if(npc.sleepingInId&&(!reservedHouse(world,npc)||(npc.satiety??100)<=EAT_THRESHOLD||npc.health<=35&&npc.energy>0&&(npc.satiety??100)<65||npc.energy>=NPC_REST_RECOVER_TO&&(npc.health>=65||(npc.satiety??100)<=25))){
-   if(!exitHouse(world,npc)){record(npc,world,"Aguardando saída","Entrada ocupada; aguardando célula livre",npc.sleepingInId);continue;}
+   if(!exitHouse(world,npc)){
+    // Eating carried food requires no exterior cell. Do not release the bed or plan outdoor work.
+    const edible=(npc.satiety??100)<65?Object.values(FOOD_ITEMS).find(food=>(npc.inventory?.[food.id]??0)>0):undefined;
+    if(edible){
+     const result=execute({commandId:"ai-indoor-eat-"+world.tick+"-"+npc.id,worldId:world.id,actorRole:"npc",actorId:npc.id,action:"npc.eat",targetId:npc.id,parameters:{itemId:edible.id}});
+     if(result.ok){record(npc,world,"Alimentando-se","Consumiu "+edible.label+" dentro da casa",npc.sleepingInId);continue;}
+    }
+    const shelter=reservedHouse(world,npc);
+    if(shelter&&shelter.id===npc.sleepingInId)reserveBed(world,npc,shelter);
+    record(npc,world,"Aguardando saída","Entrada ocupada; aguardando célula livre",npc.sleepingInId);continue;
+   }
    releaseBed(world,npc);if(npc.ai)npc.ai.resting=false;
   }
   // Survival comes first. Hunger interrupts travel, work, and even sleep.
