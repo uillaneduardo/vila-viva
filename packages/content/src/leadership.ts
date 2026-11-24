@@ -6,6 +6,9 @@ export const LEADERSHIP_PROJECTS:readonly LeadershipProjectPolicy[]=Object.freez
  {blueprintId:"building.depot",priority:100,need:"Garantir estoque para alimentos, sementes e materiais"},
  {blueprintId:"building.community_house",priority:90,need:"Garantir cama e abrigo para habitantes"},
  {blueprintId:"building.workshop",priority:78,need:"Habilitar transformação mineral e fabricação de ferramentas"},
+ {blueprintId:"building.family_house",priority:60,need:"Criar residências familiares permanentes"},
+ {blueprintId:"building.cafeteria",priority:58,need:"Preparar refeições comunitárias"},
+ {blueprintId:"building.mine",priority:55,need:"Suprir escassez de minério superficial"},
  {blueprintId:"building.cemetery",priority:65,need:"Garantir sepultamentos e bem-estar coletivo"}
 ]);
 export const LEADER_DECISION_INTERVAL=12;
