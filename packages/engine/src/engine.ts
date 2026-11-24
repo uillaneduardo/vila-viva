@@ -331,11 +331,8 @@ export function applyCommand(world: World, command: Command,
   if(!actor)return reject(command,"UNAUTHORIZED");
   if(!orthogonallyAdjacent(actor.position,source.position)||actor.health<=0||actor.energy<=0)return reject(command,"BLOCKED");
   if(source.quantity<=0)return reject(command,"EXHAUSTED");
-  const free=MAX_CARRY_ITEMS-inventoryLoad(actor);
-  if(free<=0)return reject(command,"INVENTORY_FULL");
-  const amount=Math.min(3,source.quantity,free);
-  source.quantity-=amount;actor.inventory??={};
-  actor.inventory[source.resourceType]=(actor.inventory[source.resourceType]??0)+amount;
+  const amount=Math.min(source.quantity,rollDrop(world,command,"resource",1,3));
+  source.quantity-=amount;dropItem(world,actor.position,source.resourceType,amount);
   actor.energy=Math.max(0,actor.energy-1);
   riskActor=actor;riskActivity=("resource.gather:"+source.resourceType) as typeof riskActivity;
  } else if(command.action==="movement.move"){
