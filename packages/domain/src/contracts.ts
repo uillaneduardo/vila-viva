@@ -7,7 +7,7 @@ import type {ActiveEffect,AttributeId} from "./effects.ts";
 export type NaturalStage = "seedling" | "young" | "mature" | "old" | "dead";
 export type Inventory = Record<string,number>;
 export interface Character { id: string; kind: "character"; name: string; position: Position; health: number; energy: number; ownerId?: string; inventory?: Inventory; ai?:NpcDecisionState; attributes?: Partial<Record<AttributeId,number>>; effects?: ActiveEffect[];
- satiety?:number; equipment?:{tool?:string}; injuries?:number;
+ homeId?:string; satiety?:number; equipment?:{tool?:string}; injuries?:number;
  traits?:string[]; deathTick?:number; causeOfDeath?:string; bodyCarriedBy?:string;
  communityRole?:"leader"; leadership?:{lastPlanTick:number;lastBlueprintId?:string;lastReason:string;lastSiteId?:string;
  lastProductionTick?:number;lastRecipeId?:string;productionReason?:string}; }
@@ -25,7 +25,7 @@ export interface Construction {
  position:Position; footprint:{width:number;height:number};
  status:"site"|"completed"|"destroyed"; availability:"unavailable"|"available";
  stageIndex:number; delivered:Inventory; workDone:number; completedTick?:number;
- stock?:Inventory; bedReservations?:Record<string,{expiresTick:number}>;
+ residents?:string[]; mineRemaining?:Inventory; stock?:Inventory; bedReservations?:Record<string,{expiresTick:number}>;
  productionOrders?:Array<{recipeId:string;quantity:number;workDone:number}>;
  burials?:{npcId:string;name:string;deathTick:number;burialTick:number;cause:string}[];
 }
