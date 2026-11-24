@@ -1,6 +1,6 @@
 export type Role = "player" | "npc" | "admin";
 export type EntityKind = "character" | "resource" | "obstacle" | "construction";
-export type ActionId = "entity.inspect" | "movement.move" | "npc.spawn" | "resource.spawn" | "resource.harvest" | "obstacle.spawn" | "construction.place" | "construction.deliver" | "construction.work" | "construction.admin_supply" | "construction.admin_work" | "resource.gather" | "storage.deposit" | "storage.withdraw" | "storage.admin_supply" | "construction.remove" | "construction.destroy" | "npc.admin_equip" | "npc.eat" | "farming.zone.create" | "farming.plant" | "nature.cut" | "burial.pickup" | "burial.inter" | "burial.drop";
+export type ActionId = "entity.inspect" | "movement.move" | "npc.spawn" | "resource.spawn" | "resource.harvest" | "obstacle.spawn" | "construction.place" | "construction.deliver" | "construction.work" | "construction.admin_supply" | "construction.admin_work" | "resource.gather" | "storage.deposit" | "storage.withdraw" | "storage.admin_supply" | "construction.remove" | "construction.destroy" | "npc.admin_equip" | "npc.eat" | "farming.zone.create" | "farming.plant" | "nature.cut" | "burial.pickup" | "burial.inter" | "burial.drop" | "construction.propose";
 export type FailureCode = "UNAUTHORIZED" | "NOT_FOUND" | "INVALID_TARGET" | "INVALID_PAYLOAD" | "OUT_OF_BOUNDS" | "BLOCKED" | "DUPLICATE_COMMAND" | "EXHAUSTED" | "INVENTORY_FULL" | "NOT_READY" | "ALREADY_COMPLETED";
 export interface Position { x: number; y: number }
 import type {ActiveEffect,AttributeId} from "./effects.ts";
@@ -8,7 +8,8 @@ export type NaturalStage = "seedling" | "young" | "mature" | "old" | "dead";
 export type Inventory = Record<string,number>;
 export interface Character { id: string; kind: "character"; name: string; position: Position; health: number; energy: number; ownerId?: string; inventory?: Inventory; ai?:NpcDecisionState; attributes?: Partial<Record<AttributeId,number>>; effects?: ActiveEffect[];
  satiety?:number; equipment?:{tool?:string}; injuries?:number;
- traits?:string[]; deathTick?:number; causeOfDeath?:string; bodyCarriedBy?:string; }
+ traits?:string[]; deathTick?:number; causeOfDeath?:string; bodyCarriedBy?:string;
+ communityRole?:"leader"; leadership?:{lastPlanTick:number;lastBlueprintId?:string;lastReason:string;lastSiteId?:string}; }
 export interface NpcDecisionState {
  activity:string|null; reason:string; targetId?:string; route:Position[];
  lastDecisionTick:number; history:Array<{tick:number;activity:string;reason:string;targetId?:string}>;
@@ -27,7 +28,7 @@ export interface Construction {
  burials?:{npcId:string;name:string;deathTick:number;burialTick:number;cause:string}[];
 }
 export type Entity = Character | Resource | Obstacle | Construction | FarmingZone;
-export interface World { id: string; tick: number; width: number; height: number; entities: Entity[]; appliedCommands: string[] }
+export interface World { id: string; tick: number; width: number; height: number; entities: Entity[]; appliedCommands: string[]; seed?:string }
 export interface Command { commandId: string; worldId: string; actorRole: Role; actorId?: string; action: ActionId; targetId?: string; position?: Position; parameters?: Record<string, unknown> }
 export type Result =
  | { ok: true; status: "completed"; commandId: string; tick: number; events: ReadonlyArray<{type: string; entityId?: string}> }
