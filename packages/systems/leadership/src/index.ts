@@ -6,6 +6,9 @@ import {routeToEntity} from "../../pathfinding/src/index.ts";
 import {bedsIn} from "../../housing/src/index.ts";
 import {availableGraves,visibleCorpses} from "../../mortality/src/index.ts";
 import {planProduction,productionNeeds} from "./production.ts";
+import {NATURAL_SOURCES} from "../../../content/src/natural-sources.ts";
+import {FOOD_ITEMS} from "../../../content/src/foods.ts";
+import {availablePlots,canCreateZone} from "../../farming/src/index.ts";
 import {productionDefinition} from "../../production/src/index.ts";
 export type ProposedConstruction={blueprintId:string;position:Position;score:number;reason:string};
 const manhattan=(a:Position,b:Position)=>Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
@@ -97,11 +100,58 @@ export function proposeNextConstruction(world:World,leader:Character):ProposedCo
  candidates.sort((a,b)=>b.score-a.score||a.blueprintId.localeCompare(b.blueprintId));
  return candidates[0];
 }
+/** Food planning is independent of the single construction-site budget. */
+export function planAgriculture(world:World,leader:Character){
+ const citizens=living(world);
+ const foodIds=Object.keys(FOOD_ITEMS);
+ const total=(item:string)=>world.entities.reduce((sum,e)=>sum+
+  (e.kind==="character"&&e.health>0&&!e.ownerId?(e.inventory?.[item]??0):
+   e.kind==="construction"&&e.status==="completed"?(e.stock?.[item]??0):0),0);
+ const food=foodIds.reduce((n,item)=>n+total(item),0);
+ const crops=world.entities.filter(e=>e.kind==="resource"&&!!e.sourceId&&e.life?.stage!=="dead");
+ const hungry=citizens.some(n=>(n.satiety??100)<=35);
+ const target=Math.max(2,citizens.length*2);
+ if(!hungry&&food>=citizens.length*3&&crops.length>=target)return undefined;
+ const candidates=Object.values(NATURAL_SOURCES).map(species=>{
+  const seeds=total(species.seedItem);
+  const zones=world.entities.filter(e=>e.kind==="planting_zone"&&e.sourceId===species.id);
+  const capacity=zones.reduce((n,z)=>n+(z.kind==="planting_zone"?z.footprint.width*z.footprint.height:0),0);
+  const active=crops.filter(e=>e.kind==="resource"&&e.sourceId===species.id).length;
+  const free=zones.reduce((n,z)=>n+(z.kind==="planting_zone"?availablePlots(world,z).length:0),0);
+  return {species,seeds,capacity,active,free};
+ }).filter(p=>p.seeds>0&&p.free===0&&p.capacity<target&&p.active<target)
+ .sort((a,b)=>a.active-b.active||b.seeds-a.seeds||a.species.stages.mature-b.species.stages.mature||a.species.id.localeCompare(b.species.id));
+ for(const p of candidates){
+  const size=Math.min(2,Math.max(1,Math.floor(Math.sqrt(Math.min(p.seeds,target-p.capacity)))));
+  let best:{position:Position;score:number}|undefined;
+  for(let y=0;y<=world.height-size;y++)for(let x=0;x<=world.width-size;x++){
+   const position={x,y};
+   if(!canCreateZone(world,p.species.id,position,size,size))continue;
+   const candidate={kind:"resource" as const,id:"agriculture-candidate",position,resourceType:"food" as const,quantity:0,maximum:0};
+   const route=routeToEntity(world,leader.position,candidate,leader.id);
+   if(!route)continue;
+   const score=route.length+citizens.reduce((n,a)=>n+manhattan(position,a.position),0)/citizens.length;
+   if(!best||score<best.score)best={position,score};
+  }
+  if(best)return {position:best.position,sourceId:p.species.id,width:size,height:size,
+   reason:"Produção alimentar: "+food+" alimentos em inventários/estoques; "+p.seeds+" sementes de "+p.species.label};
+ }
+ return undefined;
+}
 export function advanceLeaderDecisions(world:World,execute:(cmd:Command)=>Result):void {
  if(world.tick%LEADER_DECISION_INTERVAL!==0)return;
  const leader=living(world).find(npc=>npc.communityRole==="leader");
  if(!leader)return;
  leader.leadership??={lastPlanTick:-1,lastReason:"Avaliando comunidade"};
+ const agriculture=planAgriculture(world,leader);
+ if(agriculture){
+  const result=execute({worldId:world.id,commandId:"leader-farm-"+world.tick+"-"+leader.id,
+   actorRole:"npc",actorId:leader.id,action:"farming.zone.create",position:agriculture.position,
+   parameters:{sourceId:agriculture.sourceId,width:agriculture.width,height:agriculture.height,reason:agriculture.reason}});
+  leader.leadership.lastPlanTick=world.tick;
+  leader.leadership.lastReason=result.ok?agriculture.reason:"Zona recusada: "+result.error;
+  if(result.ok)return;
+ }
  const productionIntent=planProduction(world);
  if(productionIntent){
   const workshop=world.entities.find((e):e is Construction=>e.kind==="construction"&&

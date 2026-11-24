@@ -94,6 +94,7 @@ test('NPCs autonomously gather, walk, store and record reasons without advancing
  god(w,'wood','resource.spawn',{position:{x:4,y:4},parameters:{resourceType:'wood',quantity:30}});
  depot(w,'warehouse',{x:9,y:4});
  const actor=w.entities.find(e=>e.kind==='character'&&!e.ownerId);
+ actor.inventory={}; // isolate logistics from randomized spawn cargo
  const original=w.entities.find(e=>e.id==='resource-wood').quantity;
  const start=w.tick;
  for(let i=0;i<190;i++)advanceTick(w);

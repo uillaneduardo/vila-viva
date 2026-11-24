@@ -46,51 +46,52 @@ function selectTask(world:World,npc:Character,targets:Entity[],activity:string,r
 }
 const acceptedBy=(depot:Construction,item:string):boolean=>!!storageDefinition(depot)?.accepted.includes(item);
 const stocked=(depot:Construction,item:string):number=>depot.stock?.[item]??0;
-/** Food renewal takes priority over construction. Species rules are never embedded in NPC logic. */
+function reachablePlots(world:World,npc:Character,zone:FarmingZone){
+ return availablePlots(world,zone).map(position=>{
+  const target:Resource={id:zone.id+":plot:"+position.x+":"+position.y,kind:"resource",
+   resourceType:"food",position,quantity:0,maximum:0};
+  const route=routeToEntity(world,npc.position,target,npc.id);
+  return route?{position,route,target}:null;
+ }).filter((x):x is {position:Position;route:Position[];target:Resource}=>!!x)
+ .sort((a,b)=>a.route.length-b.route.length||a.position.y-b.position.y||a.position.x-b.position.x);
+}
+/** Farming tasks require a reachable plot before procuring seeds. */
 function plantingTask(world:World,npc:Character):Task|null {
  const zones=world.entities.filter((e):e is FarmingZone=>e.kind==="planting_zone");
  const free=CARRY_LIMIT-load(npc),warehouses=depots(world);
  for(const zone of zones){
   const species=naturalSource(zone.sourceId);
   if(!species)continue;
-  const plots=availablePlots(world,zone);
-  if(!plots.length){
-   // Clearing dead woody plants makes room for replacement growth.
+  const choices=reachablePlots(world,npc,zone);
+  if(!choices.length){
    const deadTrees=world.entities.filter((e):e is Resource=>e.kind==="resource"&&
     e.plantedInZoneId===zone.id&&e.sourceId==="apple_tree"&&
     (e.life?.stage==="old"||e.life?.stage==="dead"));
    if(free>=4){
     const clear=selectTask(world,npc,deadTrees,"Renovando pomar",
      "Macieira envelhecida: aproveitar madeira e liberar espaço","nature.cut");
-    if(clear)return clear;
+    if(clear)return {...clear,domain:"farming"};
    }
    continue;
   }
   if((npc.inventory?.[species.seedItem]??0)>0){
-   const choices=plots.map(position=>{
-    const target:Resource={id:zone.id+":plot:"+position.x+":"+position.y,kind:"resource",
-     resourceType:"food",position,quantity:0,maximum:0};
-    const route=routeToEntity(world,npc.position,target,npc.id);
-    return route?{position,route,target}:null;
-   }).filter((x):x is {position:Position;route:Position[];target:Resource}=>!!x)
-    .sort((a,b)=>a.route.length-b.route.length||a.position.y-b.position.y||a.position.x-b.position.x);
-   if(choices[0])return {...choices[0],targetId:zone.id,activity:"Plantando",
+   return {...choices[0],targetId:zone.id,activity:"Plantando",
     reason:"Zona de "+species.label+": usando 1 "+species.seedItem+" do inventário",
-    action:"farming.plant"};
+    action:"farming.plant",domain:"farming"};
   }
   if(free>0){
    const seedTask=selectTask(world,npc,warehouses.filter(d=>stocked(d,species.seedItem)>0),
     "Buscando sementes","Zona com vaga; retirar "+species.seedItem+" de depósito",
     "storage.withdraw",target=>({materialId:species.seedItem,
      quantity:Math.min(3,free,stocked(target as Construction,species.seedItem))}));
-   if(seedTask)return seedTask;
+   if(seedTask)return {...seedTask,domain:"farming"};
   }
   // Apple trees can start a new orchard using seeds obtained during a real fruit harvest.
-  if(free>species.seedsPerHarvest){
+  if(free>=species.seedsPerHarvest+species.production.harvestBatch){
    const seedSource=selectTask(world,npc,resources(world).filter(r=>r.sourceId===zone.sourceId),
     "Obtendo sementes","Falta "+species.seedItem+"; colher a planta-mãe",
     "resource.harvest");
-   if(seedSource)return seedSource;
+   if(seedSource)return {...seedSource,domain:"farming"};
   }
  }
  return null;
@@ -141,7 +142,7 @@ function storedCargo(world:World,npc:Character):Task|null {
   if(quantity<=0||!ITEMS[item])continue;
   // Keep seeds needed by an existing plot in hand until planting has been attempted.
   if(ITEMS[item].category==="seed"&&world.entities.some(e=>e.kind==="planting_zone"&&
-    naturalSource(e.sourceId)?.seedItem===item&&availablePlots(world,e).length>0))continue;
+    naturalSource(e.sourceId)?.seedItem===item&&reachablePlots(world,npc,e).length>0))continue;
   const task=selectTask(world,npc,warehouses.filter(d=>acceptedBy(d,item)&&storageFree(d)>0),
    "Armazenando recursos","Armazenar "+quantity+" "+ITEMS[item].label+
    " com transporte físico","storage.deposit",
