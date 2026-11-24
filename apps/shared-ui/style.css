@@ -241,3 +241,22 @@ button:focus-visible,input:focus-visible,canvas:focus-visible{outline:2px solid 
  .god-submenu-tile-label{font-size:9px}
  .god-submenu-tile-meta{font-size:8px}
 }
+
+/* Compact God brush strip: secondary options keep their approved square layout. */
+.god-action-stack{bottom:95px;gap:5px}
+.god-action-stack .brush{gap:5px;padding:5px 8px;border-radius:12px;min-height:36px;flex-wrap:nowrap}
+.brush strong{max-width:142px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px}
+.brush .sep,.brush input[hidden]{display:none!important}
+.brush button{width:27px;height:27px;flex:0 0 27px;padding:0;font-size:15px}
+.brush #brushShape{margin-left:4px;border-color:rgba(180,213,172,.25);font-size:19px}
+.brush-count{font-size:10px;color:#acbdaa}
+.world-mgr label{font-size:11px;color:#b9cdb9;white-space:nowrap}
+.world-mgr #newWorldSize{min-width:0;max-width:100%;flex:1}
+@media(max-width:740px){
+ .god-action-stack{bottom:72px;gap:4px}
+ .god-action-stack .brush{padding:4px 6px;gap:4px;max-width:calc(100vw - 12px);flex-wrap:nowrap}
+ .brush strong{max-width:84px;font-size:9px}
+ .brush-count{display:none}
+ .brush button{width:25px;height:25px;flex-basis:25px}
+ .brush output{min-width:38px}
+}

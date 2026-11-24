@@ -24,10 +24,11 @@
  <nav id="dock" class="dock glass" aria-label="Ferramentas do Modo Deus"></nav>
  <div id="godActionStack" class="god-action-stack">
   <div id="brushPanel" class="brush glass" hidden>
-   <strong id="brushName">Pincel</strong><span class="sep"></span><span>Tamanho</span>
+   <strong id="brushName">Pincel</strong>
    <button id="brushMinus" title="Diminuir pincel">−</button><output id="brushValue">1 × 1</output><button id="brushPlus" title="Aumentar pincel">+</button>
-   <input id="brushSize" type="range" min="1" max="15" value="1" step="1" aria-label="Tamanho do pincel">
-   <span id="brushCount">1 célula</span>
+   <input id="brushSize" type="range" min="1" max="15" value="1" step="1" aria-label="Tamanho do pincel" hidden>
+   <button id="brushShape" type="button" aria-label="Formato do pincel: quadrado" title="Alternar formato do pincel" aria-pressed="false">□</button>
+   <span id="brushCount" class="brush-count" aria-live="polite">1 célula</span>
   </div>
   <section id="godSubmenu" class="god-submenu glass" hidden aria-label="Submenu de opções do Modo Deus">
    <div class="god-submenu-section">

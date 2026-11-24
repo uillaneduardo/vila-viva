@@ -63,7 +63,7 @@ class Element {
 }
 function makeHud(role="admin"){
  const ids=["dock","speed0","speed1","speed2","speed4","brushSize","brushMinus","brushPlus",
-  "brushPanel","brushValue","brushCount","brushName","toolBadge","godSubmenu",
+  "brushShape","brushPanel","brushValue","brushCount","brushName","toolBadge","godSubmenu",
   "godSubmenuChoices","godSubmenuLabel","godBuildModes","godBuildModeChoices",
   "worldName","day","clockTime","population","woodCount","foodCount","stoneCount","worldTick"];
  const elements=Object.fromEntries(ids.map(id=>[id,new Element(id)]));
@@ -75,6 +75,7 @@ function makeHud(role="admin"){
  hud=createHud({role,
   onTool:id=>{tools.push(id);hud.tool(id);},
   onClock:()=>{},onSize:n=>{sizes.push(n);hud.size(n);},
+  onShape:shape=>hud.shape(shape),
   onPreset:id=>presets.push(id),
   onBuildMode:id=>phases.push(id)
  });
@@ -161,4 +162,18 @@ test("HTML and CSS provide square mobile-friendly submenus without changing engi
  assert.match(css,/\.god-submenu-tile\{flex:0 0 74px/);
  assert.match(css,/\.god-submenu-tiles\{display:flex;.*overflow-x:auto/s);
  assert.match(css,/@media\(max-width:740px\)/);
+});
+
+test("brush shape toggles and is hidden for rectangular tools",()=>{
+ const {hud,elements,cleanup}=makeHud();
+ try{
+  hud.tool("food");hud.size(4);
+  assert.equal(elements.brushCount.textContent,"16 células");
+  elements.brushShape.click();
+  assert.equal(elements.brushCount.textContent,"12 células");
+  assert.equal(elements.brushShape.attributes["aria-pressed"],"true");
+  hud.tool("farm");assert.equal(elements.brushShape.hidden,true);
+  hud.tool("house");assert.equal(elements.brushShape.hidden,true);
+  hud.tool("wood");assert.equal(elements.brushShape.hidden,false);
+ }finally{cleanup();}
 });

@@ -232,7 +232,7 @@ export class Scene {
    c.setLineDash([5,5]);c.strokeStyle='#e9dca2';c.lineWidth=2;c.stroke();c.setLineDash([]);
   }
   if(this.brush&&this.pointer){
-   const center=k.tileAt(this.pointer.x,this.pointer.y),cells=brushCells(center,this.brush.size,this.world);
+   const center=k.tileAt(this.pointer.x,this.pointer.y),cells=brushCells(center,this.brush.size,this.world,this.brush.shape);
    for(const anchor of ['house','farm'].includes(this.brush.kind)?[center]:cells) {
     const width=this.brush.kind==='house'?(this.brush.footprint?.width??2):
      this.brush.kind==='farm'?this.brush.size:1;

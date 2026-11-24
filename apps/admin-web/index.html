@@ -27,6 +27,7 @@
    <div class="world-mgr-row"><select id="savedWorlds" aria-label="Snapshots disponíveis"></select><button id="worldLoad" type="button">Carregar</button></div>
    <div class="world-mgr-row"><button id="worldExport" type="button">Exportar snapshot</button><button id="worldImport" type="button">Importar JSON</button></div>
    <input id="worldImportFile" type="file" accept=".json,application/json" hidden>
+   <div class="world-mgr-row"><label for="newWorldSize">Tamanho do mapa</label><select id="newWorldSize" aria-label="Tamanho do novo mapa"><option value="24x16">24 × 16 (384 células)</option><option value="32x24">32 × 24 (768 células)</option><option value="48x32">48 × 32 (1.536 células)</option><option value="64x48">64 × 48 (3.072 células)</option></select></div>
    <div class="world-mgr-row"><input id="newWorldSeed" aria-label="Seed do novo mundo" value="oturo-starter-v1" maxlength="80"><button id="worldNew" type="button">Novo mundo</button></div>
    <h4>Economia e decisões do líder</h4>
    <div class="world-mgr-activity" id="worldEconomy" role="status"></div>
@@ -38,10 +39,11 @@
  <nav id="dock" class="dock glass" aria-label="Ferramentas do Modo Deus"></nav>
  <div id="godActionStack" class="god-action-stack">
   <div id="brushPanel" class="brush glass" hidden>
-   <strong id="brushName">Pincel</strong><span class="sep"></span><span>Tamanho</span>
+   <strong id="brushName">Pincel</strong>
    <button id="brushMinus" title="Diminuir pincel">−</button><output id="brushValue">1 × 1</output><button id="brushPlus" title="Aumentar pincel">+</button>
-   <input id="brushSize" type="range" min="1" max="15" value="1" step="1" aria-label="Tamanho do pincel">
-   <span id="brushCount">1 célula</span>
+   <input id="brushSize" type="range" min="1" max="15" value="1" step="1" aria-label="Tamanho do pincel" hidden>
+   <button id="brushShape" type="button" aria-label="Formato do pincel: quadrado" title="Alternar formato do pincel" aria-pressed="false">□</button>
+   <span id="brushCount" class="brush-count" aria-live="polite">1 célula</span>
   </div>
   <section id="godSubmenu" class="god-submenu glass" hidden aria-label="Submenu de opções do Modo Deus">
    <div class="god-submenu-section">
