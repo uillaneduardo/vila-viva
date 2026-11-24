@@ -217,6 +217,22 @@ export function applyCommand(world: World, command: Command,
    createCompletedBuilding(id,command.position,blueprint,world.tick+1):createConstructionSite(id,command.position,blueprint));
   if(mode==="completed")additionalEvents.push({type:"building.completed",entityId:id});
   if(proposed)additionalEvents.push({type:"community.construction_planned",entityId:id});
+ } else if(command.action==="mine.extract"){
+  if(admin)return reject(command,"UNAUTHORIZED");
+  const actor=actorForCommand(world,command),mine=world.entities.find(e=>e.id===command.targetId);
+  if(!actor)return reject(command,"UNAUTHORIZED");
+  if(!mine||mine.kind!=="construction"||mine.blueprintId!=="building.mine"||!storageDefinition(mine))return reject(command,"NOT_READY");
+  if(actor.health<=0||actor.energy<=0||!nearFootprint(actor.position,mine))return reject(command,"BLOCKED");
+  if(mine.lastMiningTick===world.tick)return reject(command,"NOT_READY");
+  const item=command.parameters?.materialId;
+  if(typeof item!=="string"||!["iron_ore","copper_ore","stone"].includes(item))return reject(command,"INVALID_PAYLOAD");
+  const remaining=mine.mineRemaining?.[item]??0;
+  if(!remaining)return reject(command,"EXHAUSTED");
+  const amount=Math.min(remaining,storageFree(mine),correctTool(actor,("resource.gather:"+item) as any)?3:2);
+  if(!amount)return reject(command,"INVENTORY_FULL");
+  mine.mineRemaining![item]-=amount;mine.stock??={};mine.stock[item]=(mine.stock[item]??0)+amount;
+  mine.lastMiningTick=world.tick;actor.energy=Math.max(0,actor.energy-1);
+  riskActor=actor;riskActivity=("resource.gather:"+item) as typeof riskActivity;
  } else if(command.action==="production.order"){
   const target=world.entities.find(e=>e.id===command.targetId);
   if(!target)return reject(command,"NOT_FOUND");
@@ -403,7 +419,7 @@ export function applyCommand(world: World, command: Command,
   const itemId=command.parameters?.itemId??"apple";
   if(typeof itemId!=="string"||!foodItem(itemId))return reject(command,"INVALID_PAYLOAD");
   if((actor.inventory?.[itemId]??0)<1)return reject(command,"EXHAUSTED");
-  if(!eatFood(actor,itemId))return reject(command,"NOT_READY");
+  if(!eatFood(actor,itemId,world.tick))return reject(command,"NOT_READY");
   updateNeedEffects(actor,world.tick);
   additionalEvents.push({type:"npc.ate",entityId:actor.id});
  } else if(command.action==="entity.inspect"){
