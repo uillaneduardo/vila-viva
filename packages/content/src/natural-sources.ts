@@ -1,20 +1,34 @@
-/** Content-only definition of a renewable living source. Future berry bushes add one entry, not a new engine. */
+/** Data-only definitions: one perennial tree and two finite-season vegetable crops. */
 import type {NaturalStage} from "../../domain/src/contracts.ts";
+export type GrowthMode="perennial"|"single_harvest";
 export interface NaturalSourceDefinition {
- id:string;
- label:string;
- resourceType:string;
- productId:string;
+ id:string;label:string;resourceType:"food";productId:string;
+ seedItem:string;seedsPerHarvest:number;growthMode:GrowthMode;
  stages:Readonly<{young:number;mature:number;old:number;dead:number}>;
  production:Readonly<{capacity:number;intervalTicks:number;amount:number;harvestBatch:number}>;
  blocksMovement:boolean;
 }
 export const NATURAL_SOURCES:Readonly<Record<string,NaturalSourceDefinition>>=Object.freeze({
- "apple_tree":Object.freeze({
+ apple_tree:Object.freeze({
   id:"apple_tree",label:"Macieira",resourceType:"food",productId:"apple",
+  seedItem:"apple_seed",seedsPerHarvest:1,growthMode:"perennial",
   stages:Object.freeze({young:40,mature:120,old:1800,dead:3000}),
   production:Object.freeze({capacity:30,intervalTicks:40,amount:3,harvestBatch:3}),
   blocksMovement:true
+ }),
+ carrot:Object.freeze({
+  id:"carrot",label:"Cenoura",resourceType:"food",productId:"carrot",
+  seedItem:"carrot_seed",seedsPerHarvest:2,growthMode:"single_harvest",
+  stages:Object.freeze({young:15,mature:55,old:230,dead:300}),
+  production:Object.freeze({capacity:3,intervalTicks:0,amount:3,harvestBatch:3}),
+  blocksMovement:false
+ }),
+ potato:Object.freeze({
+  id:"potato",label:"Batata",resourceType:"food",productId:"potato",
+  seedItem:"potato_seed",seedsPerHarvest:2,growthMode:"single_harvest",
+  stages:Object.freeze({young:22,mature:80,old:260,dead:330}),
+  production:Object.freeze({capacity:4,intervalTicks:0,amount:4,harvestBatch:4}),
+  blocksMovement:false
  })
 });
 export function naturalSource(id:string):NaturalSourceDefinition|undefined {

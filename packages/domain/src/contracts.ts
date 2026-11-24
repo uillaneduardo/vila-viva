@@ -1,6 +1,6 @@
 export type Role = "player" | "npc" | "admin";
 export type EntityKind = "character" | "resource" | "obstacle" | "construction";
-export type ActionId = "entity.inspect" | "movement.move" | "npc.spawn" | "resource.spawn" | "resource.harvest" | "obstacle.spawn" | "construction.place" | "construction.deliver" | "construction.work" | "construction.admin_supply" | "construction.admin_work" | "resource.gather" | "storage.deposit" | "storage.withdraw" | "storage.admin_supply" | "construction.remove" | "construction.destroy" | "npc.admin_equip" | "npc.eat";
+export type ActionId = "entity.inspect" | "movement.move" | "npc.spawn" | "resource.spawn" | "resource.harvest" | "obstacle.spawn" | "construction.place" | "construction.deliver" | "construction.work" | "construction.admin_supply" | "construction.admin_work" | "resource.gather" | "storage.deposit" | "storage.withdraw" | "storage.admin_supply" | "construction.remove" | "construction.destroy" | "npc.admin_equip" | "npc.eat" | "farming.zone.create" | "farming.plant" | "nature.cut";
 export type FailureCode = "UNAUTHORIZED" | "NOT_FOUND" | "INVALID_TARGET" | "INVALID_PAYLOAD" | "OUT_OF_BOUNDS" | "BLOCKED" | "DUPLICATE_COMMAND" | "EXHAUSTED" | "INVENTORY_FULL" | "NOT_READY" | "ALREADY_COMPLETED";
 export interface Position { x: number; y: number }
 import type {ActiveEffect,AttributeId} from "./effects.ts";
@@ -14,7 +14,8 @@ export interface NpcDecisionState {
  resting?:boolean;
 }
 export interface NaturalLife { ageTicks:number; stage:NaturalStage; health:number; productionProgress:number }
-export interface Resource { id: string; kind: "resource"; resourceType: string; position: Position; quantity: number; maximum: number; sourceId?:string; productId?:string; life?:NaturalLife }
+export interface Resource { id: string; kind: "resource"; resourceType: string; position: Position; quantity: number; maximum: number; sourceId?:string; productId?:string; life?:NaturalLife; plantedInZoneId?:string }
+export interface FarmingZone { id:string; kind:"planting_zone"; sourceId:string; position:Position; footprint:{width:number;height:number} }
 export interface Obstacle { id:string; kind:"obstacle"; obstacleType:string; position:Position; blocksMovement:boolean }
 export interface Construction {
  id:string; kind:"construction"; blueprintId:string; blueprintVersion:number;
@@ -23,7 +24,7 @@ export interface Construction {
  stageIndex:number; delivered:Inventory; workDone:number; completedTick?:number;
  stock?:Inventory; bedReservations?:Record<string,{expiresTick:number}>;
 }
-export type Entity = Character | Resource | Obstacle | Construction;
+export type Entity = Character | Resource | Obstacle | Construction | FarmingZone;
 export interface World { id: string; tick: number; width: number; height: number; entities: Entity[]; appliedCommands: string[] }
 export interface Command { commandId: string; worldId: string; actorRole: Role; actorId?: string; action: ActionId; targetId?: string; position?: Position; parameters?: Record<string, unknown> }
 export type Result =

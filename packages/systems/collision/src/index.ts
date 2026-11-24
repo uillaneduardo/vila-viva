@@ -1,9 +1,14 @@
 import type {World,Entity,Position} from "../../../domain/src/contracts.ts";
 import {inBounds} from "../../../domain/src/contracts.ts";
+import {naturalSource} from "../../../content/src/natural-sources.ts";
+export const resourceBlocksMovement=(entity:Extract<Entity,{kind:"resource"}>):boolean=>
+ entity.sourceId?naturalSource(entity.sourceId)?.blocksMovement??true:entity.quantity>0;
+
 /** All entities share one authoritative occupancy rule; art never determines collision. */
 export const blocksMovement=(entity:Entity):boolean=>
  entity.kind==="obstacle"?entity.blocksMovement:
- entity.kind==="resource"?true:entity.kind==="construction"?true:entity.kind==="character";
+ entity.kind==="resource"?resourceBlocksMovement(entity):
+ entity.kind==="planting_zone"?false:entity.kind==="construction"?true:entity.kind==="character";
 export const sameCell=(a:Position,b:Position):boolean=>a.x===b.x&&a.y===b.y;
 export function occupiesCell(entity:Entity,cell:Position):boolean {
  if(entity.kind==="construction")return cell.x>=entity.position.x&&cell.y>=entity.position.y&&
