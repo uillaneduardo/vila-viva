@@ -78,6 +78,9 @@ export class Scene {
    e.blueprintId==='building.cemetery'&&e.status==='completed')){
    const start=k.worldToScreen(graveyard.position.x*t,graveyard.position.y*t),size=t*k.zoom;
    const width=graveyard.footprint.width*size,height=graveyard.footprint.height*size;
+   const visual=resolveWorldSprite(graveyard);
+   const drawn=this.sprites.draw(c,visual.id,start.x+width/2,start.y+height/2,width,visual.state,{height,level:visual.level});
+   if(!drawn){
    c.fillStyle='rgba(104,103,75,.5)';c.fillRect(start.x,start.y,width,height);
    c.strokeStyle='#b2aa83';c.lineWidth=2;c.strokeRect(start.x+2,start.y+2,width-4,height-4);
    for(let i=0;i<graveyard.footprint.width*graveyard.footprint.height;i++){
@@ -87,6 +90,7 @@ export class Scene {
     c.strokeStyle='#dbd8be';c.lineWidth=Math.max(1,size*.022);
     c.beginPath();c.moveTo(x,y-size*.14);c.lineTo(x,y+size*.07);
     c.moveTo(x-size*.08,y-size*.055);c.lineTo(x+size*.08,y-size*.055);c.stroke();
+   }
    }
    if(graveyard.id===this.selected){
     c.strokeStyle='#f2e3a7';c.lineWidth=3;c.strokeRect(start.x+2,start.y+2,width-4,height-4);
@@ -111,7 +115,7 @@ export class Scene {
      (pos.y+(e.kind==='construction'?e.footprint.height/2:.5))*t),s=t*k.zoom;
    if(p.x<-s||p.y<-s||p.x>w+s||p.y>h+s)continue;
    const visual=resolveWorldSprite(e,{movingVisually:Math.abs(pos.x-e.position.x)+Math.abs(pos.y-e.position.y)>.001});
-   const drawn=visual&&this.sprites.draw(c,visual.id,p.x,p.y,s*visual.scale,visual.state);
+   const drawn=visual&&this.sprites.draw(c,visual.id,p.x,p.y,e.kind==='construction'?s*e.footprint.width:s*visual.scale,visual.state,e.kind==='construction'?{height:s*e.footprint.height,level:visual.level}:undefined);
    if(!drawn){
     c.save();c.translate(p.x,p.y);
     if(e.kind==='construction'){

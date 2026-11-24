@@ -1,3 +1,4 @@
+import {resolveBuildingVisual} from './building-visuals.js';
 import {getWorldVisualPack} from './visual-packs.js';
 import {resolveCharacterState} from './character-visual-state.js';
 /** World sprite registry. Render-only; no gameplay authority or inventory mutation. */
@@ -16,15 +17,7 @@ export const WORLD_ATLASES=getWorldVisualPack();
 /** Map authoritative entity state to an appearance without changing the entity. */
 export function resolveWorldSprite(entity,context){
  if(entity?.kind==='character')return {id:'entities/human',state:resolveCharacterState(entity,context),scale:1.45};
- if(entity?.kind==='construction'){
-  const states=entity.blueprintId==='building.depot'?
-   ['site','foundation','structure']:['site','foundation','structure','roof'];
-  const state=entity.status==='destroyed'?'destroyed':
-   entity.status==='completed'?'completed':states[Math.min(states.length-1,entity.stageIndex)];
-  const spriteId=entity.blueprintId==='building.depot'?'buildings/depot':
-   entity.blueprintId==='building.community_house'?'buildings/community_house':null;
-  return spriteId?{id:spriteId,state,scale:1}:null;
- }
+ if(entity?.kind==='construction')return resolveBuildingVisual(entity);
  if(entity?.kind!=='resource')return null;
  if(entity.sourceId==='carrot'||entity.sourceId==='potato'||entity.sourceId==='medicinal_herb')
   return {id:'vegetation/'+entity.sourceId,state:entity.life?.stage??'seedling',scale:.82};
@@ -56,19 +49,20 @@ export class SpriteLibrary {
    image.src=definition.src;
   }
  }
- draw(ctx,id,x,y,size,state='idle'){
-  const atlas=this.atlases.get(id);
+ draw(ctx,id,x,y,size,state='idle',{height=size,level=1}={}){
+  const variant=this.atlases.get(id+'@'+level);
+  const atlas=variant?.ready&&variant.definition.states.includes(state)?variant:this.atlases.get(id);
   if(atlas?.ready){
    const frame=atlas.definition.states.indexOf(state);
    if(frame===-1)return false;
    const d=atlas.definition;
    ctx.save();ctx.imageSmoothingEnabled=false;
    ctx.drawImage(atlas.image,frame*d.frameWidth,0,d.frameWidth,d.frameHeight,
-    x-size*d.pivotX/d.frameWidth,y-size*d.pivotY/d.frameHeight,size,size);
+    x-size*d.pivotX/d.frameWidth,y-height*d.pivotY/d.frameHeight,size,height);
    ctx.restore();return true;
   }
   const sprite=this.images.get(id+':'+state)||this.images.get(id);
   if(!sprite||!sprite.complete||!sprite.naturalWidth)return false;
-  ctx.drawImage(sprite,x-size/2,y-size/2,size,size);return true;
+  ctx.drawImage(sprite,x-size/2,y-height/2,size,height);return true;
  }
 }
