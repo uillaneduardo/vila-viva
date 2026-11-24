@@ -2,6 +2,8 @@ import {createTickRenderAdapter} from '../../packages/renderer/src/tick-render-a
 import {connectWorld} from '../../packages/client-sdk/src/world-stream.js';
 import {createUiVisual} from '../../packages/ui/assets/visual.js';
 import {applyUiTheme} from '../../packages/ui/assets/themes/index.js';
+import {SpriteLibrary} from '../../packages/renderer/src/sprites.js';
+import {getWorldVisualPack} from '../../packages/renderer/src/visual-packs.js';
 import {Scene} from '../../packages/renderer/src/scene.js';
 import {brushCells} from '../../packages/renderer/src/camera.js';
 import {createTouchGestures} from '../../packages/ui/src/touch-gestures.js';
@@ -10,7 +12,7 @@ import {createInspector} from '../../packages/ui/src/inspector.js';
 import {createNpcActivityMonitor} from '../../packages/ui/src/npc-activity-monitor.js';
 const el=id=>document.getElementById(id),role=document.body.dataset.role;
 applyUiTheme(document.documentElement);
-const surface=new Scene(el('game'));
+const surface=new Scene(el('game'),{spriteLibrary:new SpriteLibrary({pack:getWorldVisualPack(new URLSearchParams(location.search).get('visualPack')??undefined)})});
 const scene=new URLSearchParams(location.search).get('renderer')==='legacy'?surface:createTickRenderAdapter(surface);
 const inspector=createInspector({
  onHarvest:(id)=>void harvestSelected(id),

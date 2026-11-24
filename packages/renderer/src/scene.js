@@ -1,9 +1,9 @@
 import {Camera,hitTest,brushCells} from './camera.js';
 import {SpriteLibrary,resolveWorldSprite} from './sprites.js';
 export class Scene {
- constructor(canvas){
+ constructor(canvas,{spriteLibrary=new SpriteLibrary()}={}){
   this.canvas=canvas;this.ctx=canvas.getContext('2d');this.camera=new Camera();
-  this.sprites=new SpriteLibrary();this.sprites.preload();this.world=null;this.motion=new Map();this.selected=null;this.hover=null;this.hoverRoute=null;this.pointer=null;this.brush=null;
+  this.sprites=spriteLibrary;this.sprites.preload();this.world=null;this.motion=new Map();this.selected=null;this.hover=null;this.hoverRoute=null;this.pointer=null;this.brush=null;
   this.resize();this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(canvas);
  }
  resize(){
@@ -110,7 +110,7 @@ export class Scene {
    const p=k.worldToScreen((pos.x+(e.kind==='construction'?e.footprint.width/2:.5))*t,
      (pos.y+(e.kind==='construction'?e.footprint.height/2:.5))*t),s=t*k.zoom;
    if(p.x<-s||p.y<-s||p.x>w+s||p.y>h+s)continue;
-   const visual=resolveWorldSprite(e);
+   const visual=resolveWorldSprite(e,{movingVisually:Math.abs(pos.x-e.position.x)+Math.abs(pos.y-e.position.y)>.001});
    const drawn=visual&&this.sprites.draw(c,visual.id,p.x,p.y,s*visual.scale,visual.state);
    if(!drawn){
     c.save();c.translate(p.x,p.y);
