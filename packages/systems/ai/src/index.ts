@@ -9,6 +9,11 @@ import {availablePlots} from "../../farming/src/index.ts";
 import type {FarmingZone} from "../../../domain/src/contracts.ts";
 import {resolveAttributes} from "../../effects/src/resolver.ts";
 import {visibleCorpses,carriedCorpse,availableGraves} from "../../mortality/src/index.ts";
+import {affinityFor} from "../../../content/src/characters.ts";
+import type {WorkDomain} from "../../../content/src/characters.ts";
+import {activeOrder,productionDefinition,stockMissing,canWorkProduction} from "../../production/src/index.ts";
+import {RECIPES} from "../../../content/src/recipes.ts";
+import {ITEMS} from "../../../content/src/items.ts";
 
 export const NPC_ACTION_INTERVAL=3;
 export const NPC_REST_THRESHOLD=20;
@@ -18,7 +23,8 @@ const CARRY_LIMIT=12;
 type ActionHandler=(command:Command)=>Result;
 type Task={
  target:Entity; route:Position[]; activity:string; reason:string;
- action:Command["action"]; parameters?:Record<string,unknown>; position?:Position; targetId?:string
+ action:Command["action"]; parameters?:Record<string,unknown>; position?:Position; targetId?:string;
+ domain?:WorkDomain
 };
 const load=(npc:Character)=>Object.values(npc.inventory??{}).reduce((total,value)=>total+Math.max(0,value),0);
 const resources=(world:World):Resource[]=>
@@ -108,63 +114,164 @@ function burialTask(world:World,npc:Character):Task|null {
  return selectTask(world,npc,corpses,"Recolhendo falecido",
   "Sepultamento prioritário: corpo visível causa mal-estar no entorno","burial.pickup");
 }
-function choose(world:World,npc:Character):Task|null {
- const inventory=npc.inventory??{},free=CARRY_LIMIT-load(npc);
- const warehouses=depots(world),constructionSites=sites(world);
- const funeral=burialTask(world,npc);
- if(funeral)return funeral;
- const cultivation=plantingTask(world,npc);
- if(cultivation)return cultivation;
- const materials=constructionSites.map(site=>({site,remaining:materialsRemaining(site)}));
- // 1. Deliver what this worker physically carries to an incomplete site.
- for(const {site,remaining} of materials){
-  for(const [item,missing] of Object.entries(remaining)){
-   if(missing<=0||!(inventory[item]>0))continue;
-   const amount=Math.min(missing,inventory[item]);
-   const task=selectTask(world,npc,[site],"Entregando materiais",
-    "Obra necessita de "+item+"; inventário do NPC possui "+inventory[item],
-    "construction.deliver",()=>({materialId:item,quantity:amount}));
-   if(task)return task;
-  }
- }
- // 2. Finish a site whose complete stage supplies are already delivered.
- const ready=materials.filter(({site})=>hasMaterials(site)).map(({site})=>site);
- const work=selectTask(world,npc,ready,"Construindo","Todos os materiais da etapa estão no canteiro",
-  "construction.work");
- if(work)return work;
- // 3. Fetch missing building materials from real depots or resource sources.
- for(const {remaining} of materials){
-  for(const [item,missing] of Object.entries(remaining)){
-   if(missing<=0||free<=0)continue;
-   const warehouse=selectTask(world,npc,warehouses.filter(d=>stocked(d,item)>0),"Retirando materiais",
-    "Falta "+item+" no canteiro; há estoque no depósito","storage.withdraw",
-    target=>({materialId:item,quantity:Math.min(missing,free,stocked(target as Construction,item))}));
-   if(warehouse)return warehouse;
-   const source=selectTask(world,npc,resources(world).filter(r=>!r.sourceId&&r.resourceType===item),
-    "Coletando materiais","Falta "+item+" na obra; buscar na fonte física","resource.gather");
-   if(source)return source;
-  }
- }
- // 4. If carrying something not needed by a site, store it before collecting more.
- for(const [item,amount] of Object.entries(inventory)){
-  if(amount<=0)continue;
-  const warehouse=selectTask(world,npc,warehouses.filter(d=>acceptedBy(d,item)&&storageFree(d)>0),
-   "Armazenando recursos","Inventário do NPC contém "+item+"; depósito tem espaço",
-   "storage.deposit",target=>({materialId:item,quantity:Math.min(amount,storageFree(target as Construction))}));
-  if(warehouse)return warehouse;
- }
- // 5. Stockpile resources only when a functional depot exists. No magical credits.
- if(free>0){
-  const harvestCandidates=resources(world).filter(r=>warehouses.some(d=>
-   acceptedBy(d,r.sourceId?r.productId??"":r.resourceType)&&storageFree(d)>0));
-  const trees=harvestCandidates.filter(r=>!!r.sourceId);
-  const sources=trees.length?trees:harvestCandidates;
-  const forage=selectTask(world,npc,sources,"Buscando recursos",
-   "Existe espaço no depósito e uma fonte com recurso disponível",
-   sources.some(r=>!!r.sourceId)?"resource.harvest":"resource.gather");
-  if(forage)return forage;
+/** Task proposals are deliberately side-effect free; command execution remains authoritative. */
+function taskWithDomain(task:Task|null):Task|null {
+ if(!task)return null;
+ if(task.domain)return task;
+ const a=task.action,e=task.target;
+ task.domain=a==="farming.plant"||a==="resource.harvest"?"farming":
+  a==="construction.work"||a==="construction.deliver"?"building":
+  a==="production.work"?"crafting":a==="resource.gather"?
+   (e.kind==="resource"&&e.resourceType==="wood"?"woodcutting":"mining"):"hauling";
+ return task;
+}
+function choosePreferred(npc:Character,tasks:Array<Task|null>):Task|null{
+ const candidates=tasks.map(taskWithDomain).filter((t):t is Task=>!!t);
+ candidates.sort((a,b)=>{
+  const rank=(t:Task)=>affinityFor(npc,t.domain??"hauling")*10-
+   Math.max(0,t.route.length-1)*.16+
+   (t.action==="construction.work"||t.action==="production.work"?1.5:0);
+  return rank(b)-rank(a)||a.target.id.localeCompare(b.target.id);
+ });
+ return candidates[0]??null;
+}
+function storedCargo(world:World,npc:Character):Task|null {
+ const inventory=npc.inventory??{},warehouses=depots(world).filter(d=>d.blueprintId==="building.depot");
+ for(const [item,quantity] of Object.entries(inventory)){
+  if(quantity<=0||!ITEMS[item])continue;
+  // Keep seeds needed by an existing plot in hand until planting has been attempted.
+  if(ITEMS[item].category==="seed"&&world.entities.some(e=>e.kind==="planting_zone"&&
+    naturalSource(e.sourceId)?.seedItem===item&&availablePlots(world,e).length>0))continue;
+  const task=selectTask(world,npc,warehouses.filter(d=>acceptedBy(d,item)&&storageFree(d)>0),
+   "Entregando ao depósito","Armazenar "+quantity+" "+ITEMS[item].label+
+   " com transporte físico","storage.deposit",
+   d=>({materialId:item,quantity:Math.min(quantity,storageFree(d as Construction))}));
+  if(task)return {...task,domain:"hauling"};
  }
  return null;
+}
+function productionTask(world:World,npc:Character):Task|null {
+ const workshops=world.entities.filter((e):e is Construction=>e.kind==="construction"&&!!productionDefinition(e));
+ const free=CARRY_LIMIT-load(npc);
+ for(const workshop of workshops){
+  const order=activeOrder(workshop),recipe=order?RECIPES[order.recipeId]:undefined;
+  if(recipe){
+   const missing=stockMissing(workshop,recipe.id);
+   for(const [item,needed] of Object.entries(missing)){
+    if(needed<1)continue;
+    if((npc.inventory?.[item]??0)>0){
+     const delivery=selectTask(world,npc,[workshop],"Entregando à oficina",
+      "A receita "+recipe.label+" exige "+item,"storage.deposit",
+      ()=>({materialId:item,quantity:Math.min(needed,npc.inventory?.[item]??0,storageFree(workshop))}));
+     if(delivery?.parameters?.quantity)return {...delivery,domain:"hauling"};
+    }
+    if(free>0){
+     const supply=selectTask(world,npc,depots(world).filter(d=>d.id!==workshop.id&&stocked(d,item)>0),
+      "Retirando insumos","Buscar "+item+" para "+recipe.label,"storage.withdraw",
+      target=>({materialId:item,quantity:Math.min(needed,free,stocked(target as Construction,item))}));
+     if(supply)return {...supply,domain:"hauling"};
+     const mines=resources(world).filter(r=>!r.sourceId&&r.resourceType===item);
+     if(mines.length){
+      const gather=selectTask(world,npc,mines,"Extraindo para fabricação",
+       "Oficina precisa de "+item,"resource.gather");
+      if(gather)return taskWithDomain(gather);
+     }
+    }
+   }
+   if(canWorkProduction(workshop)){
+    const craft=selectTask(world,npc,[workshop],"Fabricando",
+     "Trabalhar "+recipe.workUnits+" unidades em "+recipe.label+" para obter "+
+      Object.keys(recipe.outputs).join(", "),"production.work");
+    if(craft)return {...craft,domain:"crafting"};
+   }
+  }
+  // Transfer finished products to the regular depot once a recipe has completed.
+  const outputIds=Object.keys(workshop.stock??{}).filter(item=>
+   (workshop.stock?.[item]??0)>0&&ITEMS[item]&&
+   ["equipment","processed"].includes(ITEMS[item].category));
+  if(free>0&&depots(world).some(d=>d.id!==workshop.id&&storageFree(d)>0)){
+   for(const item of outputIds){
+    const take=selectTask(world,npc,[workshop],"Distribuindo produção",
+     "Levar "+item+" da oficina ao depósito","storage.withdraw",
+     ()=>({materialId:item,quantity:Math.min(3,free,stocked(workshop,item))}));
+    if(take)return {...take,domain:"hauling"};
+   }
+  }
+ }
+ return null;
+}
+function desiredTool(npc:Character):string|null{
+ if(npc.equipment?.tool)return null;
+ const preferences=[["axe","woodcutting"],["pickaxe","mining"],["hammer","building"]] as const;
+ const ranked=preferences.map(([item,domain])=>({item,score:affinityFor(npc,domain)}))
+  .sort((a,b)=>b.score-a.score);
+ return ranked[0].score>=1.25?ranked[0].item:null;
+}
+function equipmentTask(world:World,npc:Character):Task|null{
+ const item=desiredTool(npc);
+ if(!item)return null;
+ if((npc.inventory?.[item]??0)>0)return {target:npc,route:[{...npc.position}],
+  activity:"Equipando",reason:"Afinidade por "+item+"; usar equipamento físico",
+  action:"npc.equip",targetId:npc.id,parameters:{tool:item},domain:"hauling"};
+ const free=CARRY_LIMIT-load(npc);if(!free)return null;
+ const source=selectTask(world,npc,depots(world).filter(d=>stocked(d,item)>0),
+  "Buscando equipamento","Retirar "+item+" para atividade preferida","storage.withdraw",
+  ()=>({materialId:item,quantity:1}));
+ return source?{...source,domain:"hauling"}:null;
+}
+function constructionTasks(world:World,npc:Character):{deliver:Task|null;work:Task|null;source:Task|null}{
+ const sites=sites(world),warehouses=depots(world);
+ const inventory=npc.inventory??{},free=CARRY_LIMIT-load(npc);
+ let deliver:Task|null=null,work:Task|null=null,source:Task|null=null;
+ for(const site of sites){
+  const missing=materialsRemaining(site);
+  for(const [item,amount] of Object.entries(missing)){
+   if(amount<=0)continue;
+   if((inventory[item]??0)>0&&!deliver)
+    deliver=selectTask(world,npc,[site],"Entregando materiais",
+     "Canteiro requer "+item,"construction.deliver",
+     ()=>({materialId:item,quantity:Math.min(amount,inventory[item])}));
+   if(free>0&&!source){
+    source=selectTask(world,npc,warehouses.filter(d=>stocked(d,item)>0),
+     "Buscando material","Levar "+item+" ao canteiro","storage.withdraw",
+     target=>({materialId:item,quantity:Math.min(amount,free,stocked(target as Construction,item))}));
+    if(!source)source=selectTask(world,npc,resources(world).filter(r=>!r.sourceId&&r.resourceType===item),
+     "Coletando material","Canteiro demanda "+item,"resource.gather");
+   }
+  }
+  if(hasMaterials(site)&&!work)
+   work=selectTask(world,npc,[site],"Construindo",
+    "Materiais entregues; avançar etapa de obra","construction.work");
+ }
+ return {deliver:taskWithDomain(deliver),work:taskWithDomain(work),source:taskWithDomain(source)};
+}
+function stockpileTask(world:World,npc:Character):Task|null {
+ const free=CARRY_LIMIT-load(npc),warehouses=depots(world).filter(d=>d.blueprintId==="building.depot");
+ if(free<3||warehouses.every(d=>storageFree(d)===0))return null;
+ const candidates=resources(world).filter(r=>warehouses.some(d=>
+  acceptedBy(d,r.sourceId?r.productId??"":r.resourceType)&&
+  storageFree(d)>=3)&&(!r.sourceId||free>=(naturalSource(r.sourceId)?.seedsPerHarvest??0)+1));
+ const tasks=candidates.map(r=>selectTask(world,npc,[r],
+  "Coletando para estoque","Abastecer depósito com "+(r.productId??r.resourceType),
+  r.sourceId?"resource.harvest":"resource.gather"));
+ return choosePreferred(npc,tasks);
+}
+function choose(world:World,npc:Character):Task|null{
+ const funeral=burialTask(world,npc);
+ if(funeral)return funeral;
+ const construction=constructionTasks(world,npc);
+ // Urgent delivery is followed through before any new collection.
+ if(construction.deliver)return construction.deliver;
+ const production=productionTask(world,npc);
+ if(production?.action==="storage.deposit")return production;
+ const equipment=equipmentTask(world,npc);
+ if(equipment?.action==="npc.equip")return equipment;
+ const cargo=storedCargo(world,npc);
+ if(cargo)return cargo;
+ // New work is chosen by affinities; no trait can bypass survival or valid physical actions.
+ const farming=plantingTask(world,npc);
+ return choosePreferred(npc,[farming,construction.work,production,construction.source,equipment,
+  stockpileTask(world,npc)]);
 }
 function record(npc:Character,world:World,activity:string|null,reason:string,targetId?:string,route:Position[]=[]){
  npc.ai??={activity:null,reason:"",route:[],lastDecisionTick:world.tick,history:[]};
@@ -181,7 +288,7 @@ function foodTask(world:World,npc:Character):Task|null {
  const warehouses=depots(world),free=CARRY_LIMIT-load(npc);
  if(free<=0){
   for(const [item,amount] of Object.entries(npc.inventory??{})){
-   if(amount<=0||item==="apple")continue;
+   if(amount<=0||Object.hasOwn(FOOD_ITEMS,item))continue;
    const task=selectTask(world,npc,warehouses.filter(d=>acceptedBy(d,item)&&storageFree(d)>0),
     "Liberando espaço para alimento","Preciso comer; inventário cheio",
     "storage.deposit",target=>({materialId:item,quantity:Math.min(amount,storageFree(target as Construction))}));
@@ -239,8 +346,7 @@ function rest(world:World,npc:Character,execute:ActionHandler):boolean {
  const sheltered=!!house;
  const gain=sleepRecovery(world,npc,house);
  npc.energy=Math.min(100,npc.energy+gain);
- if((npc.satiety??100)>30&&npc.health<100&&world.tick%6===0)
-  npc.health=Math.min(100,npc.health+(sheltered?2:1));
+ // Healing is owned by systems/health; never double-apply during rest.
  record(npc,world,sheltered?"Dormindo":"Descansando",
   sheltered?"Cama reservada; recuperação +"+gain+" energia por ciclo":
    "Sem cama acessível; recuperação lenta +"+gain+" energia por ciclo",house?.id);
