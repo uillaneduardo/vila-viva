@@ -10,7 +10,7 @@ const scene=new Scene(el('game')),inspector=createInspector({
  onHarvest:(id)=>void harvestSelected(id),
  onConstruction:(id,action,parameters)=>void executeConstruction(id,action,parameters)
 });
-let snapshot=null,catalog=null,selectedId=null,hoverId=null,tool='inspect',brushSize=1,preset='apple_adult';
+let snapshot=null,catalog=null,selectedId=null,hoverId=null,tool='inspect',brushSize=1,preset='apple_adult',buildMode='site';
 let pan=null,painting=new Map(),loading=false,inspection=null,lastSpeed=1;
 const keys=new Set();
 const request=async(path,options)=>{
@@ -22,6 +22,7 @@ const hud=createHud({
  role,
  onTool(id){tool=id;hud.tool(id);scene.setBrush(['npc','wood','stone','food','scenery','house'].includes(id)?{kind:id,size:id==='house'?1:brushSize}:null);hoverId=null;scene.setHover(null);el('tooltip').hidden=true;},
  onPreset(value){preset=value;},
+ onBuildMode(value){buildMode=value;},
  onSize(n){if(tool==='house')return;brushSize=n;hud.size(n);if(scene.brush)scene.setBrush({...scene.brush,size:n});},
  onClock(speed){changeSpeed(speed);}
 });
@@ -68,7 +69,8 @@ async function executeConstruction(siteId,action,parameters){
   const data=await request('/api/commands',{method:'POST',headers:{'content-type':'application/json'},
    body:JSON.stringify({commandId:crypto.randomUUID(),role:'admin',action,targetId:siteId,parameters})});
   if(!data.result?.ok)throw Error(data.result?.error||'Comando rejeitado');
-  status(action==='construction.admin_supply'?'Materiais inseridos no canteiro pelo Modo Deus.':'Trabalho aplicado à etapa atual.');
+  status(action==='construction.admin_supply'?'Materiais inseridos no canteiro pelo Modo Deus.':
+   action==='storage.admin_supply'?'Estoque de teste adicionado ao depósito.':'Trabalho aplicado à etapa atual.');
   await refresh();
  }catch(error){status('Construção: '+error.message);}
 }
@@ -81,8 +83,8 @@ function updateHover(point){
  el('tooltipName').textContent=npc.name;
  el('tooltipHealth').textContent='Saúde '+npc.health+'% · Energia '+npc.energy+'%';
  const view=snapshot.npcViews?.[npc.id];
- el('tooltipActivity').textContent=(view?.activity??'Atividade indisponível')+' · Humor '+(view?.mood==null?'—':Math.round(view.mood)+'%');
- el('tooltipRoute').textContent=view?.route?.length?'Rota calculada: '+view.route.length+' pontos':'Rota ainda não disponível (pathfinder pendente)';
+ el('tooltipActivity').textContent=(view?.activity??'Aguardando')+' · Humor '+(view?.mood==null?'—':Math.round(view.mood)+'%');
+ el('tooltipRoute').textContent=view?.route?.length?'Rota: '+Math.max(0,view.route.length-1)+' passos':(view?.reason??'Sem rota ativa');
  scene.setRoute(view?.route??null);
  const tip=el('tooltip');
  tip.style.left=Math.max(8,Math.min(scene.camera.width-248,point.x+16))+'px';
@@ -113,7 +115,7 @@ async function submitBrush(){
   commandId:crypto.randomUUID(),action,position,
   parameters:kind==='npc'?{name:'Habitante '+(snapshot.world.entities.filter(e=>e.kind==='character').length+i+1)}:
    kind==='scenery'?{obstacleType:preset}:
-   kind==='house'?{blueprintId:'building.community_house'}:
+   kind==='house'?{blueprintId:preset,mode:buildMode}:
    kind==='food'?{resourceType:'food',sourceId:'apple_tree',ageTicks:preset==='apple_seedling'?0:120,quantity:preset==='apple_seedling'?0:6}:
    {resourceType:kind,quantity:25}
  }));
@@ -135,7 +137,10 @@ function changeSpeed(speed){
 async function refresh(){
  if(loading)return;loading=true;
  try{
-  if(!catalog)catalog=await request('/api/catalog');
+  if(!catalog){
+   catalog=await request('/api/catalog');
+   hud.setBlueprints(catalog.buildingBlueprints);
+  }
   const data=await request('/api/world');snapshot=data;scene.setWorld(data.world);hud.update(data);
   const selected=data.world.entities.find(e=>e.id===selectedId);
   if(selectedId&&!selected)setSelection(null);
