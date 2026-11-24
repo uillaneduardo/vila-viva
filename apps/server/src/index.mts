@@ -158,12 +158,16 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
     const seed=input.seed;
     if(seed!==undefined&&(typeof seed!=="string"||!seed.trim()||seed.length>80))
      return json(res,422,{error:"INVALID_SEED"});
+    const allowedSizes=new Set(["24x16","32x24","48x32","64x48"]);
+    const width=input.width??24,height=input.height??16;
+    if(!Number.isInteger(width)||!Number.isInteger(height)||!allowedSizes.has(width+"x"+height))
+     return json(res,422,{error:"INVALID_WORLD_SIZE"});
     clock.speed=0;
-    const next=createWorld("first-world",24,16);
+    const next=createWorld("first-world",width,height);
     if(store)store.switchWorld(next,seed);
     world=next;
     initialize(seed);
-    return json(res,200,{ok:true,tick:world.tick,paused:true,seed:seed??null});
+    return json(res,200,{ok:true,tick:world.tick,paused:true,seed:seed??null,width,height});
    }
    if(url.pathname==="/api/economy"&&req.method==="GET"){
     const workshops=world.entities.filter(e=>e.kind==="construction"&&!!productionDefinition(e));
