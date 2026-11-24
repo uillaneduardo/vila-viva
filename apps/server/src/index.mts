@@ -112,6 +112,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string;asyncPersist
   timings.measure("simulation",()=>advanceTick(world,a=>actions.push(a)));
   timings.measure("persistence",()=>store?.commit(world,world.seed,actions));
   timings.measure("publish",()=>publishRevision());
+  timings.record("tickToPublish",performance.now()-now);
  };
  const clockView=()=>({speed:clock.speed,paused:clock.speed===0,tick:world.tick,day:1+Math.floor(world.tick/240),hour:Math.floor(world.tick/10)%24,minute:(world.tick%10)*6});
  // Tick is independent from browser refresh. Command-triggered ticks remain
@@ -123,11 +124,12 @@ export function makePrototype(options:{dataDir?:string;seed?:string;asyncPersist
    if(busy||fault)return;
    scheduler.pulse(clock.speed,()=>{
     const job=exclusive(async()=>{
-     const draft=structuredClone(world),actions:AcceptedAction[]=[];
-     const now=performance.now();if(lastTickAt!==null)timings.record("tickInterval",now-lastTickAt);lastTickAt=now;
+     const now=performance.now();
+     const draft=timings.measure("clone",()=>structuredClone(world)),actions:AcceptedAction[]=[];if(lastTickAt!==null)timings.record("tickInterval",now-lastTickAt);lastTickAt=now;
      timings.measure("simulation",()=>advanceTick(draft,a=>actions.push(a)));
      const begin=performance.now();await durable(draft,actions);timings.record("persistence",performance.now()-begin);
      world=draft;timings.measure("publish",()=>publishRevision());
+     timings.record("tickToPublish",performance.now()-now);
     });
     pendingTick=job.catch(error=>{fault=true;clock.speed=0;scheduler.reset();console.error("Async simulation paused",error);publishRevision();}).finally(()=>{pendingTick=null;});
    });return;
