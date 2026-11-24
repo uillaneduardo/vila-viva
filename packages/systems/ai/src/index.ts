@@ -143,7 +143,7 @@ function storedCargo(world:World,npc:Character):Task|null {
   if(ITEMS[item].category==="seed"&&world.entities.some(e=>e.kind==="planting_zone"&&
     naturalSource(e.sourceId)?.seedItem===item&&availablePlots(world,e).length>0))continue;
   const task=selectTask(world,npc,warehouses.filter(d=>acceptedBy(d,item)&&storageFree(d)>0),
-   "Entregando ao depósito","Armazenar "+quantity+" "+ITEMS[item].label+
+   "Armazenando recursos","Armazenar "+quantity+" "+ITEMS[item].label+
    " com transporte físico","storage.deposit",
    d=>({materialId:item,quantity:Math.min(quantity,storageFree(d as Construction))}));
   if(task)return {...task,domain:"hauling"};
@@ -252,7 +252,7 @@ function stockpileTask(world:World,npc:Character):Task|null {
   acceptedBy(d,r.sourceId?r.productId??"":r.resourceType)&&
   storageFree(d)>=3)&&(!r.sourceId||free>=(naturalSource(r.sourceId)?.seedsPerHarvest??0)+1));
  const tasks=candidates.map(r=>selectTask(world,npc,[r],
-  "Coletando para estoque","Abastecer depósito com "+(r.productId??r.resourceType),
+  "Buscando recursos","Abastecer depósito com "+(r.productId??r.resourceType),
   r.sourceId?"resource.harvest":"resource.gather"));
  return choosePreferred(npc,tasks);
 }
@@ -270,8 +270,8 @@ function choose(world:World,npc:Character):Task|null{
  if(cargo)return cargo;
  // New work is chosen by affinities; no trait can bypass survival or valid physical actions.
  const farming=plantingTask(world,npc);
- return choosePreferred(npc,[farming,construction.work,production,construction.source,equipment,
-  stockpileTask(world,npc)]);
+ const demanded=choosePreferred(npc,[farming,construction.work,production,construction.source,equipment]);
+ return demanded??stockpileTask(world,npc);
 }
 function record(npc:Character,world:World,activity:string|null,reason:string,targetId?:string,route:Position[]=[]){
  npc.ai??={activity:null,reason:"",route:[],lastDecisionTick:world.tick,history:[]};

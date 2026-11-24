@@ -7,7 +7,7 @@ import {createWorld,applyCommand} from "../packages/engine/src/engine.ts";
 test("registry contains content and action contracts with unique IDs",()=>{
  assert.equal(baseRegistry.entity("resource.wood").kind,"resource");
  assert.equal(baseRegistry.action("movement.move").readonly,false);
- assert.equal(createBaseRegistry().entities.size,9);
+ assert.equal(createBaseRegistry().entities.size,10);
  const registry=new DefinitionRegistry();
  registry.registerEntity({id:"test",kind:"item",components:["position"],displayName:{"pt-BR":"Item"},description:"item"});
  assert.throws(()=>registry.registerEntity({id:"test",kind:"item",components:["position"],displayName:{"pt-BR":"Item"},description:"again"}));

@@ -9,7 +9,7 @@ export function passiveHealthRecovery(world:World,npc:Character):number {
  const house=reservedHouse(world,npc);
  const sheltered=!!house&&nearFootprint(npc.position,house);
  const rate=healingFactor(npc);
- const recovered=Math.max(1,Math.floor((sheltered?3:1)*rate));
+ const recovered=Math.max(1,Math.floor((sheltered?4:2)*rate));
  const healed=Math.min(100-npc.health,recovered);
  npc.health+=healed;
  // Past injury events remain audit history; active wounds fade through healing.
