@@ -30,14 +30,46 @@ export class Scene {
    if((x*17+y*23)%29===0&&s>16){c.fillStyle='rgba(191,214,168,.13)';c.fillRect(p.x+s*.6,p.y+s*.29,2,3);}
   }
   // Only real entities from /api/world are visualized. No fake houses, stocks or paths.
-  for(const e of [...this.world.entities].sort((a,b)=>a.position.y-b.position.y)){
-   const p=k.worldToScreen((e.position.x+.5)*t,(e.position.y+.5)*t),s=t*k.zoom;
+  for(const e of [...this.world.entities].sort((a,b)=>(a.position.y+(a.kind==='construction'?a.footprint.height:1))-(b.position.y+(b.kind==='construction'?b.footprint.height:1)))){
+   const p=k.worldToScreen((e.position.x+(e.kind==='construction'?e.footprint.width/2:.5))*t,
+     (e.position.y+(e.kind==='construction'?e.footprint.height/2:.5))*t),s=t*k.zoom;
    if(p.x<-s||p.y<-s||p.x>w+s||p.y>h+s)continue;
    const visual=resolveWorldSprite(e);
    const drawn=visual&&this.sprites.draw(c,visual.id,p.x,p.y,s*visual.scale,visual.state);
    if(!drawn){
     c.save();c.translate(p.x,p.y);
-    if(e.kind==='character'){
+    if(e.kind==='construction'){
+     const width=s*e.footprint.width,height=s*e.footprint.height;
+     const left=-width/2,top=-height/2,phase=e.status==='completed'?4:e.stageIndex;
+     c.fillStyle='rgba(13,29,21,.22)';c.fillRect(left+s*.06,top+s*.15,width-s*.12,height-s*.19);
+     // Per-stage, geometry-only placeholder for the eventual registered sprites.
+     c.strokeStyle='#d6bb82';c.lineWidth=Math.max(2,s*.04);
+     c.strokeRect(left+s*.06,top+s*.08,width-s*.12,height-s*.16);
+     c.strokeStyle='#bdac7f';c.lineWidth=Math.max(1,s*.025);
+     c.setLineDash([s*.12,s*.09]);c.strokeRect(left+s*.14,top+s*.16,width-s*.28,height-s*.32);c.setLineDash([]);
+     if(phase>=1){
+      c.fillStyle='#a29d80';c.fillRect(left+s*.10,top+s*.10,width-s*.20,height-s*.20);
+      c.fillStyle='#777f69';c.fillRect(left+s*.22,top+s*.22,width-s*.44,height-s*.44);
+     }
+     if(phase>=2){
+      c.fillStyle='#9b8060';
+      for(const xx of [left+s*.12,left+width-s*.25])for(const yy of [top+s*.12,top+height-s*.25])c.fillRect(xx,yy,s*.13,s*.13);
+      c.strokeStyle='#c1a071';c.lineWidth=s*.055;c.beginPath();
+      c.moveTo(left+s*.15,top+s*.15);c.lineTo(left+width-s*.15,top+height-s*.15);
+      c.moveTo(left+width-s*.15,top+s*.15);c.lineTo(left+s*.15,top+height-s*.15);c.stroke();
+     }
+     if(phase>=3){
+      c.fillStyle=phase===4?'#a46c4e':'#96765b';
+      c.beginPath();c.moveTo(left+s*.06,top+height*.46);c.lineTo(0,top-s*.23);
+      c.lineTo(left+width-s*.06,top+height*.46);c.closePath();c.fill();
+      c.beginPath();c.moveTo(left+s*.1,top+height*.48);c.lineTo(left+s*.1,top+height-s*.12);
+      c.lineTo(left+width-s*.1,top+height-s*.12);c.lineTo(left+width-s*.1,top+height*.48);c.closePath();c.fill();
+     }
+     if(phase===4){
+      c.fillStyle='#594737';c.fillRect(-s*.17,top+height*.49,s*.34,height*.42);
+      c.fillStyle='#d9c89b';c.fillRect(-s*.06,top+height*.59,s*.06,s*.09);
+     }
+    }else if(e.kind==='character'){
      c.beginPath();c.arc(0,0,Math.max(7,s*.28),0,Math.PI*2);c.fillStyle=e.ownerId?'#e5d19e':'#d6c091';c.fill();
      c.strokeStyle='rgba(35,42,26,.7)';c.lineWidth=1.5;c.stroke();
      c.fillStyle='#29342a';c.font='bold '+Math.max(10,s*.29)+'px system-ui';c.textAlign='center';c.textBaseline='middle';c.fillText((e.name||'?').charAt(0).toUpperCase(),0,1);
@@ -65,7 +97,9 @@ export class Scene {
     c.restore();
    }
    if(e.id===this.hover||e.id===this.selected){
-    c.beginPath();c.arc(p.x,p.y,s*.4,0,Math.PI*2);
+    c.beginPath();
+    if(e.kind==='construction')c.rect(p.x-s*e.footprint.width/2,p.y-s*e.footprint.height/2,s*e.footprint.width,s*e.footprint.height);
+    else c.arc(p.x,p.y,s*.4,0,Math.PI*2);
     c.strokeStyle=e.id===this.selected?'#f2e3a7':'rgba(241,251,225,.75)';c.lineWidth=e.id===this.selected?2.7:1.5;c.stroke();
    }
   }
@@ -79,11 +113,19 @@ export class Scene {
   }
   if(this.brush&&this.pointer){
    const center=k.tileAt(this.pointer.x,this.pointer.y),cells=brushCells(center,this.brush.size,this.world);
-   for(const cell of cells){
-    const point=k.worldToScreen(cell.x*t,cell.y*t),s=t*k.zoom;
-    const occupied=this.world.entities.some(e=>e.position.x===cell.x&&e.position.y===cell.y);
-    c.fillStyle=occupied?'rgba(220,96,90,.3)':'rgba(170,227,155,.26)';c.fillRect(point.x,point.y,s,s);
-    c.strokeStyle=occupied?'#db8983':'#add89b';c.lineWidth=1;c.strokeRect(point.x+1,point.y+1,s-2,s-2);
+   for(const anchor of this.brush.kind==='house'?[center]:cells) {
+    const width=this.brush.kind==='house'?2:1,height=this.brush.kind==='house'?2:1;
+    let blocked=false;
+    for(let y=anchor.y;y<anchor.y+height;y++)for(let x=anchor.x;x<anchor.x+width;x++){
+     if(x<0||y<0||x>=this.world.width||y>=this.world.height||
+      this.world.entities.some(e=>e.kind==='construction'?
+       x>=e.position.x&&x<e.position.x+e.footprint.width&&y>=e.position.y&&y<e.position.y+e.footprint.height:
+       e.position.x===x&&e.position.y===y))blocked=true;
+    }
+    const point=k.worldToScreen(anchor.x*t,anchor.y*t),s=t*k.zoom;
+    c.fillStyle=blocked?'rgba(220,96,90,.3)':'rgba(170,227,155,.26)';
+    c.fillRect(point.x,point.y,s*width,s*height);
+    c.strokeStyle=blocked?'#db8983':'#add89b';c.lineWidth=1;c.strokeRect(point.x+1,point.y+1,s*width-2,s*height-2);
    }
   }
  }

@@ -12,6 +12,7 @@ export function availableActions(world:World,role:Role,actorId:string|undefined,
    {id:"npc.spawn",label:"Criar NPC",enabled:valid,...(!valid?{reason:"BLOCKED" as const}:{})},
    {id:"resource.spawn",label:"Criar fonte",enabled:valid,...(!valid?{reason:"BLOCKED" as const}:{})},
    {id:"obstacle.spawn",label:"Posicionar obstáculo",enabled:valid,...(!valid?{reason:"BLOCKED" as const}:{})},
+   {id:"construction.place",label:"Criar canteiro",enabled:valid,...(!valid?{reason:"BLOCKED" as const}:{})},
    ...(target?[{id:"entity.inspect" as const,label:"Inspecionar entidade",enabled:true,targetId:target.id}]:[])
   ];
  }
@@ -25,6 +26,13 @@ export function availableActions(world:World,role:Role,actorId:string|undefined,
  const canHarvest=!!source&&adjacent&&alive&&free&&target?.kind==="resource"&&target.quantity>0&&target.life?.stage!=="dead";
  const harvestReason:FailureCode= !adjacent||!alive?"BLOCKED":!free?"INVENTORY_FULL":"EXHAUSTED";
  const actions:ActionAvailability[]=[];
+ if(target?.kind==="construction"){
+  const ready=target.status==="site"&&adjacent&&alive;
+  if(target.status==="site"){
+   actions.push({id:"construction.deliver",label:"Entregar materiais",enabled:ready,targetId:target.id,...(!ready?{reason:"BLOCKED" as const}:{})});
+   actions.push({id:"construction.work",label:"Trabalhar no canteiro",enabled:ready,targetId:target.id,...(!ready?{reason:"BLOCKED" as const}:{})});
+  }
+ }
  if(role==="player") {
   const valid=!!position&&inBounds(world,position)&&orthogonallyAdjacent(actor.position,position)&&alive&&canEnter(world,position,actor.id);
   actions.push({id:"movement.move",label:"Mover um tile",enabled:valid,...(!valid?{reason:"BLOCKED" as const}:{})});

@@ -4,7 +4,9 @@ import {baseRegistry,resourcePreset} from "../../content/src/catalog.ts";
 import {sceneryPreset} from "../../content/src/scenery.ts";
 import {naturalSource} from "../../content/src/natural-sources.ts";
 import {makeNaturalSource,advanceNaturalSources} from "../../systems/nature/src/index.ts";
-import {canEnter,orthogonallyAdjacent} from "../../systems/collision/src/index.ts";
+import {canEnter,orthogonallyAdjacent,canPlaceFootprint} from "../../systems/collision/src/index.ts";
+import {buildingBlueprint} from "../../content/src/buildings/registry.ts";
+import {createConstructionSite,currentStage,materialsRemaining,hasMaterials,nearFootprint,acceptMaterial,applyConstructionWork} from "../../systems/construction/src/index.ts";
 import {inBounds} from "../../domain/src/contracts.ts";
 import type {Command, World, Result, Character, Resource, Position} from "../../domain/src/contracts.ts";
 
@@ -30,6 +32,7 @@ export function applyCommand(world: World, command: Command): Result {
  if(!specification.roles.includes(command.actorRole))return reject(command,"UNAUTHORIZED");
  const admin=command.actorRole==="admin";
  let eventTargetId=command.targetId;
+ const additionalEvents:{type:string;entityId?:string}[]=[];
  if(command.action==="npc.spawn"||command.action==="resource.spawn"||command.action==="obstacle.spawn"){
   if(!admin)return reject(command,"UNAUTHORIZED");
   if(!command.position||!inBounds(world,command.position))return reject(command,"OUT_OF_BOUNDS");
@@ -63,6 +66,46 @@ export function applyCommand(world: World, command: Command): Result {
     const resource:Resource={kind:"resource",id,resourceType:type,position:{...command.position},quantity,maximum:quantity};
     world.entities.push(resource);
    }
+  }
+ } else if(command.action==="construction.place"){
+  if(!admin)return reject(command,"UNAUTHORIZED");
+  const blueprintId=command.parameters?.blueprintId;
+  const blueprint=typeof blueprintId==="string"?buildingBlueprint(blueprintId):undefined;
+  if(!blueprint||!command.position)return reject(command,"INVALID_PAYLOAD");
+  if(!inBounds(world,command.position)||!inBounds(world,{
+   x:command.position.x+blueprint.footprint.width-1,y:command.position.y+blueprint.footprint.height-1
+  }))return reject(command,"OUT_OF_BOUNDS");
+  if(!canPlaceFootprint(world,command.position,blueprint.footprint.width,blueprint.footprint.height))return reject(command,"BLOCKED");
+  const id="construction-"+command.commandId;eventTargetId=id;
+  world.entities.push(createConstructionSite(id,command.position,blueprint));
+ } else if(command.action==="construction.deliver"||command.action==="construction.admin_supply"||
+           command.action==="construction.work"||command.action==="construction.admin_work"){
+  const target=world.entities.find(e=>e.id===command.targetId);
+  if(!target)return reject(command,"NOT_FOUND");
+  if(target.kind!=="construction")return reject(command,"INVALID_TARGET");
+  if(target.status!=="site")return reject(command,"ALREADY_COMPLETED");
+  const debug=command.action.startsWith("construction.admin_");
+  if(debug!==admin)return reject(command,"UNAUTHORIZED");
+  const actor=debug?undefined:actorForCommand(world,command);
+  if(!debug&&(!actor||!nearFootprint(actor.position,target)||actor.health<=0||actor.energy<=0))return reject(command,actor?"BLOCKED":"UNAUTHORIZED");
+  if(command.action==="construction.deliver"||command.action==="construction.admin_supply"){
+   const materialId=command.parameters?.materialId,amount=command.parameters?.quantity;
+   const remaining=typeof materialId==="string"?materialsRemaining(target)[materialId]:undefined;
+   if(typeof materialId!=="string"||typeof amount!=="number"||!Number.isSafeInteger(amount)||amount<1||remaining===undefined||amount>remaining)return reject(command,"INVALID_PAYLOAD");
+   if(actor&&(actor.inventory?.[materialId]??0)<amount)return reject(command,"EXHAUSTED");
+   if(!acceptMaterial(target,materialId,amount))return reject(command,"INVALID_PAYLOAD");
+   if(actor){actor.inventory![materialId]-=amount;actor.energy=Math.max(0,actor.energy-1);}
+   additionalEvents.push({type:"construction.material_delivered",entityId:target.id});
+  } else {
+   const stage=currentStage(target);
+   if(!stage)return reject(command,"ALREADY_COMPLETED");
+   if(!hasMaterials(target))return reject(command,"NOT_READY");
+   const amount=debug?command.parameters?.workUnits:1;
+   if(typeof amount!=="number"||!Number.isSafeInteger(amount)||amount<1||amount>Math.max(1,stage.workUnits-target.workDone))return reject(command,"INVALID_PAYLOAD");
+   const result=applyConstructionWork(target,amount,world.tick+1);
+   if(actor)actor.energy=Math.max(0,actor.energy-1);
+   if(result.stageCompleted)additionalEvents.push({type:"construction.stage_completed",entityId:target.id});
+   if(result.buildingCompleted)additionalEvents.push({type:"building.completed",entityId:target.id});
   }
  } else if(command.action==="movement.move"){
   if(admin)return reject(command,"UNAUTHORIZED");
@@ -101,7 +144,7 @@ export function applyCommand(world: World, command: Command): Result {
  world.tick+=1;
  const expired=world.entities.filter(e=>e.kind==="character").flatMap(e=>expireEffects(e,e.id,world.tick));
  return {ok:true,status:"completed",commandId:command.commandId,tick:world.tick,
-  events:[{type:command.action,entityId:eventTargetId},...expired.map(e=>({type:e.type,entityId:e.targetId}))]};
+  events:[{type:command.action,entityId:eventTargetId},...additionalEvents,...expired.map(e=>({type:e.type,entityId:e.targetId}))]};
 }
 /** The only clock progression of living sources. */
 export function advanceTick(world:World){

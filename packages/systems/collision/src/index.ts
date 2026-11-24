@@ -3,10 +3,21 @@ import {inBounds} from "../../../domain/src/contracts.ts";
 /** All entities share one authoritative occupancy rule; art never determines collision. */
 export const blocksMovement=(entity:Entity):boolean=>
  entity.kind==="obstacle"?entity.blocksMovement:
- entity.kind==="resource"?true:entity.kind==="character";
+ entity.kind==="resource"?true:entity.kind==="construction"?true:entity.kind==="character";
 export const sameCell=(a:Position,b:Position):boolean=>a.x===b.x&&a.y===b.y;
+export function occupiesCell(entity:Entity,cell:Position):boolean {
+ if(entity.kind==="construction")return cell.x>=entity.position.x&&cell.y>=entity.position.y&&
+  cell.x<entity.position.x+entity.footprint.width&&cell.y<entity.position.y+entity.footprint.height;
+ return sameCell(entity.position,cell);
+}
 export function blockingEntity(world:World,cell:Position,ignoreId?:string):Entity|undefined {
- return world.entities.find(e=>e.id!==ignoreId&&blocksMovement(e)&&sameCell(e.position,cell));
+ return world.entities.find(e=>e.id!==ignoreId&&blocksMovement(e)&&occupiesCell(e,cell));
+}
+export function canPlaceFootprint(world:World,position:Position,width:number,height:number):boolean {
+ if(!Number.isSafeInteger(width)||!Number.isSafeInteger(height)||width<1||height<1)return false;
+ for(let y=position.y;y<position.y+height;y++)for(let x=position.x;x<position.x+width;x++)
+  if(!canEnter(world,{x,y}))return false;
+ return true;
 }
 export const canEnter=(world:World,cell:Position,ignoreId?:string):boolean=>
  inBounds(world,cell)&&!blockingEntity(world,cell,ignoreId);
