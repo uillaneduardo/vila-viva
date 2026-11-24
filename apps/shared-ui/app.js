@@ -20,7 +20,13 @@ const request=async(path,options)=>{
 };
 const hud=createHud({
  role,
- onTool(id){tool=id;hud.tool(id);scene.setBrush(['npc','wood','stone','food','scenery','house'].includes(id)?{kind:id,size:id==='house'?1:brushSize}:null);hoverId=null;scene.setHover(null);el('tooltip').hidden=true;},
+ onTool(id){
+  tool=id;hud.tool(id);
+  if(id==='farm'&&brushSize<3){brushSize=3;hud.size(brushSize);}
+  scene.setBrush(['npc','wood','stone','food','farm','scenery','house'].includes(id)?
+   {kind:id,size:id==='house'?1:brushSize}:null);
+  hoverId=null;scene.setHover(null);el('tooltip').hidden=true;
+ },
  onPreset(value){preset=value;},
  onBuildMode(value){buildMode=value;},
  onSize(n){if(tool==='house')return;brushSize=n;hud.size(n);if(scene.brush)scene.setBrush({...scene.brush,size:n});},
@@ -65,7 +71,8 @@ async function harvestSelected(sourceId){
 }
 
 async function executeConstruction(siteId,action,parameters){
- const removal=action==='construction.remove',destruction=action==='construction.destroy';
+ const removal=action==='construction.remove'||action==='farming.zone.remove',
+  destruction=action==='construction.destroy';
  if((removal||destruction)&&!window.confirm(removal?
    'Remover definitivamente? A obra, estoque e reservas serão perdidos sem reembolso.':
    'Destruir? O edifício ficará em ruínas, bloqueando o terreno, com serviços e camas cancelados.'))return;
@@ -77,6 +84,7 @@ async function executeConstruction(siteId,action,parameters){
    'construction.admin_supply':'Materiais inseridos no canteiro.',
    'storage.admin_supply':'Estoque de teste adicionado ao depósito.',
    'construction.remove':'Construção removida permanentemente do mapa.',
+   'farming.zone.remove':'Zona removida; plantas existentes preservadas.',
    'construction.destroy':'Construção destruída; ruínas continuam bloqueando o terreno.',
    'npc.admin_equip':'Equipamento de teste aplicado ao NPC.',
    'construction.admin_work':'Trabalho aplicado à etapa atual.'
@@ -106,14 +114,16 @@ function updateHover(point){
 function addBrushAt(point){
  if(!snapshot||!scene.brush)return;
  const center=scene.camera.tileAt(point.x,point.y);
- for(const cell of tool==='house'?[center]:brushCells(center,brushSize,snapshot.world)){
-  if(painting.size>=(tool==='house'?1:225))break;
+ for(const cell of ['house','farm'].includes(tool)?[center]:brushCells(center,brushSize,snapshot.world)){
+  if(painting.size>=(['house','farm'].includes(tool)?1:225))break;
   const key=cell.x+','+cell.y;
-  const width=tool==='house'?2:1,height=tool==='house'?2:1;
+  const width=tool==='house'?2:tool==='farm'?brushSize:1,height=width;
   let occupied=false;
   for(let y=cell.y;y<cell.y+height;y++)for(let x=cell.x;x<cell.x+width;x++){
    if(x<0||y<0||x>=snapshot.world.width||y>=snapshot.world.height||
-    snapshot.world.entities.some(e=>e.kind==='construction'?
+    snapshot.world.entities.some(e=>e.kind==='planting_zone'?
+     (tool==='farm'&&x>=e.position.x&&x<e.position.x+e.footprint.width&&y>=e.position.y&&y<e.position.y+e.footprint.height):
+     (tool==='farm'&&e.kind==='character')?false:e.kind==='construction'?
      x>=e.position.x&&x<e.position.x+e.footprint.width&&y>=e.position.y&&y<e.position.y+e.footprint.height:
      e.position.x===x&&e.position.y===y))occupied=true;
   }
@@ -122,12 +132,14 @@ function addBrushAt(point){
 }
 async function submitBrush(){
  if(!painting.size){status('Nenhuma célula livre para posicionar.');return;}
- const cells=[...painting.values()],kind=tool,action=kind==='npc'?'npc.spawn':kind==='scenery'?'obstacle.spawn':kind==='house'?'construction.place':'resource.spawn';
+ const cells=[...painting.values()],kind=tool,action=kind==='npc'?'npc.spawn':kind==='scenery'?'obstacle.spawn':
+  kind==='house'?'construction.place':kind==='farm'?'farming.zone.create':'resource.spawn';
  const commands=cells.map((position,i)=>({
   commandId:crypto.randomUUID(),action,position,
   parameters:kind==='npc'?{name:'Habitante '+(snapshot.world.entities.filter(e=>e.kind==='character').length+i+1)}:
    kind==='scenery'?{obstacleType:preset}:
    kind==='house'?{blueprintId:preset,mode:buildMode}:
+   kind==='farm'?{sourceId:preset,width:brushSize,height:brushSize}:
    kind==='food'?{resourceType:'food',sourceId:'apple_tree',ageTicks:preset==='apple_seedling'?0:120,quantity:preset==='apple_seedling'?0:6}:
    {resourceType:kind,quantity:25}
  }));
@@ -152,6 +164,7 @@ async function refresh(){
   if(!catalog){
    catalog=await request('/api/catalog');
    hud.setBlueprints(catalog.buildingBlueprints);
+   hud.setFarmingSpecies(catalog.naturalSources);
   }
   const data=await request('/api/world');snapshot=data;scene.setWorld(data.world);hud.update(data);
   const selected=data.world.entities.find(e=>e.id===selectedId);

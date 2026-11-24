@@ -5,6 +5,7 @@ const toolDefs=[
  ['wood','Floresta','action.add-wood'],
  ['stone','Pedreira','action.add-stone'],
  ['food','Macieira','action.add-food'],
+ ['farm','Plantio','action.add-farm'],
  ['scenery','Cenário','action.add-scenery'],
  ['house','Construir','action.build'],
  ['events','Eventos','action.events'],
@@ -45,31 +46,37 @@ export function createHud({role,onTool,onClock,onSize,onPreset=()=>{},onBuildMod
  modeLabel.append(modeSelect);el('brushPanel').insertBefore(modeLabel,label.nextSibling);
  modeSelect.addEventListener('change',()=>onBuildMode(modeSelect.value));
  let buildingChoices=[['building.community_house','Casa Comunitária'],['building.depot','Depósito']];
+ let farmingChoices=[['apple_tree','Macieira'],['carrot','Cenoura'],['potato','Batata']];
  range.addEventListener('input',()=>onSize(Number(range.value)));
  minus.addEventListener('click',()=>onSize(Math.max(1,Number(range.value)-1)));
  plus.addEventListener('click',()=>onSize(Math.min(15,Number(range.value)+1)));
  return {
+  setFarmingSpecies(species){
+   farmingChoices=Object.entries(species??{}).map(([id,def])=>[id,def.label]);
+   if(dock.querySelector('[data-tool="farm"].active'))this.tool('farm');
+  },
   setBlueprints(blueprints){
    buildingChoices=Object.entries(blueprints??{}).map(([id,definition])=>[id,definition.label]);
    if(dock.querySelector('[data-tool="house"].active'))this.tool('house');
   },
   tool(id){
    for(const button of dock.querySelectorAll('[data-tool]'))button.classList.toggle('active',button.dataset.tool===id);
-   const brush=['npc','wood','stone','food','scenery','house'].includes(id);
+   const brush=['npc','wood','stone','food','farm','scenery','house'].includes(id);
    const isHouse=id==='house';
    range.disabled=isHouse;minus.disabled=isHouse;plus.disabled=isHouse;
    if(isHouse){range.value='1';el('brushValue').textContent='2 × 2';el('brushCount').textContent='4 células ocupadas';}
-   label.hidden=id!=='food'&&id!=='scenery'&&id!=='house';
+   label.hidden=id!=='food'&&id!=='scenery'&&id!=='house'&&id!=='farm';
    modeLabel.hidden=id!=='house';
-   if(id==='food'||id==='scenery'||id==='house'){
-    const items=id==='food'?[['apple_adult','Adulta'],['apple_seedling','Muda']]:id==='house'?buildingChoices:[['boulder','Pedra sólida'],['wall','Muro'],['statue','Estátua']];
+   if(id==='food'||id==='scenery'||id==='house'||id==='farm'){
+    const items=id==='food'?[['apple_adult','Adulta'],['apple_seedling','Muda']]:
+     id==='house'?buildingChoices:id==='farm'?farmingChoices:[['boulder','Pedra sólida'],['wall','Muro'],['statue','Estátua']];
     preset.replaceChildren(...items.map(([value,name])=>{const option=document.createElement('option');option.value=value;option.textContent=name;return option;}));
     onPreset(preset.value);
     if(id==='house')onBuildMode(modeSelect.value);
    }
    el('brushPanel').hidden=!brush;
-   el('brushName').textContent=({npc:'Pincel · Habitante',wood:'Pincel · Floresta',stone:'Pincel · Pedreira',food:'Pincel · Macieira',scenery:'Pincel · Cenário',house:'Pincel · Construir'})[id]||'';
-   el('toolBadge').textContent=({inspect:'Modo observar',npc:'Adicionar habitantes',wood:'Adicionar fontes de madeira',stone:'Adicionar pedreiras',food:'Plantar macieiras',scenery:'Posicionar obstáculos sólidos',house:'Posicionar canteiro de obras'})[id]||id;
+   el('brushName').textContent=({npc:'Pincel · Habitante',wood:'Pincel · Floresta',stone:'Pincel · Pedreira',food:'Pincel · Macieira',farm:'Pincel · Plantio',scenery:'Pincel · Cenário',house:'Pincel · Construir'})[id]||'';
+   el('toolBadge').textContent=({inspect:'Modo observar',npc:'Adicionar habitantes',wood:'Adicionar fontes de madeira',stone:'Adicionar pedreiras',food:'Plantar macieiras',farm:'Demarcar zona de cultivo',scenery:'Posicionar obstáculos sólidos',house:'Posicionar canteiro de obras'})[id]||id;
   },
   size(n){
    if(range.disabled)return;
@@ -85,7 +92,7 @@ export function createHud({role,onTool,onClock,onSize,onPreset=()=>{},onBuildMod
    speedButtons[0].replaceChildren(createUiVisual(clock.speed===0?'control.resume':'control.pause',{size:16}));
    el('population').textContent=world.entities.filter(e=>e.kind==='character').length+' habitantes';
    for(const resource of ['wood','food','stone']){
-    el(resource+'Count').textContent=resource==='food'?(storageSummary?.apple??'—'):(storageSummary?.[resource]??'—');
+    el(resource+'Count').textContent=resource==='food'?(storageSummary?.food??'—'):(storageSummary?.[resource]??'—');
     el(resource+'Count').title=storageSummary?'Quantidade realmente armazenada em depósitos concluídos':'Nenhum depósito concluído';
    }
    el('worldTick').textContent='Tick '+world.tick;
