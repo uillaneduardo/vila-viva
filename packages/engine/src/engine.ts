@@ -22,7 +22,7 @@ import type {ActivityObserver} from "../../domain/src/activity.ts";
 import {advanceLeaderDecisions} from "../../systems/leadership/src/index.ts";
 import {orderProduction,productionDefinition,applyProductionWork} from "../../systems/production/src/index.ts";
 import {recipeById} from "../../content/src/recipes.ts";
-import {isToolItem} from "../../content/src/items.ts";
+import {isToolItem,isItem} from "../../content/src/items.ts";
 import {advanceHealth} from "../../systems/health/src/index.ts";
 
 export function createWorld(id: string, width=64, height=48): World {
@@ -328,6 +328,16 @@ export function applyCommand(world: World, command: Command,
   }
   if(actor)actor.energy=Math.max(0,actor.energy-1);
   additionalEvents.push({type:command.action==="storage.withdraw"?"storage.withdrawn":"storage.deposited",entityId:target.id});
+ } else if(command.action==="item.drop"){
+  if(admin)return reject(command,"UNAUTHORIZED");
+  const actor=actorForCommand(world,command);
+  if(!actor||actor.id!==command.targetId)return reject(command,"UNAUTHORIZED");
+  if(actor.health<=0)return reject(command,"BLOCKED");
+  const item=command.parameters?.materialId,amount=command.parameters?.quantity;
+  if(typeof item!=="string"||!isItem(item)||typeof amount!=="number"||!Number.isSafeInteger(amount)||amount<=0)return reject(command,"INVALID_PAYLOAD");
+  if((actor.inventory?.[item]??0)<amount)return reject(command,"EXHAUSTED");
+  actor.inventory![item]-=amount;
+  dropItem(world,actor.position,item,amount);
  } else if(command.action==="item.pickup"){
   if(admin)return reject(command,"UNAUTHORIZED");
   const item=world.entities.find(e=>e.id===command.targetId);
