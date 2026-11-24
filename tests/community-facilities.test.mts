@@ -1,0 +1,58 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {createWorld,applyCommand,advanceTick} from "../packages/engine/src/engine.ts";
+import {buildingBlueprint} from "../packages/content/src/buildings/registry.ts";
+import {advanceResidences,reserveBed,releaseBed} from "../packages/systems/housing/src/index.ts";
+import {eatFood} from "../packages/systems/needs/src/index.ts";
+const god=(w,id,action,extra={})=>applyCommand(w,{worldId:w.id,commandId:id,actorRole:"admin",action,...extra});
+const npc=(w,id,x,y)=>{assert.ok(god(w,id,"npc.spawn",{position:{x,y},parameters:{name:id}}).ok);return w.entities.find(e=>e.id==="npc-"+id);};
+const place=(w,id,blueprintId,x,y)=>{assert.ok(god(w,id,"construction.place",{position:{x,y},parameters:{blueprintId,mode:"completed"}}).ok);return w.entities.find(e=>e.id==="construction-"+id);};
+const act=(w,n,id,action,targetId,parameters={})=>applyCommand(w,{worldId:w.id,commandId:id,actorRole:"npc",actorId:n.id,action,targetId,parameters});
+test("family residence keeps two permanent adults independently of temporary bed reservations",()=>{
+ const w=createWorld("family",20,16);
+ const home=place(w,"home","building.family_house",8,8);
+ const a=npc(w,"a",7,8),b=npc(w,"b",7,9),c=npc(w,"c",6,8);
+ advanceResidences(w);
+ assert.equal(buildingBlueprint(home.blueprintId).housing.dependentBeds,1);
+ assert.deepEqual(home.residents,[a.id,b.id]);assert.equal(c.homeId,undefined);
+ assert.ok(reserveBed(w,a,home));releaseBed(w,a);assert.equal(a.homeId,home.id);
+ assert.equal(reserveBed(w,c,home),false);
+ a.health=0;advanceResidences(w);assert.deepEqual(home.residents,[b.id,c.id]);
+ assert.equal(a.homeId,undefined);assert.equal(c.homeId,home.id);
+ assert.ok(god(w,"destroy","construction.destroy",{targetId:home.id}).ok);
+ assert.equal(b.homeId,undefined);assert.equal(c.homeId,undefined);
+});
+test("cafeteria consumes real ingredients, creates meals and replaces raw food effect",()=>{
+ const w=createWorld("food",20,16);
+ const hall=place(w,"hall","building.cafeteria",8,8),n=npc(w,"cook",7,8);
+ assert.ok(god(w,"order","production.order",{targetId:hall.id,parameters:{recipeId:"cook_apple",quantity:1}}).ok);
+ assert.equal(act(w,n,"empty","production.work",hall.id).error,"NOT_READY");
+ assert.ok(god(w,"supply","storage.admin_supply",{targetId:hall.id,parameters:{materialId:"apple",quantity:2}}).ok);
+ for(let i=0;i<3;i++)assert.ok(act(w,n,"cook"+i,"production.work",hall.id).ok);
+ assert.equal(hall.stock.apple,0);assert.equal(hall.stock.meal,2);
+ n.inventory={apple:1,meal:1};n.satiety=0;
+ assert.ok(eatFood(n,"apple",w.tick));assert.equal(n.satiety,35);
+ assert.ok(eatFood(n,"meal",w.tick));assert.equal(n.satiety,95);
+ assert.ok(n.effects.some(e=>e.definitionId==="prepared_meal"));
+ assert.ok(!n.effects.some(e=>e.definitionId==="raw_meal"));
+});
+test("mine consumes finite underground reserve only with nearby living worker and storage space",()=>{
+ const w=createWorld("mine",20,16),mine=place(w,"shaft","building.mine",8,8);
+ const n=npc(w,"miner",7,8),far=npc(w,"far",1,1);n.equipment={};
+ assert.equal(act(w,far,"far-extract","mine.extract",mine.id,{materialId:"iron_ore"}).error,"BLOCKED");
+ const before=mine.mineRemaining.iron_ore;
+ assert.ok(act(w,n,"first","mine.extract",mine.id,{materialId:"iron_ore"}).ok);
+ assert.equal(mine.stock.iron_ore,2);
+ n.equipment={tool:"pickaxe"};
+ assert.ok(act(w,n,"second","mine.extract",mine.id,{materialId:"iron_ore"}).ok);
+ assert.equal(mine.stock.iron_ore,5);assert.equal(mine.mineRemaining.iron_ore,before-5);
+ mine.mineRemaining.iron_ore=0;
+ assert.equal(act(w,n,"empty","mine.extract",mine.id,{materialId:"iron_ore"}).error,"EXHAUSTED");
+});
+test("NPC acquires physical tool without occupational trait",()=>{
+ const w=createWorld("tools",20,16),d=place(w,"depot","building.depot",8,8),n=npc(w,"worker",7,8);
+ n.inventory={};n.equipment={};n.traits=[];
+ assert.ok(god(w,"supply","storage.admin_supply",{targetId:d.id,parameters:{materialId:"pickaxe",quantity:1}}).ok);
+ for(let i=0;i<12;i++)advanceTick(w);
+ assert.equal(n.equipment.tool,"pickaxe");assert.equal(d.stock.pickaxe,0);assert.equal(n.inventory.pickaxe??0,0);
+});

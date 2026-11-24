@@ -1,9 +1,12 @@
 /** Declarative economy: inputs, outputs, workstation, and work units per batch. */
 export interface Recipe {
  id:string;label:string;workstationId:string;inputs:Readonly<Record<string,number>>;
- outputs:Readonly<Record<string,number>>;workUnits:number;domain:"smelting"|"crafting";
+ outputs:Readonly<Record<string,number>>;workUnits:number;domain:"smelting"|"crafting"|"cooking";
 }
 export const RECIPES:Readonly<Record<string,Readonly<Recipe>>>=Object.freeze({
+ cook_apple:{id:"cook_apple",label:"Preparar maçãs",workstationId:"building.cafeteria",inputs:{apple:2},outputs:{meal:2},workUnits:3,domain:"cooking"},
+ cook_carrot:{id:"cook_carrot",label:"Preparar cenouras",workstationId:"building.cafeteria",inputs:{carrot:2},outputs:{meal:2},workUnits:3,domain:"cooking"},
+ cook_potato:{id:"cook_potato",label:"Preparar batatas",workstationId:"building.cafeteria",inputs:{potato:2},outputs:{meal:2},workUnits:3,domain:"cooking"},
  smelt_iron:{id:"smelt_iron",label:"Fundir ferro",workstationId:"building.workshop",
   inputs:{iron_ore:3,wood:1},outputs:{iron_ingot:2},workUnits:4,domain:"smelting"},
  smelt_copper:{id:"smelt_copper",label:"Fundir cobre",workstationId:"building.workshop",

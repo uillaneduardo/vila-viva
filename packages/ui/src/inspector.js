@@ -139,7 +139,7 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
     for(const effect of blueprint?.effects??[])html+=row(effect.capability,capabilities[effect.capability]===undefined?'Inativa':capabilities[effect.capability]+' '+effect.unit);
     if(details?.construction?.housing){
      const housing=details.construction.housing;
-     html+='<h3>Camas e reservas</h3>'+row('Camas',housing.beds)+row('Reservadas',housing.reserved)+row('Disponíveis',housing.beds-housing.reserved);
+     html+='<h3>Camas e reservas</h3>'+row('Camas',housing.beds)+row('Reservadas',housing.reserved)+row('Disponíveis',housing.beds-housing.reserved)+row('Vagas infantis',housing.dependentBeds??0)+row('Moradores permanentes',(housing.residents??[]).length);
      html+=housing.reservations.length?housing.reservations.map(r=>row(r.name,'Reserva até tick '+r.expiresTick)).join(''):
       '<p class="empty">Nenhuma cama reservada.</p>';
     }
@@ -151,6 +151,7 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
       '<div class="data-row"><span>'+safe(record.name)+'</span><strong>Tick '+safe(record.burialTick)+'</strong></div>').join(''):
       '<p class="empty">Nenhum habitante sepultado.</p>';
     }
+    if(details?.construction?.mining){html+='<h3>Reservas subterrâneas</h3>'+Object.entries(details.construction.mining.remaining).map(([id,n])=>row(catalog?.items?.[id]?.label??id,n)).join('');}
     if(details?.construction?.production){
      const prod=details.construction.production;
      html+='<h3>Oficina · fabricação</h3>'+row('Estado',prod.active?

@@ -11,8 +11,9 @@ export interface BuildingBlueprint {
  id:string; version:number; label:string; displayName:LocalizedText; footprint:Readonly<{width:number;height:number}>; stages:readonly BuildingStage[];
  effects:readonly {capability:string;value:number;unit:string}[];
  storage?:Readonly<{capacity:number;accepted:readonly string[]}>;
- housing?:Readonly<{adultBeds:number;restGain:number}>;
+ housing?:Readonly<{adultBeds:number;restGain:number;dependentBeds?:number;permanent?:boolean}>;
  cemetery?:Readonly<{capacity:number}>;
+ mining?:Readonly<{workers:number}>;
  production?:Readonly<{recipes:readonly string[]}>;
 }
 export const COMMUNITY_HOUSE:Readonly<BuildingBlueprint>=Object.freeze({

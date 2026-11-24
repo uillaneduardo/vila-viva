@@ -2,7 +2,7 @@ import {displayText} from "../../../packages/domain/src/localization.ts";
 import {baseRegistry,RESOURCE_PRESETS} from "../../../packages/content/src/catalog.ts";
 import {EFFECTS} from "../../../packages/content/src/effects/catalog.ts";
 import {COMMUNITY_HOUSE} from "../../../packages/content/src/buildings/community-house.ts";
-import {BUILDING_BLUEPRINTS} from "../../../packages/content/src/buildings/registry.ts";
+import {BUILDING_BLUEPRINTS,buildingBlueprint} from "../../../packages/content/src/buildings/registry.ts";
 import {currentStage,materialsRemaining,hasMaterials,buildingCapabilities,storageDefinition,storedTotal,storageFree} from "../../../packages/systems/construction/src/index.ts";
 import {NATURAL_SOURCES} from "../../../packages/content/src/natural-sources.ts";
 import {FOOD_ITEMS} from "../../../packages/content/src/foods.ts";
@@ -237,7 +237,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
       id:b.id,label:displayText(b.displayName),footprint:b.footprint,version:b.version,
       stages:b.stages.map(s=>({id:s.id,label:displayText(s.displayName),materials:s.materials,workUnits:s.workUnits})),
       effects:b.effects,storage:b.storage??null,housing:b.housing??null,cemetery:b.cemetery??null,
-      production:b.production??null
+      production:b.production??null,mining:b.mining??null
     }])),
     naturalSources:Object.fromEntries(Object.values(NATURAL_SOURCES).map(s=>[s.id,{
       label:s.label,productId:s.productId,seedItem:s.seedItem,seedsPerHarvest:s.seedsPerHarvest,drop:s.drop,
@@ -288,6 +288,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
        blueprintId:entity.blueprintId,blueprintVersion:entity.blueprintVersion,
        stage:currentStage(entity)?.id??null,remaining:materialsRemaining(entity),
        materialsReady:hasMaterials(entity),capabilities:buildingCapabilities(entity),
+       mining:entity.mineRemaining?{remaining:entity.mineRemaining,stock:entity.stock??{}}:null,
        stageIndex:entity.stageIndex,status:entity.status,availability:entity.availability,
        production:productionDefinition(entity)?{
         orders:entity.productionOrders??[],active:activeOrder(entity)??null,
@@ -300,7 +301,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
         burials:entity.burials??[]
        }:null,
        housing:bedsIn(entity)>0?{
-        beds:bedsIn(entity),reserved:reservationCount(entity),
+        beds:bedsIn(entity),reserved:reservationCount(entity),residents:entity.residents??[],dependentBeds:buildingBlueprint(entity.blueprintId)?.housing?.dependentBeds??0,
         reservations:Object.entries(entity.bedReservations??{}).map(([npcId,data])=>({
          npcId,name:world.entities.find(e=>e.id===npcId&&e.kind==="character")?.name??npcId,
          expiresTick:data.expiresTick

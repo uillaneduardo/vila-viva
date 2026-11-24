@@ -1,5 +1,7 @@
 import type {EffectDefinition} from "../../../domain/src/effects.ts";
 export const EFFECTS:Readonly<Record<string,Readonly<EffectDefinition>>>=Object.freeze({
+ raw_meal:{id:"raw_meal",displayName:{"pt-BR":"Alimentação não preparada"},tags:["needs","negative"],lifetime:{kind:"timed",durationTicks:24},stacking:"refresh",modifiers:[{attribute:"mood",operation:"add",value:-4}]},
+ prepared_meal:{id:"prepared_meal",displayName:{"pt-BR":"Refeição preparada"},tags:["needs","positive"],lifetime:{kind:"timed",durationTicks:48},stacking:"refresh",modifiers:[{attribute:"mood",operation:"add",value:8},{attribute:"workRate",operation:"multiply",value:1.1}]},
  sad:{
   id:"sad",displayName:{"pt-BR":"Triste"},tags:["emotion","negative"],lifetime:{kind:"timed",durationTicks:12},
   stacking:"refresh",modifiers:[{attribute:"moodMax",operation:"add",value:-20}]

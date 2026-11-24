@@ -8,5 +8,5 @@ export const DEPOT:Readonly<BuildingBlueprint>=Object.freeze({
   {id:"roof",label:"Cobertura",displayName:{"pt-BR":"Cobertura"},materials:{wood:8},workUnits:20}
  ],
  effects:[{capability:"storage.capacity",value:120,unit:"items"}],
- storage:{capacity:120,accepted:["wood","stone","apple","carrot","potato","apple_seed","carrot_seed","potato_seed","iron_ore","copper_ore","iron_ingot","copper_ingot","axe","pickaxe","hammer"]}
+ storage:{capacity:120,accepted:["wood","stone","meal","apple","carrot","potato","apple_seed","carrot_seed","potato_seed","iron_ore","copper_ore","iron_ingot","copper_ingot","axe","pickaxe","hammer"]}
 });

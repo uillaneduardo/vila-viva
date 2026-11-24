@@ -36,10 +36,10 @@ export function canWorkProduction(workshop:Construction):boolean {
  return storedTotal(workshop)-input+output<=storageDefinition(workshop)!.capacity;
 }
 export function applyProductionWork(workshop:Construction,units=1):{completed:boolean;recipeId:string}|null {
- if(!canWorkProduction(workshop)||!Number.isSafeInteger(units)||units!==1)return null;
+ if(!canWorkProduction(workshop)||!Number.isSafeInteger(units)||units<1||units>2)return null;
  const order=activeOrder(workshop)!;
  const recipe=RECIPES[order.recipeId];
- order.workDone++;
+ order.workDone+=units;
  if(order.workDone<recipe.workUnits)return {completed:false,recipeId:recipe.id};
  // Zero-sum material conversion: no output without consuming all declared inputs.
  for(const [id,quantity] of Object.entries(recipe.inputs))

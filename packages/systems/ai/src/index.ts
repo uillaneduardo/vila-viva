@@ -211,10 +211,13 @@ function desiredTool(npc:Character):string|null{
  const preferences=[["axe","woodcutting"],["pickaxe","mining"],["hammer","building"]] as const;
  const ranked=preferences.map(([item,domain])=>({item,score:affinityFor(npc,domain)}))
   .sort((a,b)=>b.score-a.score);
- return ranked[0].score>=1.25?ranked[0].item:null;
+ return ranked[0].item;
 }
 function equipmentTask(world:World,npc:Character):Task|null{
- const item=desiredTool(npc);
+ const preferred=desiredTool(npc);
+ if(!preferred)return null;
+ const available=(id:string)=>(npc.inventory?.[id]??0)>0||depots(world).some(d=>stocked(d,id)>0);
+ const item=[preferred,"axe","pickaxe","hammer"].find(available);
  if(!item)return null;
  if((npc.inventory?.[item]??0)>0)return {target:npc,route:[{...npc.position}],
   activity:"Equipando",reason:"Afinidade por "+item+"; usar equipamento físico",
@@ -298,10 +301,13 @@ function choose(world:World,npc:Character):Task|null{
  const production=productionTask(world,npc);
  if(production?.action==="storage.deposit")return production;
  const equipment=equipmentTask(world,npc);
- if(equipment?.action==="npc.equip")return equipment;
+ if(equipment)return equipment;
  const cargo=storedCargo(world,npc);
  if(cargo)return cargo;
  const pickup=groundTask(world,npc);if(pickup)return pickup;
+ if(load(npc)<CARRY_LIMIT&&depots(world).some(d=>d.blueprintId==="building.depot"&&storageFree(d)>0)){
+  const mineStock=selectTask(world,npc,depots(world).filter(d=>d.blueprintId==="building.mine"&&Object.values(d.stock??{}).some(n=>n>0)),"Transportando minério","Retirar produção da mina","storage.withdraw",e=>{const d=e as Construction;const item=Object.keys(d.stock??{}).find(k=>(d.stock?.[k]??0)>0)!;return {materialId:item,quantity:Math.min(CARRY_LIMIT-load(npc),d.stock![item])};});if(mineStock)return mineStock;
+ }
  // Annual crops cannot regrow after expiry; rescue ripe crops before new projects.
  const free=CARRY_LIMIT-load(npc);
  const ripe=selectTask(world,npc,resources(world).filter(r=>{
@@ -311,7 +317,8 @@ function choose(world:World,npc:Character):Task|null{
  if(ripe)return {...ripe,domain:"farming"};
  // New work is chosen by affinities; no trait can bypass survival or valid physical actions.
  const farming=plantingTask(world,npc);
- const demanded=choosePreferred(npc,[farming,construction.work,production,construction.source,equipment,deadwoodTask(world,npc)]);
+ const mine=selectTask(world,npc,world.entities.filter(e=>e.kind==="construction"&&e.blueprintId==="building.mine"&&storageFree(e)>0&&Object.values(e.mineRemaining??{}).some(n=>n>0)),"Operando mina","Extrair depósito subterrâneo finito","mine.extract",e=>({materialId:Object.keys((e as Construction).mineRemaining??{}).find(k=>((e as Construction).mineRemaining?.[k]??0)>0)}));
+ const demanded=choosePreferred(npc,[mine?{...mine,domain:"mining"}:null,farming,construction.work,production,construction.source,equipment,deadwoodTask(world,npc)]);
  return demanded??stockpileTask(world,npc);
 }
 function record(npc:Character,world:World,activity:string|null,reason:string,targetId?:string,route:Position[]=[]){
@@ -378,10 +385,10 @@ function rest(world:World,npc:Character,execute:ActionHandler):boolean {
  if(house&&!route){releaseBed(world,npc);house=undefined;}
  if(!house){
   const candidates=world.entities.filter((e):e is Construction=>e.kind==="construction"&&
-   bedsIn(e)>0&&reservationCount(e)<bedsIn(e));
+   bedsIn(e)>0&&reservationCount(e)<bedsIn(e)&&(e.blueprintId!=="building.family_house"||e.residents?.includes(npc.id)));
   const reachable=candidates.map(target=>({target,route:routeToEntity(world,npc.position,target,npc.id)}))
    .filter((entry):entry is {target:Construction;route:Position[]}=>!!entry.route)
-   .sort((a,b)=>a.route.length-b.route.length||a.target.id.localeCompare(b.target.id));
+   .sort((a,b)=>Number(b.target.id===npc.homeId)-Number(a.target.id===npc.homeId)||a.route.length-b.route.length||a.target.id.localeCompare(b.target.id));
   for(const entry of reachable){
    if(reserveBed(world,npc,entry.target)){house=entry.target;route=entry.route;break;}
   }

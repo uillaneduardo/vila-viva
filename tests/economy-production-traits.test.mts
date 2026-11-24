@@ -27,7 +27,7 @@ test("unified catalog includes raw materials, seeds, foods, ingots and physical 
  assert.equal(ITEMS.axe.category,"equipment");
  assert.ok(ITEM_CATEGORIES.seed);
  for(const recipe of Object.values(RECIPES)){
-  assert.equal(recipe.workstationId,"building.workshop");
+  assert.equal(recipe.workstationId,recipe.domain==="cooking"?"building.cafeteria":"building.workshop");
   for(const item of [...Object.keys(recipe.inputs),...Object.keys(recipe.outputs)])
    assert.ok(ITEMS[item]);
  }
