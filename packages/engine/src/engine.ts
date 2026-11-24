@@ -6,7 +6,8 @@ import {naturalSource} from "../../content/src/natural-sources.ts";
 import {makeNaturalSource,advanceNaturalSources} from "../../systems/nature/src/index.ts";
 import {canEnter,orthogonallyAdjacent,canPlaceFootprint} from "../../systems/collision/src/index.ts";
 import {buildingBlueprint} from "../../content/src/buildings/registry.ts";
-import {createConstructionSite,currentStage,materialsRemaining,hasMaterials,nearFootprint,acceptMaterial,applyConstructionWork} from "../../systems/construction/src/index.ts";
+import {createConstructionSite,createCompletedBuilding,currentStage,materialsRemaining,hasMaterials,nearFootprint,acceptMaterial,applyConstructionWork,storageDefinition,storageFree} from "../../systems/construction/src/index.ts";
+import {advanceNpcDecisions} from "../../systems/ai/src/index.ts";
 import {inBounds} from "../../domain/src/contracts.ts";
 import type {Command, World, Result, Character, Resource, Position} from "../../domain/src/contracts.ts";
 
@@ -24,9 +25,9 @@ export function actorForCommand(world:World,command:Pick<Command,"actorRole"|"ac
  return world.entities.find((e):e is Character=>e.kind==="character" &&
   (command.actorRole==="npc"?e.id===command.actorId:e.ownerId===command.actorId));
 }
-export function applyCommand(world: World, command: Command): Result {
+export function applyCommand(world: World, command: Command,options:{internal?:boolean}={}): Result {
  if (world.id!==command.worldId || !command.commandId.trim()) return reject(command,"INVALID_PAYLOAD");
- if (world.appliedCommands.includes(command.commandId)) return reject(command,"DUPLICATE_COMMAND");
+ if (!options.internal&&world.appliedCommands.includes(command.commandId)) return reject(command,"DUPLICATE_COMMAND");
  const specification=baseRegistry.actions.get(command.action);
  if(!specification)return reject(command,"INVALID_PAYLOAD");
  if(!specification.roles.includes(command.actorRole))return reject(command,"UNAUTHORIZED");
@@ -72,12 +73,16 @@ export function applyCommand(world: World, command: Command): Result {
   const blueprintId=command.parameters?.blueprintId;
   const blueprint=typeof blueprintId==="string"?buildingBlueprint(blueprintId):undefined;
   if(!blueprint||!command.position)return reject(command,"INVALID_PAYLOAD");
+  const mode=command.parameters?.mode??"site";
+  if(mode!=="site"&&mode!=="completed")return reject(command,"INVALID_PAYLOAD");
   if(!inBounds(world,command.position)||!inBounds(world,{
    x:command.position.x+blueprint.footprint.width-1,y:command.position.y+blueprint.footprint.height-1
   }))return reject(command,"OUT_OF_BOUNDS");
   if(!canPlaceFootprint(world,command.position,blueprint.footprint.width,blueprint.footprint.height))return reject(command,"BLOCKED");
   const id="construction-"+command.commandId;eventTargetId=id;
-  world.entities.push(createConstructionSite(id,command.position,blueprint));
+  world.entities.push(mode==="completed"?
+   createCompletedBuilding(id,command.position,blueprint,world.tick+1):createConstructionSite(id,command.position,blueprint));
+  if(mode==="completed")additionalEvents.push({type:"building.completed",entityId:id});
  } else if(command.action==="construction.deliver"||command.action==="construction.admin_supply"||
            command.action==="construction.work"||command.action==="construction.admin_work"){
   const target=world.entities.find(e=>e.id===command.targetId);
@@ -107,6 +112,47 @@ export function applyCommand(world: World, command: Command): Result {
    if(result.stageCompleted)additionalEvents.push({type:"construction.stage_completed",entityId:target.id});
    if(result.buildingCompleted)additionalEvents.push({type:"building.completed",entityId:target.id});
   }
+ } else if(command.action==="storage.deposit"||command.action==="storage.withdraw"||command.action==="storage.admin_supply"){
+  const target=world.entities.find(e=>e.id===command.targetId);
+  if(!target)return reject(command,"NOT_FOUND");
+  if(target.kind!=="construction")return reject(command,"INVALID_TARGET");
+  const def=storageDefinition(target);
+  if(!def)return reject(command,"NOT_READY");
+  const debug=command.action==="storage.admin_supply";
+  if(debug!==admin)return reject(command,"UNAUTHORIZED");
+  const actor=debug?undefined:actorForCommand(world,command);
+  if(!debug&&(!actor||actor.health<=0||actor.energy<=0||!nearFootprint(actor.position,target)))return reject(command,actor?"BLOCKED":"UNAUTHORIZED");
+  const materialId=command.parameters?.materialId,quantity=command.parameters?.quantity;
+  if(typeof materialId!=="string"||!def.accepted.includes(materialId)||
+    typeof quantity!=="number"||!Number.isSafeInteger(quantity)||quantity<1)return reject(command,"INVALID_PAYLOAD");
+  if(command.action==="storage.withdraw"){
+   if((target.stock?.[materialId]??0)<quantity)return reject(command,"EXHAUSTED");
+   if(!actor||MAX_CARRY_ITEMS-inventoryLoad(actor)<quantity)return reject(command,"INVENTORY_FULL");
+   target.stock![materialId]-=quantity;
+   actor.inventory??={};actor.inventory[materialId]=(actor.inventory[materialId]??0)+quantity;
+  }else{
+   if(storageFree(target)<quantity)return reject(command,"INVENTORY_FULL");
+   if(actor&&(actor.inventory?.[materialId]??0)<quantity)return reject(command,"EXHAUSTED");
+   target.stock??={};target.stock[materialId]=(target.stock[materialId]??0)+quantity;
+   if(actor)actor.inventory![materialId]-=quantity;
+  }
+  if(actor)actor.energy=Math.max(0,actor.energy-1);
+  additionalEvents.push({type:command.action==="storage.withdraw"?"storage.withdrawn":"storage.deposited",entityId:target.id});
+ } else if(command.action==="resource.gather"){
+  if(admin)return reject(command,"UNAUTHORIZED");
+  const source=world.entities.find(e=>e.id===command.targetId);
+  if(!source)return reject(command,"NOT_FOUND");
+  if(source.kind!=="resource"||source.sourceId||!["wood","stone"].includes(source.resourceType))return reject(command,"INVALID_TARGET");
+  const actor=actorForCommand(world,command);
+  if(!actor)return reject(command,"UNAUTHORIZED");
+  if(!orthogonallyAdjacent(actor.position,source.position)||actor.health<=0||actor.energy<=0)return reject(command,"BLOCKED");
+  if(source.quantity<=0)return reject(command,"EXHAUSTED");
+  const free=MAX_CARRY_ITEMS-inventoryLoad(actor);
+  if(free<=0)return reject(command,"INVENTORY_FULL");
+  const amount=Math.min(3,source.quantity,free);
+  source.quantity-=amount;actor.inventory??={};
+  actor.inventory[source.resourceType]=(actor.inventory[source.resourceType]??0)+amount;
+  actor.energy=Math.max(0,actor.energy-1);
  } else if(command.action==="movement.move"){
   if(admin)return reject(command,"UNAUTHORIZED");
   const character=world.entities.find(e=>e.id===command.targetId);
@@ -139,10 +185,12 @@ export function applyCommand(world: World, command: Command): Result {
   if(!world.entities.some(e=>e.id===command.targetId))return reject(command,"NOT_FOUND");
   return {ok:true,status:"completed",commandId:command.commandId,tick:world.tick,events:[]};
  } else return reject(command,"INVALID_PAYLOAD");
- world.appliedCommands.push(command.commandId);
- // Legacy immediate command tick remains technical debt. Nature only advances via advanceTick.
- world.tick+=1;
- const expired=world.entities.filter(e=>e.kind==="character").flatMap(e=>expireEffects(e,e.id,world.tick));
+ if(!options.internal){
+  world.appliedCommands.push(command.commandId);
+  // External actions retain legacy tick accounting. Autonomous NPC actions do not accelerate time.
+  world.tick+=1;
+ }
+ const expired=options.internal?[]:world.entities.filter(e=>e.kind==="character").flatMap(e=>expireEffects(e,e.id,world.tick));
  return {ok:true,status:"completed",commandId:command.commandId,tick:world.tick,
   events:[{type:command.action,entityId:eventTargetId},...additionalEvents,...expired.map(e=>({type:e.type,entityId:e.targetId}))]};
 }
@@ -150,5 +198,6 @@ export function applyCommand(world: World, command: Command): Result {
 export function advanceTick(world:World){
  world.tick+=1;
  advanceNaturalSources(world);
+ advanceNpcDecisions(world,(cmd)=>applyCommand(world,cmd,{internal:true}));
  return world.entities.filter(e=>e.kind==="character").flatMap(e=>expireEffects(e,e.id,world.tick));
 }
