@@ -27,3 +27,17 @@ test('sleep enters reserved house logically and waking/destruction clears occupa
  assert.equal(npc.sleepingInId,'construction-home');
  god(w,'destroy','construction.destroy',{targetId:'construction-home'});assert.equal(npc.sleepingInId,undefined);
 });
+
+import {canEnter} from '../packages/systems/collision/src/index.ts';
+import {reserveBed,enterHouse,exitHouse} from '../packages/systems/housing/src/index.ts';
+test('indoor sleeper does not block passage and chooses a free exit',()=>{
+ const w=createWorld('exit');
+ god(w,'home','construction.place',{position:{x:6,y:4},parameters:{blueprintId:'building.community_house',mode:'completed'}});
+ god(w,'npc','npc.spawn',{position:{x:5,y:4},parameters:{name:'NPC'}});
+ const npc=w.entities.find(e=>e.kind==='character'),home=w.entities.find(e=>e.kind==='construction');
+ assert.equal(reserveBed(w,npc,home),true);assert.equal(enterHouse(w,npc,home),true);
+ assert.equal(canEnter(w,{x:5,y:4}),true);
+ god(w,'other','npc.spawn',{position:{x:4,y:4},parameters:{name:'Other'}});
+ const other=w.entities.find(e=>e.id==='npc-other');other.position={x:5,y:4};
+ assert.equal(exitHouse(w,npc),true);assert.notDeepEqual(npc.position,other.position);assert.equal(npc.sleepingInId,undefined);
+});

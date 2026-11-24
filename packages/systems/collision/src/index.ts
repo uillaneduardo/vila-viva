@@ -5,7 +5,7 @@ import {buildingBlueprint} from "../../../content/src/buildings/registry.ts";
 /** Movement is independent of physical placement; unknown buildings stay solid. */
 export function entityMovementSpeed(entity:Entity):number{
  if(entity.kind==="obstacle")return entity.blocksMovement?0:1;
- if(entity.kind==="character")return entity.health>0?0:1;
+ if(entity.kind==="character")return entity.health>0&&!entity.sleepingInId?0:1;
  if(entity.kind==="construction")return entity.status==="completed"?
   buildingBlueprint(entity.blueprintId)?.movementSpeed??0:0;
  if(entity.kind==="planting_zone")return .85;
