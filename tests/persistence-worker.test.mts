@@ -29,3 +29,21 @@ test('worker fails closed on invalid world and rejects further writes',async()=>
   await assert.rejects(worker.commit(world));
  }finally{await worker.close();rmSync(root,{recursive:true,force:true});}
 });
+
+test('exclusive worker supports named saves, snapshot, logs, startup recovery and read errors',async()=>{
+ const root=mkdtempSync(join(tmpdir(),'oturo-worker-rpc-'));let worker=new PersistenceWorker(root);
+ try{
+  assert.equal(await worker.restored(),null);
+  const world=createWorld('rpc');await worker.switchWorld(world);
+  world.tick=3;await worker.commit(world);await worker.saveNamed('checkpoint',world);
+  assert.equal((await worker.listSaves())[0].name,'checkpoint');
+  assert.equal((await worker.loadNamed('checkpoint')).world.tick,3);
+  assert.equal((await worker.snapshot(world)).world.tick,3);
+  assert.equal(await worker.getLog(),'');assert.deepEqual(await worker.recentLog(),[]);
+  assert.deepEqual(await worker.listLogs(),[]);
+  await assert.rejects(worker.loadNamed('missing'));
+  assert.equal((await worker.listSaves()).length,1);
+  await worker.close();worker=new PersistenceWorker(root);
+  assert.equal((await worker.restored())?.world.tick,3);
+ }finally{await worker.close();rmSync(root,{recursive:true,force:true});}
+});
