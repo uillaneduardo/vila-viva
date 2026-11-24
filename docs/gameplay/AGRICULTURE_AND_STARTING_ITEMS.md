@@ -1,0 +1,7 @@
+# Agricultura autônoma e itens iniciais
+Relacionado à issue #44. Primeiro incremento, parâmetros provisórios.
+- IA exige lote alcançável antes de retirar sementes ou colher planta-mãe; sementes em mão são preservadas se existe lote alcançável. Colheita para sementes verifica capacidade para o lote de frutos e sementes; afinidade agrícola também vale para aquisição e renovação.
+- Líder avalia agricultura a cada 12 ticks antes de fabricação/construção. Meta inicial de dois cultivos por habitante, reserva de três alimentos por habitante e alerta de saciedade <=35. Usa sementes físicas em estoque ou inventário de NPC vivo, cria zonas de 1x1 ou 2x2 em terreno validado e acessível, sem criar plantas ou consumir sementes. Zonas existentes com vagas impedem expansão da mesma espécie. Não altera limite de obras convencionais.
+- A criação de zona por NPC só é permitida para líder vivo através de comando interno; administrador mantém controle existente.
+- Traços podem declarar startingItems (itemId, chance, min, max). RNG separado determinístico por mundo/comando/tick. Até seis unidades iniciais para capacidade 12, preservando espaço para colheita; nenhuma alteração em NPCs existentes, carregamentos ou avatar de jogador.
+- Limitações: metas em contagem de itens, não previsão nutricional por tempo; expansão por espécie limitada pela capacidade demarcada; não resolve sozinho todos os ciclos de trabalho, nem introduz painel completo de alternativas do líder. Último motivo usa telemetria já existente. Balancear por cenários antes de evoluir.
