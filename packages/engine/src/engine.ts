@@ -367,7 +367,7 @@ export function applyCommand(world: World, command: Command,
     !orthogonallyAdjacent(character.position,command.position)||!canEnter(world,command.position,character.id))return reject(command,"BLOCKED");
   if(world.tick<(character.nextMoveTick??0))return reject(command,"NOT_READY");
   const cost=movementCost(world,command.position,character.id);
-  const interval=command.actorRole==="npc"?NPC_ACTION_INTERVAL:1;
+  const interval=command.actorRole==="npc"&&options.internal?NPC_ACTION_INTERVAL:1;
   // Charge destination traversal time, retaining fractional progress between consecutive steps.
   const prior=character.nextMoveTick??world.tick;
   const base=world.tick-prior<interval?prior:world.tick;
