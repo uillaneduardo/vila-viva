@@ -19,14 +19,14 @@ export const NATURAL_SOURCES:Readonly<Record<string,NaturalSourceDefinition>>=Ob
  carrot:Object.freeze({
   id:"carrot",label:"Cenoura",resourceType:"food",productId:"carrot",
   seedItem:"carrot_seed",seedsPerHarvest:2,growthMode:"single_harvest",
-  stages:Object.freeze({young:15,mature:55,old:230,dead:300}),
+  stages:Object.freeze({young:15,mature:55,old:480,dead:720}),
   production:Object.freeze({capacity:3,intervalTicks:0,amount:3,harvestBatch:3}),
   blocksMovement:false
  }),
  potato:Object.freeze({
   id:"potato",label:"Batata",resourceType:"food",productId:"potato",
   seedItem:"potato_seed",seedsPerHarvest:2,growthMode:"single_harvest",
-  stages:Object.freeze({young:22,mature:80,old:260,dead:330}),
+  stages:Object.freeze({young:22,mature:80,old:600,dead:960}),
   production:Object.freeze({capacity:4,intervalTicks:0,amount:4,harvestBatch:4}),
   blocksMovement:false
  })
