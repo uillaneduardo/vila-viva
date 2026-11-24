@@ -23,6 +23,39 @@ if [[ -f "$app_dir/.release.svr2.env" ]]; then
  previous_tag="$(sed -n 's/^IMAGE_TAG=//p' "$app_dir/.release.svr2.env" | head -n1)"
  previous_sha="$(sed -n 's/^SOURCE_SHA=//p' "$app_dir/.release.svr2.env" | head -n1)"
 fi
+# One-time vNext in-memory -> persisted-state migration. This does NOT touch .old worlds.
+# Capture before replacing the prior container, even if the import fails later.
+migration_snapshot=""
+mkdir -p "$app_dir/.deploy/world-backups"
+old_world="$(mktemp "$app_dir/.deploy/world-backups/current-world.XXXXXX")"
+if curl -fsS --max-time 8 http://127.0.0.1:8481/api/world >"$old_world" 2>/dev/null; then
+ migration_snapshot="$app_dir/.deploy/world-backups/pre-persistence-$DEPLOY_SHA.json"
+ if ! python3 - "$old_world" "$migration_snapshot" <<'PY'
+import json,sys,uuid,datetime,os
+with open(sys.argv[1],encoding="utf-8") as file:
+    before=json.load(file)
+if before.get("persistent") is not False or not isinstance(before.get("world"),dict):
+    sys.exit(2)
+world=before["world"]
+if not world.get("id") or not isinstance(world.get("entities"),list):
+    sys.exit(3)
+snapshot={"formatVersion":1,"savedAt":datetime.datetime.now(datetime.timezone.utc).isoformat(),
+          "timelineId":str(uuid.uuid4()),"lastSequence":0,"clock":{"speed":0},"world":world}
+if isinstance(world.get("seed"),str):
+    snapshot["seed"]=world["seed"]
+with open(sys.argv[2],"w",encoding="utf-8") as file:
+    json.dump(snapshot,file,ensure_ascii=False)
+os.chmod(sys.argv[2],0o600)
+PY
+ then
+  migration_snapshot=""
+  rm -f "$app_dir/.deploy/world-backups/pre-persistence-$DEPLOY_SHA.json"
+ fi
+fi
+rm -f "$old_world"
+if [[ -n "$migration_snapshot" ]]; then
+ echo "Previous in-memory vNext world preserved: $migration_snapshot"
+fi
 docker_config="$(mktemp -d)"
 chmod 700 "$docker_config"
 export DOCKER_CONFIG="$docker_config"
@@ -64,6 +97,36 @@ if [[ "$healthy" != 1 ]]; then
  fi
  "${compose[@]}" ps || true
  fail "Failed to serve vNext revision $DEPLOY_SHA; previous compose restored when available"
+fi
+# Import the captured old vNext world into the new persistent volume once.
+# Once the API reports persistent:true, future deploys skip this migration entirely.
+if [[ -n "$migration_snapshot" ]]; then
+ echo "Importing prior vNext simulation into durable storage (paused)..."
+ import_response="$(mktemp "$app_dir/.deploy/world-backups/import-response.XXXXXX")"
+ if ! python3 - "$migration_snapshot" <<'PY' | curl -fsS --max-time 30 \
+  -H 'Content-Type: application/json' -X POST --data-binary @- \
+  http://127.0.0.1:8481/api/world/import -o "$import_response"; then
+import json,sys
+with open(sys.argv[1],encoding="utf-8") as file:
+    snapshot=json.load(file)
+print(json.dumps({"role":"admin","snapshot":snapshot},ensure_ascii=False))
+PY
+  cat "$import_response" || true
+  rm -f "$import_response"
+  fail "Prior world captured at $migration_snapshot but import failed; refusing to mark deploy completed"
+ fi
+ if ! python3 - "$migration_snapshot" "$import_response" <<'PY'; then
+import json,sys
+with open(sys.argv[1],encoding="utf-8") as file: original=json.load(file)
+with open(sys.argv[2],encoding="utf-8") as file: result=json.load(file)
+assert result.get("ok") is True and result.get("paused") is True
+assert result.get("tick")==original["world"]["tick"]
+PY
+  rm -f "$import_response"
+  fail "Migration did not confirm identical tick and paused state; backup: $migration_snapshot"
+ fi
+ rm -f "$import_response"
+ echo "Prior world migrated successfully; source backup retained."
 fi
 umask 077
 release_tmp="$(mktemp "$app_dir/.release.svr2.env.tmp.XXXXXX")"

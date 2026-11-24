@@ -32,7 +32,8 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
    (catalog?.scenery?.[entity.obstacleType]||'Obstáculo'):
    (entity.sourceId?catalog?.naturalSources?.[entity.sourceId]?.label:catalog?.resources?.[entity.resourceType])||'Recurso';
   el('panelDesc').textContent=isNpc?(entity.health<=0?'Falecido · Aguardando sepultamento':
-    entity.ownerId?'Personagem jogador · Controle manual':'Habitante · Decisões autônomas'):entity.kind==='planting_zone'?
+    entity.ownerId?'Personagem jogador · Controle manual':
+    entity.communityRole==='leader'?'Líder · Planejamento da comunidade':'Habitante · Decisões autônomas'):entity.kind==='planting_zone'?
    'Área de plantio · Sem bloqueio de passagem':entity.kind==='construction'?
    (entity.status==='destroyed'?'Ruína · Edificação destruída':entity.status==='completed'?'Edificação concluída':'Canteiro de obras · Construção em andamento'):entity.kind==='obstacle'?
    'Elemento estático · Não coletável':entity.sourceId?'Fonte viva · Produção renovável':'Fonte de recurso';
@@ -72,6 +73,14 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
     const decisions=details?.decisions??[];
     html+=decisions.length?decisions.slice(-6).reverse().map(item=>'<div class="data-row"><span>Tick '+safe(item.tick)+' · '+safe(item.activity)+'</span><strong style="max-width:50%;white-space:normal;text-align:right">'+safe(item.reason)+'</strong></div>').join(''):
      '<p class="empty">Nenhuma decisão autônoma registrada.</p>';
+    if(entity.communityRole==='leader'){
+     const plan=details?.leadership??entity.leadership;
+     html+='<h3>Liderança e planejamento</h3>'+
+      row('Função','Líder comunitário')+
+      row('Último projeto',catalog?.buildingBlueprints?.[plan?.lastBlueprintId]?.label??'Nenhum')+
+      row('Última avaliação',plan?.lastPlanTick??'—')+
+      '<p class="empty">'+safe(plan?.lastReason??'Avaliando as necessidades do assentamento')+'</p>';
+    }
     html+='<h3>Identidade e traços</h3>';
     for(const id of entity.traits??[])html+=row(catalog?.traits?.[id]?.label??id,
       catalog?.traits?.[id]?.description??'Característica pessoal');

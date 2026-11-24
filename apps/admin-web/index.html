@@ -19,8 +19,20 @@
    <span class="resource"><b class="resource-icon stone">◆</b><strong id="stoneCount">—</strong></span>
   </div>
  </div>
- <div class="top-right"><span class="glass badge"><i class="status-dot"></i><span id="connection">Conectando…</span></span><span class="glass badge" id="population">— habitantes</span></div>
- <span class="glass tool-badge" id="toolBadge">Modo observar</span>
+ <div class="top-right"><button id="worldManagerToggle" class="glass world-mgr-trigger" type="button" aria-label="Salvar ou carregar mundo">Mundo <span aria-hidden="true">▾</span></button><span class="glass badge"><i class="status-dot"></i><span id="connection">Conectando…</span></span><span class="glass badge" id="population">— habitantes</span></div>
+ <section class="world-mgr glass" id="worldManager" hidden aria-label="Gerenciar simulação">
+   <h3>Simulação e histórico</h3>
+   <p id="worldManagerStatus">Carregando estado…</p>
+   <div class="world-mgr-row"><input id="saveWorldName" aria-label="Nome do salvamento" placeholder="Nome do salvamento" maxlength="64"><button id="worldSave" type="button">Salvar</button></div>
+   <div class="world-mgr-row"><select id="savedWorlds" aria-label="Snapshots disponíveis"></select><button id="worldLoad" type="button">Carregar</button></div>
+   <div class="world-mgr-row"><button id="worldExport" type="button">Exportar snapshot</button><button id="worldImport" type="button">Importar JSON</button></div>
+   <input id="worldImportFile" type="file" accept=".json,application/json" hidden>
+   <div class="world-mgr-row"><input id="newWorldSeed" aria-label="Seed do novo mundo" value="oturo-starter-v1" maxlength="80"><button id="worldNew" type="button">Novo mundo</button></div>
+   <h4>Diário de ticks com ações</h4>
+   <div class="world-mgr-row"><select id="logTimeline" aria-label="Histórico para exportação"></select><button id="worldLogExport" type="button">Exportar JSONL</button></div>
+   <div class="world-mgr-activity" id="worldActivity" role="log"></div>
+  </section>
+  <span class="glass tool-badge" id="toolBadge">Modo observar</span>
  <nav id="dock" class="dock glass" aria-label="Ferramentas do Modo Deus"></nav>
  <div id="brushPanel" class="brush glass" hidden>
   <strong id="brushName">Pincel</strong><span class="sep"></span><span>Tamanho</span>

@@ -17,6 +17,8 @@ import {generateCharacterProfile} from "../../content/src/characters.ts";
 import {advanceMortality,isCorpse,carriedCorpse,availableGraves,registerBurial} from "../../systems/mortality/src/index.ts";
 import {inBounds} from "../../domain/src/contracts.ts";
 import type {Command, World, Result, Character, Resource, Position} from "../../domain/src/contracts.ts";
+import type {ActivityObserver} from "../../domain/src/activity.ts";
+import {advanceLeaderDecisions} from "../../systems/leadership/src/index.ts";
 
 export function createWorld(id: string, width=64, height=48): World {
  if (!id.trim() || !Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1) throw new Error("Invalid world");
@@ -32,7 +34,8 @@ export function actorForCommand(world:World,command:Pick<Command,"actorRole"|"ac
  return world.entities.find((e):e is Character=>e.kind==="character" &&
   (command.actorRole==="npc"?e.id===command.actorId:e.ownerId===command.actorId));
 }
-export function applyCommand(world: World, command: Command,options:{internal?:boolean}={}): Result {
+export function applyCommand(world: World, command: Command,
+ options:{internal?:boolean;onAction?:ActivityObserver}={}): Result {
  if (world.id!==command.worldId || !command.commandId.trim()) return reject(command,"INVALID_PAYLOAD");
  if (!options.internal&&world.appliedCommands.includes(command.commandId)) return reject(command,"DUPLICATE_COMMAND");
  const specification=baseRegistry.actions.get(command.action);
@@ -53,10 +56,15 @@ export function applyCommand(world: World, command: Command,options:{internal?:b
    const name=command.parameters?.name;
    if(name!==undefined&&(typeof name!=="string"||!name.trim()||name.length>64))return reject(command,"INVALID_PAYLOAD");
    const profile=generateCharacterProfile(world.id,command.commandId,world.tick);
+   const communityRole=command.parameters?.communityRole;
+   if(communityRole!==undefined&&communityRole!=="leader")return reject(command,"INVALID_PAYLOAD");
+   if(communityRole==="leader"&&world.entities.some(e=>e.kind==="character"&&e.health>0&&e.communityRole==="leader"))
+    return reject(command,"BLOCKED");
    const ownerId=command.parameters?.ownerId;
    if(ownerId!==undefined&&(typeof ownerId!=="string"||!ownerId.trim()))return reject(command,"INVALID_PAYLOAD");
    const character:Character={kind:"character",id,name:typeof name==="string"?name:profile.name,
     traits:profile.traits,attributes:profile.attributes,
+    ...(communityRole==="leader"?{communityRole:"leader" as const,leadership:{lastPlanTick:-1,lastReason:"Avaliando necessidades da comunidade"}}:{}),
     position:{...command.position},health:100,energy:100,satiety:100,inventory:{},equipment:{},injuries:0,
     ...(typeof ownerId==="string"?{ownerId}:{})};
    world.entities.push(character);
@@ -172,21 +180,34 @@ export function applyCommand(world: World, command: Command,options:{internal?:b
   world.entities.splice(index,1);
   riskActor=actor;riskActivity="resource.gather:wood";
   additionalEvents.push({type:"nature.tree_cut",entityId:tree.id});
- } else if(command.action==="construction.place"){
-  if(!admin)return reject(command,"UNAUTHORIZED");
+ } else if(command.action==="construction.place"||command.action==="construction.propose"){
+  const proposed=command.action==="construction.propose";
+  if(proposed){
+   if(admin)return reject(command,"UNAUTHORIZED");
+   const leader=actorForCommand(world,command);
+   if(!leader||leader.communityRole!=="leader"||leader.health<=0)return reject(command,"UNAUTHORIZED");
+   if(world.entities.some(e=>e.kind==="construction"&&e.status==="site"))return reject(command,"BLOCKED");
+  }else if(!admin)return reject(command,"UNAUTHORIZED");
   const blueprintId=command.parameters?.blueprintId;
   const blueprint=typeof blueprintId==="string"?buildingBlueprint(blueprintId):undefined;
   if(!blueprint||!command.position)return reject(command,"INVALID_PAYLOAD");
   const mode=command.parameters?.mode??"site";
-  if(mode!=="site"&&mode!=="completed")return reject(command,"INVALID_PAYLOAD");
+  if((mode!=="site"&&mode!=="completed")||(proposed&&mode!=="site"))return reject(command,"INVALID_PAYLOAD");
   if(!inBounds(world,command.position)||!inBounds(world,{
    x:command.position.x+blueprint.footprint.width-1,y:command.position.y+blueprint.footprint.height-1
   }))return reject(command,"OUT_OF_BOUNDS");
-  if(!canPlaceFootprint(world,command.position,blueprint.footprint.width,blueprint.footprint.height))return reject(command,"BLOCKED");
+  if(!canPlaceFootprint(world,command.position,blueprint.footprint.width,blueprint.footprint.height)||
+   world.entities.some(e=>e.kind==="planting_zone"&&
+    command.position!.x<e.position.x+e.footprint.width&&
+    command.position!.x+blueprint.footprint.width>e.position.x&&
+    command.position!.y<e.position.y+e.footprint.height&&
+    command.position!.y+blueprint.footprint.height>e.position.y))
+   return reject(command,"BLOCKED");
   const id="construction-"+command.commandId;eventTargetId=id;
   world.entities.push(mode==="completed"?
    createCompletedBuilding(id,command.position,blueprint,world.tick+1):createConstructionSite(id,command.position,blueprint));
   if(mode==="completed")additionalEvents.push({type:"building.completed",entityId:id});
+  if(proposed)additionalEvents.push({type:"community.construction_planned",entityId:id});
  } else if(command.action==="construction.deliver"||command.action==="construction.admin_supply"||
            command.action==="construction.work"||command.action==="construction.admin_work"){
   const target=world.entities.find(e=>e.id===command.targetId);
@@ -345,17 +366,24 @@ export function applyCommand(world: World, command: Command,options:{internal?:b
  }
  advanceMortality(world);
  const expired=options.internal?[]:world.entities.filter(e=>e.kind==="character").flatMap(e=>expireEffects(e,e.id,world.tick));
- return {ok:true,status:"completed",commandId:command.commandId,tick:world.tick,
+ const success:Extract<Result,{ok:true}>={ok:true,status:"completed",commandId:command.commandId,tick:world.tick,
   events:[{type:command.action,entityId:eventTargetId},...additionalEvents,...expired.map(e=>({type:e.type,entityId:e.targetId}))]};
+ options.onAction?.({tick:world.tick,commandId:command.commandId,action:command.action,actorRole:command.actorRole,
+  ...(command.actorId?{actorId:command.actorId}:{}),
+  ...(eventTargetId?{targetId:eventTargetId}:{}),
+  ...(command.position?{position:{...command.position}}:{}),
+  ...(command.parameters?{parameters:{...command.parameters}}:{}),events:success.events});
+ return success;
 }
 /** The only clock progression of living sources. */
-export function advanceTick(world:World){
+export function advanceTick(world:World,onAction?:ActivityObserver){
  world.tick+=1;
  advanceNaturalSources(world);
  advanceNeeds(world);
  advanceMortality(world);
  pruneBeds(world);
- advanceNpcDecisions(world,(cmd)=>applyCommand(world,cmd,{internal:true}));
+ advanceNpcDecisions(world,(cmd)=>applyCommand(world,cmd,{internal:true,onAction}));
+ advanceLeaderDecisions(world,(cmd)=>applyCommand(world,cmd,{internal:true,onAction}));
  advanceMortality(world);
  return world.entities.filter(e=>e.kind==="character").flatMap(e=>expireEffects(e,e.id,world.tick));
 }

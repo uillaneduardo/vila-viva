@@ -47,6 +47,7 @@ export function createHud({role,onTool,onClock,onSize,onPreset=()=>{},onBuildMod
  modeSelect.addEventListener('change',()=>onBuildMode(modeSelect.value));
  let buildingChoices=[['building.community_house','Casa Comunitária'],['building.depot','Depósito']];
  let farmingChoices=[['apple_tree','Macieira'],['carrot','Cenoura'],['potato','Batata']];
+ const inhabitantChoices=[['settler','Habitante'],['leader','Líder']];
  range.addEventListener('input',()=>onSize(Number(range.value)));
  minus.addEventListener('click',()=>onSize(Math.max(1,Number(range.value)-1)));
  plus.addEventListener('click',()=>onSize(Math.min(15,Number(range.value)+1)));
@@ -65,18 +66,19 @@ export function createHud({role,onTool,onClock,onSize,onPreset=()=>{},onBuildMod
    const isHouse=id==='house';
    range.disabled=isHouse;minus.disabled=isHouse;plus.disabled=isHouse;
    if(isHouse){range.value='1';el('brushValue').textContent='2 × 2';el('brushCount').textContent='4 células ocupadas';}
-   label.hidden=id!=='food'&&id!=='scenery'&&id!=='house'&&id!=='farm';
+   label.hidden=id!=='food'&&id!=='scenery'&&id!=='house'&&id!=='farm'&&id!=='npc';
    modeLabel.hidden=id!=='house';
-   if(id==='food'||id==='scenery'||id==='house'||id==='farm'){
+   if(id==='food'||id==='scenery'||id==='house'||id==='farm'||id==='npc'){
     const items=id==='food'?[['apple_adult','Adulta'],['apple_seedling','Muda']]:
-     id==='house'?buildingChoices:id==='farm'?farmingChoices:[['boulder','Pedra sólida'],['wall','Muro'],['statue','Estátua']];
+     id==='house'?buildingChoices:id==='farm'?farmingChoices:id==='npc'?inhabitantChoices:
+     [['boulder','Pedra sólida'],['wall','Muro'],['statue','Estátua']];
     preset.replaceChildren(...items.map(([value,name])=>{const option=document.createElement('option');option.value=value;option.textContent=name;return option;}));
     onPreset(preset.value);
     if(id==='house')onBuildMode(modeSelect.value);
    }
    el('brushPanel').hidden=!brush;
    el('brushName').textContent=({npc:'Pincel · Habitante',wood:'Pincel · Floresta',stone:'Pincel · Pedreira',food:'Pincel · Macieira',farm:'Pincel · Plantio',scenery:'Pincel · Cenário',house:'Pincel · Construir'})[id]||'';
-   el('toolBadge').textContent=({inspect:'Modo observar',npc:'Adicionar habitantes',wood:'Adicionar fontes de madeira',stone:'Adicionar pedreiras',food:'Plantar macieiras',farm:'Demarcar zona de cultivo',scenery:'Posicionar obstáculos sólidos',house:'Posicionar canteiro de obras'})[id]||id;
+   el('toolBadge').textContent=({inspect:'Modo observar',npc:'Adicionar habitantes ou líder',wood:'Adicionar fontes de madeira',stone:'Adicionar pedreiras',food:'Plantar macieiras',farm:'Demarcar zona de cultivo',scenery:'Posicionar obstáculos sólidos',house:'Posicionar canteiro de obras'})[id]||id;
   },
   size(n){
    if(range.disabled)return;

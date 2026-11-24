@@ -140,7 +140,7 @@ async function submitBrush(){
   kind==='house'?'construction.place':kind==='farm'?'farming.zone.create':'resource.spawn';
  const commands=cells.map((position,i)=>({
   commandId:crypto.randomUUID(),action,position,
-  parameters:kind==='npc'?{}:
+  parameters:kind==='npc'?(preset==='leader'?{communityRole:'leader'}:{}):
    kind==='scenery'?{obstacleType:preset}:
    kind==='house'?{blueprintId:preset,mode:buildMode}:
    kind==='farm'?{sourceId:preset,width:brushSize,height:brushSize}:
@@ -179,6 +179,92 @@ async function refresh(){
  }catch(error){el('connection').textContent='Sem conexão';el('connection').classList.add('offline');status('Servidor indisponível: '+error.message);}
  finally{loading=false;}
 }
+
+/** Snapshot/log controls are an adapter for the server API; never mutate world state in the browser. */
+if(role==='admin'&&el('worldManagerToggle')){
+ const manager=el('worldManager');
+ const execute=async(url,body)=>{
+  const result=await request(url,{method:'POST',headers:{'content-type':'application/json'},
+   body:JSON.stringify({role:'admin',...body})});
+  return result;
+ };
+ const download=url=>{
+  const a=document.createElement('a');a.href=url;a.download='';document.body.append(a);
+  a.click();a.remove();
+ };
+ const refreshManager=async()=>{
+  const [saves,logs,activity]=await Promise.all([
+   request('/api/world/saves'),request('/api/world/logs'),request('/api/world/activity?limit=35')
+  ]);
+  const saved=el('savedWorlds'),selected=saved.value;
+  saved.replaceChildren(...saves.saves.map(save=>{
+   const option=document.createElement('option');option.value=save.name;
+   option.textContent=save.name+' · tick '+save.tick;return option;
+  }));
+  if(saves.saves.some(item=>item.name===selected))saved.value=selected;
+  const timelines=el('logTimeline'),chosen=timelines.value;
+  timelines.replaceChildren(...logs.logs.map(item=>{
+   const option=document.createElement('option');option.value=item.timelineId;
+   option.textContent=(item.active?'Atual ':'Anterior ')+item.timelineId.slice(0,8);
+   return option;
+  }));
+  if(logs.logs.some(item=>item.timelineId===chosen))timelines.value=chosen;
+  else timelines.value=logs.timelineId??'';
+  const area=el('worldActivity');area.replaceChildren();
+  for(const entry of [...activity.ticks].reverse().slice(0,35)){
+   const line=document.createElement('div');
+   line.textContent='Tick '+entry.tick+' · '+entry.actions.map(a=>a.action+
+    (a.actorId?' ('+a.actorId+')':'')).join(', ');
+   area.append(line);
+  }
+  if(!activity.ticks.length)area.textContent='Nenhuma ação válida registrada nesta linha do tempo.';
+  el('worldManagerStatus').textContent='Mundo '+(snapshot?.world?.id??'—')+
+   ' · tick '+(snapshot?.world?.tick??'—')+
+   ' · '+(snapshot?.clock?.paused?'pausado':'em execução')+
+   (saves.persistent?' · persistência ativa':' · sem armazenamento permanente');
+ };
+ const attempt=async(operation)=>{
+  try{await operation();await refresh();await refreshManager();}
+  catch(error){status('Mundos: '+error.message);}
+ };
+ el('worldManagerToggle').addEventListener('click',()=>{
+  manager.hidden=!manager.hidden;
+  if(!manager.hidden)void attempt(async()=>{});
+ });
+ el('worldSave').addEventListener('click',()=>void attempt(async()=>{
+  const name=el('saveWorldName').value.trim()||'oturo-'+(snapshot?.world?.tick??0);
+  await execute('/api/world/save',{name});status('Snapshot '+name+' salvo no servidor.');
+ }));
+ el('worldLoad').addEventListener('click',()=>void attempt(async()=>{
+  const name=el('savedWorlds').value;if(!name)return;
+  if(!confirm('Carregar '+name+'? O mundo atual será substituído e ficará pausado.'))return;
+  await execute('/api/world/load',{name});
+  setSelection(null);status('Mundo carregado e pausado.');
+ }));
+ el('worldNew').addEventListener('click',()=>void attempt(async()=>{
+  const seed=el('newWorldSeed').value.trim();
+  if(!seed){status('Informe a seed do mundo.');return;}
+  if(!confirm('Criar novo mundo com a seed '+seed+'? Salve o atual antes se quiser recuperá-lo.'))return;
+  await execute('/api/world/new',{seed});setSelection(null);
+  status('Novo mundo criado e pausado. Inicie pelos controles 1×/2×/4×.');
+ }));
+ el('worldExport').addEventListener('click',()=>download('/api/world/export'));
+ el('worldLogExport').addEventListener('click',()=>{
+  const id=el('logTimeline').value;
+  download('/api/world/activity/export'+(id?'?timeline='+encodeURIComponent(id):''));
+ });
+ el('worldImport').addEventListener('click',()=>el('worldImportFile').click());
+ el('worldImportFile').addEventListener('change',()=>void attempt(async()=>{
+  const file=el('worldImportFile').files?.[0];if(!file)return;
+  if(file.size>8*1024*1024){status('Snapshot excede o limite de 8 MB.');return;}
+  const raw=await file.text(),value=JSON.parse(raw);
+  if(!confirm('Importar este snapshot e substituir o mundo atual? A simulação ficará pausada.'))return;
+  await execute('/api/world/import',{snapshot:value});
+  el('worldImportFile').value='';setSelection(null);
+  status('Snapshot importado. Simulação pausada.');
+ }));
+}
+
 scene.canvas.addEventListener('wheel',e=>{e.preventDefault();const p=eventCoordinates(e);scene.camera.zoomAt(p.x,p.y,e.deltaY<0?1.12:1/1.12);el('zoom').textContent=Math.round(scene.camera.zoom*100)+'%';},{passive:false});
 scene.canvas.addEventListener('pointerdown',e=>{
  if(e.button!==0&&e.button!==1)return;
