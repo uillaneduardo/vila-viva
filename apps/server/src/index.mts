@@ -82,6 +82,8 @@ export function makePrototype(options:{dataDir?:string;seed?:string;asyncPersist
  let committedTimeline=store?.timelineId??null;
  let busy=false,fault=false;
  let pendingTick:Promise<void>|null=null;
+ let stopping=false;
+ let shutdownPromise:Promise<void>|null=null;
  const exclusive=async<T>(run:()=>Promise<T>):Promise<T>=>{
   if(busy)throw Error("WORLD_BUSY");
   if(fault)throw Error("RECOVERY_REQUIRED");
@@ -116,7 +118,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string;asyncPersist
  // a known M1 migration debt and are not hidden as a completed gameplay loop.
  const scheduler=new TickScheduler();
  const timer=setInterval(()=>{
-  if(clock.speed===0){scheduler.reset();lastTickAt=null;return;}
+  if(stopping||clock.speed===0){scheduler.reset();lastTickAt=null;return;}
   if(worker){
    if(busy||fault)return;
    scheduler.pulse(clock.speed,()=>{
@@ -165,11 +167,14 @@ export function makePrototype(options:{dataDir?:string;seed?:string;asyncPersist
  };
  const server=createServer(async(req,res)=>{
   let locked=false;
+  let parsedBody:unknown;
   try{
    const url=new URL(req.url||"/","http://localhost");
    const diskRead=["/api/world/export","/api/world/saves","/api/world/logs","/api/world/activity","/api/world/activity/export"].includes(url.pathname);
+   if(worker&&req.method==="POST")parsedBody=await readBody(req);
    if(worker&&(req.method==="POST"||diskRead)){
-    if(busy)return json(res,503,{error:"WORLD_BUSY"});
+    if(stopping)return json(res,503,{error:"SERVER_STOPPING"});
+    if(busy){res.setHeader("Retry-After","1");return json(res,503,{error:"WORLD_BUSY"});}
     if(fault)return json(res,503,{error:"RECOVERY_REQUIRED"});
     busy=true;locked=true;
    }
@@ -189,13 +194,15 @@ export function makePrototype(options:{dataDir?:string;seed?:string;asyncPersist
    if(url.pathname==="/api/world/saves"&&req.method==="GET")
     return json(res,200,{saves:(worker?await worker.listSaves():store?.listSaves())??[],persistent:!!store});
    if(url.pathname==="/api/world/save"&&req.method==="POST"){
-    const input=await readBody(req);
+    const input=worker?parsedBody as any:await readBody(req);
     if(input?.role!=="admin")return json(res,403,{error:"UNAUTHORIZED"});
     if(!store)return json(res,409,{error:"PERSISTENCE_DISABLED"});
     if(typeof input.name!=="string"||!/^[a-zA-Z0-9][\w-]{0,63}$/.test(input.name))
      return json(res,422,{error:"INVALID_SAVE_NAME"});
     await durable(world);
-    const saved=worker?await worker.saveNamed(input.name,world,world.seed):store.saveNamed(input.name,world,world.seed);
+    let saved;
+    try{saved=worker?await worker.saveNamed(input.name,world,world.seed):store.saveNamed(input.name,world,world.seed);}
+    catch(error){if(worker){fault=true;clock.speed=0;}throw error;}
     return json(res,200,{name:input.name,tick:saved.world.tick,savedAt:saved.savedAt});
    }
    if(url.pathname==="/api/world/logs"&&req.method==="GET")
@@ -213,7 +220,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string;asyncPersist
    }
    const isLoad=url.pathname==="/api/world/load"||url.pathname==="/api/world/import";
    if(isLoad&&req.method==="POST"){
-    const input=await readBody(req);
+    const input=worker?parsedBody as any:await readBody(req);
     if(input?.role!=="admin")return json(res,403,{error:"UNAUTHORIZED"});
     if(!store)return json(res,409,{error:"PERSISTENCE_DISABLED"});
     let loaded;
@@ -234,7 +241,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string;asyncPersist
      timelineId:committedTimeline});
    }
    if(url.pathname==="/api/world/new"&&req.method==="POST"){
-    const input=await readBody(req);
+    const input=worker?parsedBody as any:await readBody(req);
     if(input?.role!=="admin")return json(res,403,{error:"UNAUTHORIZED"});
     const seed=input.seed;
     if(seed!==undefined&&(typeof seed!=="string"||!seed.trim()||seed.length>80))
@@ -379,7 +386,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string;asyncPersist
     });
    }
    if(url.pathname==="/api/clock"&&req.method==="POST"){
-    const input=await readBody(req);
+    const input=worker?parsedBody as any:await readBody(req);
     if(input?.role!=="admin")return json(res,403,{error:"UNAUTHORIZED"});
     if(![0,1,2,4].includes(input.speed))return json(res,422,{error:"INVALID_PAYLOAD"});
     await durable(world);clock.speed=input.speed;scheduler.reset();lastTickAt=null;publishRevision();
@@ -393,7 +400,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string;asyncPersist
     return json(res,200,{actions:availableActions(world,role,role==="player"?"local-player":undefined,target,point)});
    }
    if(url.pathname==="/api/commands"&&req.method==="POST"){
-    const input=await readBody(req);
+    const input=worker?parsedBody as any:await readBody(req);
     if(!input||typeof input!=="object"||typeof input.commandId!=="string"||!/^[-\w]{1,80}$/.test(input.commandId))return json(res,400,{error:"INVALID_PAYLOAD"});
     const role:Role=input.role==="admin"?"admin":input.role==="npc"?"npc":"player";
     const command:Command={worldId:world.id,commandId:input.commandId,actorRole:role,
@@ -404,7 +411,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string;asyncPersist
     return json(res,result.ok?200:422,{result,world,clock:clockView()});
    }
    if(url.pathname==="/api/brush"&&req.method==="POST"){
-    const input=await readBody(req);
+    const input=worker?parsedBody as any:await readBody(req);
     if(input?.role!=="admin")return json(res,403,{error:"UNAUTHORIZED"});
     if(!Array.isArray(input.commands)||input.commands.length<1||input.commands.length>225)return json(res,422,{error:"INVALID_PAYLOAD"});
     const results=[];
@@ -445,8 +452,12 @@ export function makePrototype(options:{dataDir?:string;seed?:string;asyncPersist
  });
  const stream=attachWorldStream(server,()=>timings.measure('projection',projectWorld),()=>generation);
  publishRevision=stream.publish;
- server.on("close",()=>{clearInterval(timer);if(worker)void Promise.resolve(pendingTick).then(()=>worker.close()).catch(console.error);});
- return {server,get world(){return world;},clock,store,timings};
+ const shutdown=()=>{
+  if(!shutdownPromise){stopping=true;clearInterval(timer);shutdownPromise=(async()=>{await pendingTick;if(worker)await worker.close();})();}
+  return shutdownPromise;
+ };
+ server.on("close",()=>{void shutdown().catch(console.error);});
+ return {server,get world(){return world;},clock,store:worker?null:store,timings,shutdown};
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  const {server}=makePrototype({dataDir:process.env.OTURO_DATA_DIR,
