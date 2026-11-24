@@ -24,7 +24,7 @@ export function updateNeedEffects(npc:Character,tick:number):void {
 }
 export function advanceNeeds(world:World):void {
  for(const entity of world.entities){
-  if(entity.kind!=="character"||entity.health<=0)continue;
+  if(entity.kind!=="character"||entity.health<=0||entity.ownerId)continue;
   const npc=entity;
   npc.satiety??=100;
   if(world.tick%SATIETY_DECAY_INTERVAL===0){

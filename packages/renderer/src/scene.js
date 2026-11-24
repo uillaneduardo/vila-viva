@@ -79,8 +79,7 @@ export class Scene {
       }
       c.strokeStyle='#c5a78f';c.lineWidth=Math.max(1,s*.03);
       c.strokeRect(left+s*.08,top+s*.13,width-s*.16,height-s*.20);
-      c.restore();continue;
-     }
+     }else{
      // Per-stage, geometry-only placeholder for the eventual registered sprites.
      c.strokeStyle='#d6bb82';c.lineWidth=Math.max(2,s*.04);
      c.strokeRect(left+s*.06,top+s*.08,width-s*.12,height-s*.16);
@@ -116,6 +115,7 @@ export class Scene {
        c.strokeRect(left+s*.17,top+height*.7,s*.22,s*.22);
        c.strokeRect(left+width-s*.39,top+height*.7,s*.22,s*.22);
       }
+     }
      }
     }else if(e.kind==='character'){
      c.beginPath();c.arc(0,0,Math.max(7,s*.28),0,Math.PI*2);c.fillStyle=e.ownerId?'#e5d19e':'#d6c091';c.fill();
