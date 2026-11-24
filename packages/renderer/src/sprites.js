@@ -27,7 +27,9 @@ export function resolveWorldSprite(entity){
    ['site','foundation','structure']:['site','foundation','structure','roof'];
   const state=entity.status==='destroyed'?'destroyed':
    entity.status==='completed'?'completed':states[Math.min(states.length-1,entity.stageIndex)];
-  return {id:entity.blueprintId==='building.depot'?'buildings/depot':'buildings/community_house',state,scale:1};
+  const spriteId=entity.blueprintId==='building.depot'?'buildings/depot':
+   entity.blueprintId==='building.community_house'?'buildings/community_house':null;
+  return spriteId?{id:spriteId,state,scale:1}:null;
  }
  if(entity?.kind!=='resource')return null;
  if(entity.sourceId==='carrot'||entity.sourceId==='potato')

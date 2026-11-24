@@ -1,5 +1,7 @@
 import type {BuildingBlueprint} from "./buildings/community-house.ts";
 import {COMMUNITY_HOUSE} from "./buildings/community-house.ts";
+import {RECIPES} from "./recipes.ts";
+import {isItem} from "./items.ts";
 
 export function validateBuildingBlueprint(blueprint:BuildingBlueprint):void{
  if(!blueprint.id.trim()||!Number.isSafeInteger(blueprint.version)||blueprint.version<1)throw Error("Invalid blueprint");
@@ -9,6 +11,19 @@ export function validateBuildingBlueprint(blueprint:BuildingBlueprint):void{
   if(!stage.id.trim()||!Number.isSafeInteger(stage.workUnits)||stage.workUnits<=0)throw Error("Invalid stage work");
   const materialEntries=Object.entries(stage.materials);
   if(!materialEntries.length||materialEntries.some(([key,amount])=>!key.trim()||!Number.isSafeInteger(amount)||amount<1))throw Error("Invalid materials");
+ }
+ if(blueprint.production){
+  if(!blueprint.storage||!blueprint.production.recipes.length||
+   new Set(blueprint.production.recipes).size!==blueprint.production.recipes.length)
+   throw Error("Invalid production workstation");
+  for(const recipeId of blueprint.production.recipes){
+   const recipe=RECIPES[recipeId];
+   if(!recipe||recipe.workstationId!==blueprint.id||!Number.isSafeInteger(recipe.workUnits)||
+    recipe.workUnits<1||
+    [...Object.entries(recipe.inputs),...Object.entries(recipe.outputs)].some(([id,quantity])=>
+     !isItem(id)||!blueprint.storage.accepted.includes(id)||!Number.isSafeInteger(quantity)||quantity<1))
+    throw Error("Invalid production recipe");
+  }
  }
  if(blueprint.cemetery&&(!Number.isSafeInteger(blueprint.cemetery.capacity)||blueprint.cemetery.capacity<1))
   throw Error("Invalid cemetery");

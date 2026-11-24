@@ -135,3 +135,16 @@ button:focus-visible,input:focus-visible,canvas:focus-visible{outline:2px solid 
 .world-mgr-activity>div{padding:5px 3px;border-bottom:1px solid #445744;color:#d1decf}
 @media(max-width:780px){.world-mgr{top:92px;right:8px;width:calc(100vw - 16px)}
  .world-mgr-trigger{font-size:11px;padding:7px}}
+
+/* Contextual categorized stock; compact rows preserve the accepted three-area workspace. */
+.stock-category{margin:6px 0;border:1px solid rgba(172,210,169,.16);
+ border-radius:9px;padding:4px 8px;background:rgba(15,34,22,.2)}
+.stock-category>summary{cursor:pointer;font-size:11px;font-weight:650;
+ display:flex;justify-content:space-between;align-items:center;padding:6px 1px}
+.stock-category>summary strong{color:#d4eacb;font-variant-numeric:tabular-nums}
+.stock-item{display:grid;grid-template-columns:minmax(0,1fr) 38px 24px;
+ align-items:center;gap:8px;min-height:30px;border-top:1px solid rgba(172,210,169,.09);
+ font-size:11px;color:#cbdac8}
+.stock-item strong{text-align:right;font-variant-numeric:tabular-nums;color:#f1f6e7}
+.stock-add{width:23px;height:23px;cursor:pointer;border-radius:7px;
+ background:#33513b;border:1px solid #52755b;color:#e4f4df;font-size:14px}

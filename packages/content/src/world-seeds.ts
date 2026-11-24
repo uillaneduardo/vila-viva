@@ -19,6 +19,8 @@ export function starterCommands(seed:string,world:World):StarterCommand[]{
   ["resource.spawn","wood-c",3,12,{resourceType:"wood",quantity:160}],
   ["resource.spawn","stone-a",20,12,{resourceType:"stone",quantity:160}],
   ["resource.spawn","stone-b",3,4,{resourceType:"stone",quantity:160}],
+  ["resource.spawn","iron-deposit",5,14,{resourceType:"iron_ore",quantity:160}],
+  ["resource.spawn","copper-deposit",19,14,{resourceType:"copper_ore",quantity:160}],
   ["resource.spawn","apple-a",7,12,{resourceType:"food",sourceId:"apple_tree",ageTicks:120,quantity:12}],
   ["resource.spawn","apple-b",10,12,{resourceType:"food",sourceId:"apple_tree",ageTicks:120,quantity:12}],
   ["resource.spawn","apple-c",15,3,{resourceType:"food",sourceId:"apple_tree",ageTicks:120,quantity:12}],

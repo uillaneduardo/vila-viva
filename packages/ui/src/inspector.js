@@ -79,18 +79,29 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
       row('Função','Líder comunitário')+
       row('Último projeto',catalog?.buildingBlueprints?.[plan?.lastBlueprintId]?.label??'Nenhum')+
       row('Última avaliação',plan?.lastPlanTick??'—')+
-      '<p class="empty">'+safe(plan?.lastReason??'Avaliando as necessidades do assentamento')+'</p>';
+      '<p class="empty">'+safe(plan?.lastReason??'Avaliando as necessidades do assentamento')+'</p>'+
+      row('Última receita',catalog?.recipes?.[plan?.lastRecipeId]?.label??'Nenhuma')+
+      row('Tick de produção',plan?.lastProductionTick??'—')+
+      '<p class="empty">'+safe(plan?.productionReason??'Ainda sem necessidade produtiva')+'</p>';
     }
     html+='<h3>Identidade e traços</h3>';
-    for(const id of entity.traits??[])html+=row(catalog?.traits?.[id]?.label??id,
-      catalog?.traits?.[id]?.description??'Característica pessoal');
+    for(const id of entity.traits??[]){
+     const trait=catalog?.traits?.[id];
+     const affinities=Object.entries(trait?.affinities??{}).map(([domain,factor])=>
+      domain+' ×'+Number(factor).toFixed(2)).join(' · ');
+     html+=row(trait?.label??id,(trait?.description??'Característica pessoal')+
+      (affinities?' · '+affinities:''));
+    }
     html+='<h3>Equipamentos e riscos</h3>';
     const gear=entity.equipment?.tool;
     const risk=details?.survival?.risk;
     html+=row('Ferramenta',catalog?.tools?.[gear]??'Nenhuma')+row('Ferimentos sofridos',entity.injuries??0);
     if(risk)html+=row('Risco madeira',(risk.wood*100).toFixed(1)+'%')+
       row('Risco mineração',(risk.stone*100).toFixed(1)+'%')+
-      row('Risco de obra',(risk.building*100).toFixed(1)+'%');
+      row('Risco de obra',(risk.building*100).toFixed(1)+'%')+
+      row('Risco ferro',(risk.iron*100).toFixed(1)+'%')+
+      row('Risco cobre',(risk.copper*100).toFixed(1)+'%')+
+      row('Risco fabricação',(risk.manufacturing*100).toFixed(1)+'%');
     if(options.role==='admin'&&!entity.ownerId&&entity.health>0){
      html+='<label class="equipment-label">Equipamento de teste <select id="equipmentChoice" aria-label="Ferramenta do NPC">'+
       '<option value="">Sem ferramenta</option>'+
@@ -98,10 +109,10 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
       '</select></label><button class="context-action" id="equipNpc" type="button">Aplicar equipamento (Modo Deus)</button>';
     }
     html+='<h3>Inventário carregado</h3>';
-    for(const resourceId of ['wood','stone','apple','carrot','potato','apple_seed','carrot_seed','potato_seed'])
-     html+=row(({wood:'Madeira',stone:'Pedra',apple:'Maçãs',carrot:'Cenoura',potato:'Batata',
-      apple_seed:'Semente de maçã',carrot_seed:'Semente de cenoura',potato_seed:'Batata-semente'})[resourceId],
-      entity.inventory?.[resourceId]??0);
+    for(const [id,quantity] of Object.entries(entity.inventory??{}))
+     if(quantity>0)html+=row(catalog?.items?.[id]?.label??id,quantity);
+    if(!Object.values(entity.inventory??{}).some(quantity=>quantity>0))
+     html+='<p class="empty">Inventário vazio.</p>';
     html+=row('Capacidade',Object.values(entity.inventory??{}).reduce((a,b)=>a+b,0)+' / 12');
    } else if(active==='health'){
     if(values){
@@ -140,17 +151,41 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
       '<div class="data-row"><span>'+safe(record.name)+'</span><strong>Tick '+safe(record.burialTick)+'</strong></div>').join(''):
       '<p class="empty">Nenhum habitante sepultado.</p>';
     }
+    if(details?.construction?.production){
+     const prod=details.construction.production;
+     html+='<h3>Oficina · fabricação</h3>'+row('Estado',prod.active?
+      (prod.ready?'Pronta para trabalhar':'Aguardando insumos'):'Sem ordens');
+     for(const order of prod.orders){
+      const recipe=catalog?.recipes?.[order.recipeId];
+      html+=row(recipe?.label??order.recipeId,order.quantity+' lote(s) · '+
+       order.workDone+' / '+(recipe?.workUnits??'?')+' trabalho');
+     }
+     for(const [item,missing] of Object.entries(prod.missing??{}))
+      if(missing>0)html+=row('Necessário: '+(catalog?.items?.[item]?.label??item),missing);
+     if(options.role==='admin')html+='<h4>Solicitar receita (homologação)</h4>'+
+      prod.recipes.map(id=>'<button type="button" class="context-action" data-construction-action="production.order" data-recipe="'+safe(id)+'">'+
+      safe(catalog?.recipes?.[id]?.label??id)+'</button>').join('');
+    }
     if(details?.construction?.storage){
      const storage=details.construction.storage;
-     html+='<h3>Estoque físico</h3>'+row('Ocupação',storage.total+' / '+storage.capacity)+row('Espaço livre',storage.free);
-     for(const item of storage.accepted){
-      const name=({wood:'Madeira',stone:'Pedra',apple:'Maçãs',carrot:'Cenoura',potato:'Batata',
-       apple_seed:'Sementes de maçã',carrot_seed:'Sementes de cenoura',potato_seed:'Batatas-semente'})[item]||item;
-      html+=row(name,storage.stock?.[item]??0);
-      if(options.role==='admin'&&storage.free>0)
-       html+='<button type="button" class="context-action" data-construction-action="storage.admin_supply" data-material="'+safe(item)+'" data-amount="'+Math.min(12,storage.free)+'">Adicionar '+Math.min(12,storage.free)+' '+name+' (teste)</button>';
+     html+='<h3>Estoque físico</h3>'+row('Ocupação',storage.total+' / '+storage.capacity)+
+      row('Espaço livre',storage.free);
+     for(const [category,title] of Object.entries(catalog?.itemCategories??{})){
+      const accepted=storage.accepted.filter(id=>catalog?.items?.[id]?.category===category);
+      if(!accepted.length)continue;
+      const count=accepted.reduce((sum,id)=>sum+(storage.stock?.[id]??0),0);
+      html+='<details class="stock-category" data-category="'+safe(category)+'" '+(count>0?'open':'')+'>'+
+       '<summary>'+safe(title)+' <strong>'+count+'</strong></summary>';
+      for(const item of accepted){
+       const name=catalog?.items?.[item]?.label??item,quantity=storage.stock?.[item]??0;
+       html+='<div class="stock-item"><span>'+safe(name)+'</span><strong>'+quantity+'</strong>';
+       if(options.role==='admin'&&storage.free>0)
+        html+='<button type="button" class="stock-add" title="Adicionar para testes" data-construction-action="storage.admin_supply" data-material="'+safe(item)+'" data-amount="'+Math.min(12,storage.free)+'">+</button>';
+       html+='</div>';
+      }
+      html+='</details>';
      }
-     html+='<p class="empty">Somente depósitos concluídos recebem itens; NPCs transportam o estoque fisicamente. Botões acima são injeções explícitas de homologação.</p>';
+     html+='<p class="empty">Os estoques só aumentam por entregas físicas, conclusão de receitas ou suprimento explícito do Modo Deus.</p>';
     }else html+='<p class="empty">Capacidades ativadas somente após concluir a construção.</p>';
    }else if(stage){
     html+='<h3>Materiais da etapa</h3>';
@@ -212,7 +247,12 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
      (options.role==='admin'?'Testar colheita com NPC adjacente':'Colher alimento')+'</button>'+
      (options.canHarvest?'':'<p class="empty">Requer personagem adjacente, energia e espaço livre.</p>');
   }else html='<h3>Fonte de recurso</h3>'+row('Tipo',catalog?.resources?.[entity.resourceType]||entity.resourceType)+row('Disponível',entity.quantity+' unidades')+row('Capacidade',entity.maximum+' unidades')+row('Posição',entity.position.x+', '+entity.position.y);
-  if(lastContent!==html){const scroll=el('panelScroll');const previous=scroll.scrollTop;el('panelBody').innerHTML=html;scroll.scrollTop=previous;lastContent=html;
+  if(lastContent!==html){const scroll=el('panelScroll');const previous=scroll.scrollTop;
+   const expanded=new Map([...el('panelBody').querySelectorAll('.stock-category')].map(e=>[e.dataset.category,e.open]));
+   el('panelBody').innerHTML=html;
+   for(const category of el('panelBody').querySelectorAll('.stock-category'))
+    if(expanded.has(category.dataset.category))category.open=expanded.get(category.dataset.category);
+   scroll.scrollTop=previous;lastContent=html;
    el('harvestSelected')?.addEventListener('click',()=>onHarvest(entity.id));
    el('equipNpc')?.addEventListener('click',()=>onConstruction(entity.id,'npc.admin_equip',
     {tool:el('equipmentChoice').value||null}));
@@ -221,7 +261,8 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
      const action=button.dataset.constructionAction;
      const parameters=['construction.admin_supply','storage.admin_supply'].includes(action)?
       {materialId:button.dataset.material,quantity:Number(button.dataset.amount)}:
-      action==='construction.admin_work'?{workUnits:Number(button.dataset.amount)}:{};
+      action==='construction.admin_work'?{workUnits:Number(button.dataset.amount)}:
+      action==='production.order'?{recipeId:button.dataset.recipe,quantity:1}:{};
      onConstruction(entity.id,action,parameters);
     });
    }}

@@ -24,6 +24,10 @@ import {bootstrapSeededWorld} from "../../../packages/content/src/world-seeds.ts
 import {parseSnapshot,MAX_SNAPSHOT_BYTES} from "../../../packages/protocol/src/world-snapshot.ts";
 import type {AcceptedAction} from "../../../packages/domain/src/activity.ts";
 import {LEADERSHIP_PROJECTS} from "../../../packages/content/src/leadership.ts";
+import {ITEMS,ITEM_CATEGORIES} from "../../../packages/content/src/items.ts";
+import {RECIPES} from "../../../packages/content/src/recipes.ts";
+import {productionNeeds} from "../../../packages/systems/leadership/src/production.ts";
+import {productionDefinition,activeOrder,stockMissing,canWorkProduction} from "../../../packages/systems/production/src/index.ts";
 import type {Command,Role,Position} from "../../../packages/domain/src/contracts.ts";
 
 // Explicit opt-in homologation server. There is no authentication/RBAC yet.
@@ -161,6 +165,25 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
     initialize(seed);
     return json(res,200,{ok:true,tick:world.tick,paused:true,seed:seed??null});
    }
+   if(url.pathname==="/api/economy"&&req.method==="GET"){
+    const workshops=world.entities.filter(e=>e.kind==="construction"&&!!productionDefinition(e));
+    const depots=world.entities.filter(e=>e.kind==="construction"&&e.blueprintId==="building.depot"&&
+     !!storageDefinition(e));
+    const leader=world.entities.find(e=>e.kind==="character"&&e.health>0&&e.communityRole==="leader");
+    return json(res,200,{
+     tick:world.tick,
+     leader:leader?.kind==="character"?{id:leader.id,name:leader.name,
+      construction:leader.leadership?.lastReason??null,
+      production:leader.leadership?.productionReason??null,
+      lastRecipe:leader.leadership?.lastRecipeId??null}:null,
+     productionNeeds:productionNeeds(world),
+     workshops:workshops.map(e=>({id:e.id,blueprintId:e.blueprintId,
+      order:activeOrder(e)??null,missing:activeOrder(e)?stockMissing(e,activeOrder(e)!.recipeId):{},
+      ready:canWorkProduction(e),stock:e.stock??{}})),
+     depots:depots.map(e=>({id:e.id,capacity:storageDefinition(e)?.capacity??0,
+      occupied:storedTotal(e),stock:e.stock??{}}))
+    });
+   }
    if(url.pathname==="/api/catalog"&&req.method==="GET")return json(res,200,{
     locale:"pt-BR",
     entities:Object.fromEntries([...baseRegistry.entities].map(([id,d])=>[id,displayText(d.displayName)])),
@@ -169,13 +192,15 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
     effects:Object.fromEntries(Object.values(EFFECTS).map(e=>[e.id,displayText(e.displayName)])),
     tools:Object.fromEntries(Object.values(TOOL_PRESETS).map(tool=>[tool.id,tool.label])),
     traits:Object.fromEntries(Object.entries(TRAITS).map(([id,trait])=>[id,{
-      label:trait.label,description:trait.description
+      label:trait.label,description:trait.description,affinities:trait.affinities??{},
+      healing:trait.healing??1,risk:trait.risk??1
     }])),
     buildings:Object.fromEntries(Object.values(BUILDING_BLUEPRINTS).map(b=>[b.id,displayText(b.displayName)])),
     buildingBlueprints:Object.fromEntries(Object.values(BUILDING_BLUEPRINTS).map(b=>[b.id,{
       id:b.id,label:displayText(b.displayName),footprint:b.footprint,version:b.version,
       stages:b.stages.map(s=>({id:s.id,label:displayText(s.displayName),materials:s.materials,workUnits:s.workUnits})),
-      effects:b.effects,storage:b.storage??null,housing:b.housing??null,cemetery:b.cemetery??null
+      effects:b.effects,storage:b.storage??null,housing:b.housing??null,cemetery:b.cemetery??null,
+      production:b.production??null
     }])),
     naturalSources:Object.fromEntries(Object.values(NATURAL_SOURCES).map(s=>[s.id,{
       label:s.label,productId:s.productId,seedItem:s.seedItem,seedsPerHarvest:s.seedsPerHarvest,
@@ -183,14 +208,19 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
      }])),
     foods:Object.fromEntries(Object.values(FOOD_ITEMS).map(f=>[f.id,{label:f.label,satiety:f.satiety}])),
     scenery:Object.fromEntries(Object.values(SCENERY_PRESETS).map(s=>[s.id,s.label])),
-    leadershipProjects:LEADERSHIP_PROJECTS
+    leadershipProjects:LEADERSHIP_PROJECTS,
+    items:ITEMS,itemCategories:ITEM_CATEGORIES,recipes:RECIPES
    });
    if(url.pathname==="/api/world"&&req.method==="GET"){
-    const depots=world.entities.filter(e=>e.kind==="construction"&&!!storageDefinition(e));
+    const depots=world.entities.filter(e=>e.kind==="construction"&&
+     e.blueprintId==="building.depot"&&!!storageDefinition(e));
     const storageSummary=depots.length?
-     Object.fromEntries(["wood","stone","apple","carrot","potato","apple_seed","carrot_seed","potato_seed"].map(
+     Object.fromEntries(Object.keys(ITEMS).map(
       item=>[item,depots.reduce((sum,d)=>sum+(d.stock?.[item]??0),0)])):null;
-    if(storageSummary)storageSummary.food=(storageSummary.apple??0)+(storageSummary.carrot??0)+(storageSummary.potato??0);
+    if(storageSummary){
+     storageSummary.food=(storageSummary.apple??0)+(storageSummary.carrot??0)+(storageSummary.potato??0);
+     storageSummary.seeds=(storageSummary.apple_seed??0)+(storageSummary.carrot_seed??0)+(storageSummary.potato_seed??0);
+    }
     return json(res,200,{world,clock:clockView(),storageSummary,
     npcViews:Object.fromEntries(world.entities.filter(e=>e.kind==="character").map(e=>[e.id,{
      mood:resolveAttributes({...e,attributes:{...e.attributes,health:e.health,energy:e.energy}},world.tick).values.mood,
@@ -219,7 +249,10 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
        risk:{
         wood:injuryProbability(entity,"resource.gather:wood",world.tick),
         stone:injuryProbability(entity,"resource.gather:stone",world.tick),
-        building:injuryProbability(entity,"construction.work",world.tick)
+        building:injuryProbability(entity,"construction.work",world.tick),
+        iron:injuryProbability(entity,"resource.gather:iron_ore",world.tick),
+        copper:injuryProbability(entity,"resource.gather:copper_ore",world.tick),
+        manufacturing:injuryProbability(entity,"production.work",world.tick)
        }
       }:null,
       natural:entity.kind==="resource"&&entity.sourceId?{
@@ -235,6 +268,12 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
        stage:currentStage(entity)?.id??null,remaining:materialsRemaining(entity),
        materialsReady:hasMaterials(entity),capabilities:buildingCapabilities(entity),
        stageIndex:entity.stageIndex,status:entity.status,availability:entity.availability,
+       production:productionDefinition(entity)?{
+        orders:entity.productionOrders??[],active:activeOrder(entity)??null,
+        missing:activeOrder(entity)?stockMissing(entity,activeOrder(entity)!.recipeId):{},
+        ready:canWorkProduction(entity),
+        recipes:productionDefinition(entity)!.recipes
+       }:null,
        cemetery:entity.blueprintId==="building.cemetery"?{
         capacity:cemeteryCapacity(entity),free:availableGraves(entity),
         burials:entity.burials??[]
