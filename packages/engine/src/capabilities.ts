@@ -23,7 +23,7 @@ export function availableActions(world:World,role:Role,actorId:string|undefined,
  const free=carryLoad(actor)<12;
  const alive=actor.health>0&&actor.energy>0;
  const source=target?.kind==="resource"&&target.sourceId?naturalSource(target.sourceId):undefined;
- const canHarvest=!!source&&adjacent&&alive&&free&&target?.kind==="resource"&&target.quantity>0&&target.life?.stage!=="dead";
+ const canHarvest=!!source&&adjacent&&alive&&target?.kind==="resource"&&target.quantity>0&&target.life?.stage!=="dead";
  const harvestReason:FailureCode= !adjacent||!alive?"BLOCKED":!free?"INVENTORY_FULL":"EXHAUSTED";
  const actions:ActionAvailability[]=[];
  if(target?.kind==="construction"){
@@ -37,6 +37,7 @@ export function availableActions(world:World,role:Role,actorId:string|undefined,
   const valid=!!position&&inBounds(world,position)&&orthogonallyAdjacent(actor.position,position)&&alive&&canEnter(world,position,actor.id);
   actions.push({id:"movement.move",label:"Mover um tile",enabled:valid,...(!valid?{reason:"BLOCKED" as const}:{})});
  }
+ if(target?.kind==="item"){const ready=alive&&free&&Math.abs(actor.position.x-target.position.x)+Math.abs(actor.position.y-target.position.y)<=1;actions.push({id:"item.pickup",label:"Recolher item",enabled:ready,targetId:target.id});}
  if(source&&target)actions.push({id:"resource.harvest",label:"Colher frutos",enabled:canHarvest,targetId:target.id,...(!canHarvest?{reason:harvestReason}:{})});
  if(target)actions.push({id:"entity.inspect",label:"Inspecionar entidade",enabled:true,targetId:target.id});
  return actions;
