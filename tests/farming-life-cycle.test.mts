@@ -104,7 +104,9 @@ test("potato crop has finite yield, produces viable seed and disappears when it 
  assert.equal(player(w,"harvest","resource.harvest",ripe.id).ok,true);
  assert.equal(person.inventory.potato,4);
  assert.equal(person.inventory.potato_seed,2);
- for(let i=80;i<333;i++)advanceTick(w);
+ for(let i=80;i<330;i++)advanceTick(w);
+ assert.ok(w.entities.some(e=>e.id==="plant-second"),"crop remains harvestable beyond its previous expiry");
+ for(let i=330;i<naturalSource("potato").stages.dead+3;i++)advanceTick(w);
  assert.equal(w.entities.some(e=>e.id==="plant-second"),false);
  assert.equal(countZoneCrops(w,field).planted,0);
 });

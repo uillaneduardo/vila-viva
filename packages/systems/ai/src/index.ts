@@ -21,6 +21,7 @@ export const NPC_REST_THRESHOLD=20;
 export const NPC_REST_RECOVER_TO=80;
 export const NPC_REST_GAIN=4; // resting outside a house, tuned by endurance; beds recover faster
 const CARRY_LIMIT=12;
+const FOOD_RESERVE_SATIETY=35;
 type ActionHandler=(command:Command)=>Result;
 type Task={
  target:Entity; route:Position[]; activity:string; reason:string;
@@ -141,13 +142,16 @@ function storedCargo(world:World,npc:Character):Task|null {
  const inventory=npc.inventory??{},warehouses=depots(world).filter(d=>d.blueprintId==="building.depot");
  for(const [item,quantity] of Object.entries(inventory)){
   if(quantity<=0||!ITEMS[item])continue;
+  // Keep a small personal food reserve; surplus remains available for collective storage.
+  const reserve=Object.hasOwn(FOOD_ITEMS,item)?Math.min(quantity,Math.ceil(FOOD_RESERVE_SATIETY/FOOD_ITEMS[item as keyof typeof FOOD_ITEMS].satiety)):0;
+  if(quantity<=reserve)continue;
   // Keep seeds needed by an existing plot in hand until planting has been attempted.
   if(ITEMS[item].category==="seed"&&world.entities.some(e=>e.kind==="planting_zone"&&
     naturalSource(e.sourceId)?.seedItem===item&&reachablePlots(world,npc,e).length>0))continue;
   const task=selectTask(world,npc,warehouses.filter(d=>acceptedBy(d,item)&&storageFree(d)>0),
    "Armazenando recursos","Armazenar "+quantity+" "+ITEMS[item].label+
    " com transporte físico","storage.deposit",
-   d=>({materialId:item,quantity:Math.min(quantity,storageFree(d as Construction))}));
+   d=>({materialId:item,quantity:Math.min(quantity-reserve,storageFree(d as Construction))}));
   if(task)return {...task,domain:"hauling"};
  }
  return null;
@@ -297,6 +301,13 @@ function choose(world:World,npc:Character):Task|null{
  if(equipment?.action==="npc.equip")return equipment;
  const cargo=storedCargo(world,npc);
  if(cargo)return cargo;
+ // Annual crops cannot regrow after expiry; rescue ripe crops before new projects.
+ const free=CARRY_LIMIT-load(npc);
+ const ripe=selectTask(world,npc,resources(world).filter(r=>{
+  const def=r.sourceId?naturalSource(r.sourceId):undefined;
+  return def?.growthMode==="single_harvest"&&r.life?.stage==="old"&&free>def.seedsPerHarvest;
+ }),"Colhendo safra","Colher cultura envelhecida antes de perder a safra","resource.harvest");
+ if(ripe)return {...ripe,domain:"farming"};
  // New work is chosen by affinities; no trait can bypass survival or valid physical actions.
  const farming=plantingTask(world,npc);
  const demanded=choosePreferred(npc,[farming,construction.work,production,construction.source,equipment,deadwoodTask(world,npc)]);
@@ -315,25 +326,35 @@ function record(npc:Character,world:World,activity:string|null,reason:string,tar
 /** Survival outranks construction, with real fruit consumption and no created food. */
 function foodTask(world:World,npc:Character):Task|null {
  const warehouses=depots(world),free=CARRY_LIMIT-load(npc);
- if(free<=0){
-  for(const [item,amount] of Object.entries(npc.inventory??{})){
-   if(amount<=0||Object.hasOwn(FOOD_ITEMS,item))continue;
-   const task=selectTask(world,npc,warehouses.filter(d=>acceptedBy(d,item)&&storageFree(d)>0),
-    "Liberando espaço para alimento","Preciso comer; inventário cheio",
-    "storage.deposit",target=>({materialId:item,quantity:Math.min(amount,storageFree(target as Construction))}));
-   if(task)return task;
+ if(free>0){
+  for(const food of Object.values(FOOD_ITEMS)){
+   const stored=selectTask(world,npc,warehouses.filter(d=>stocked(d,food.id)>0),
+    "Buscando alimento","Saciedade baixa; procurar "+food.label+" no depósito",
+    "storage.withdraw",target=>({materialId:food.id,quantity:Math.min(2,free,stocked(target as Construction,food.id))}));
+   if(stored)return stored;
   }
-  return null;
  }
- for(const food of Object.values(FOOD_ITEMS)){
-  const stored=selectTask(world,npc,warehouses.filter(d=>stocked(d,food.id)>0),
-   "Buscando alimento","Saciedade baixa; procurar "+food.label+" no depósito",
-   "storage.withdraw",target=>({materialId:food.id,quantity:Math.min(2,free,stocked(target as Construction,food.id))}));
-  if(stored)return stored;
- }
- if(free<3)return null;
- return selectTask(world,npc,resources(world).filter(r=>r.sourceId&&naturalSource(r.sourceId)?.growthMode),
+ const edibleSources=resources(world).filter(r=>{
+  const def=r.sourceId?naturalSource(r.sourceId):undefined;
+  return !!def&&Object.hasOwn(FOOD_ITEMS,def.productId)&&r.life?.stage!=="dead";
+ });
+ const harvest=selectTask(world,npc,edibleSources.filter(r=>free>(naturalSource(r.sourceId!)?.seedsPerHarvest??0)),
   "Colhendo alimento","Saciedade baixa; colher alimento pronto para consumo","resource.harvest");
+ if(harvest)return harvest;
+ // Free only cargo that can be physically deposited, and only when a reachable
+ // food source or stocked warehouse can benefit from the extra capacity.
+ const reachable=edibleSources.filter(r=>routeToEntity(world,npc.position,r,npc.id));
+ const required=Math.min(...reachable.map(r=>(naturalSource(r.sourceId!)?.seedsPerHarvest??0)+1),
+  ...(warehouses.some(d=>Object.keys(FOOD_ITEMS).some(id=>stocked(d,id)>0)&&routeToEntity(world,npc.position,d,npc.id))?[1]:[]));
+ if(free>=required||!Number.isFinite(required))return null;
+ for(const [item,amount] of Object.entries(npc.inventory??{})){
+  if(amount<=0||Object.hasOwn(FOOD_ITEMS,item))continue;
+  const task=selectTask(world,npc,warehouses.filter(d=>acceptedBy(d,item)&&storageFree(d)>0),
+   "Liberando espaço para alimento","Preciso comer; liberar capacidade para coleta",
+   "storage.deposit",target=>({materialId:item,quantity:Math.min(amount,storageFree(target as Construction),required-free)}));
+  if(task)return task;
+ }
+ return null;
 }
 function rest(world:World,npc:Character,execute:ActionHandler):boolean {
  const ai=npc.ai;
@@ -342,7 +363,7 @@ function rest(world:World,npc:Character,execute:ActionHandler):boolean {
  npc.ai??={activity:null,reason:"",route:[],lastDecisionTick:world.tick,history:[]};
  npc.ai.resting=true;
  // Continue resting until both energy and injury recovery goals are met.
- if(npc.energy>=NPC_REST_RECOVER_TO&&(npc.health>=65||(npc.health<65&&(npc.satiety??100)<=20))){
+ if(npc.energy>=NPC_REST_RECOVER_TO&&(npc.health>=65||(npc.satiety??100)<=25)){
   npc.ai.resting=false;releaseBed(world,npc);return false;
  }
  let house=reservedHouse(world,npc);
@@ -357,6 +378,9 @@ function rest(world:World,npc:Character,execute:ActionHandler):boolean {
   for(const entry of reachable){
    if(reserveBed(world,npc,entry.target)){house=entry.target;route=entry.route;break;}
   }
+ }
+ if(house&&route&&route.length>1&&npc.energy<=0){
+  releaseBed(world,npc);house=undefined;route=null;
  }
  if(house&&route&&route.length>1){
   const next=route[1];
@@ -424,10 +448,24 @@ export function advanceNpcDecisions(world:World,execute:ActionHandler):void {
      result.ok?"Consumiu "+edible.label+" do próprio inventário":"Não conseguiu se alimentar ("+(result.ok?"":result.error)+")");
     continue;
    }
-   const task=foodTask(world,npc);
+   const task=npc.energy>0?foodTask(world,npc):null;
    if(task){releaseBed(world,npc);npc.ai&&(npc.ai.resting=false);executeTask(world,npc,task,execute);continue;}
   }
+  // An injured NPC needs nutrition to recover; do not wait for severe hunger.
+  if(npc.health<=35&&npc.energy>0&&(npc.satiety??100)>EAT_THRESHOLD&&(npc.satiety??100)<65){
+   const edible=Object.values(FOOD_ITEMS).find(food=>(npc.inventory?.[food.id]??0)>0);
+   if(edible){
+    const result=execute({commandId:"ai-recovery-eat-"+world.tick+"-"+npc.id,worldId:world.id,actorRole:"npc",actorId:npc.id,action:"npc.eat",targetId:npc.id,parameters:{itemId:edible.id}});
+    record(npc,world,result.ok?"Alimentando-se":"Aguardando alimento","Nutrição para recuperar saúde");continue;
+   }
+   const task=foodTask(world,npc);
+   if(task){releaseBed(world,npc);executeTask(world,npc,task,execute);continue;}
+  }
   if(rest(world,npc,execute))continue;
+  if((npc.satiety??100)<=10){
+   record(npc,world,null,"Fome crítica: sem alimento acessível; trabalho não essencial suspenso");
+   continue;
+  }
   const task=choose(world,npc);
   if(!task){
    if(idleStep(world,npc,execute))continue;

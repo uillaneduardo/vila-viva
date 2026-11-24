@@ -40,6 +40,18 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
  const restored=store?.loadActive();
  let world=restored?structuredClone(restored.world):createWorld("first-world",24,16);
  const clock={speed:0 as 0|1|2|4};
+ // Legacy owned avatar is removed from live state, without rewriting named saves or journal.
+ const removeLegacyAvatar=(w:typeof world)=>{
+  const ids=new Set(w.entities.filter(e=>e.kind==="character"&&e.ownerId==="local-player").map(e=>e.id));
+  if(!ids.size)return false;
+  w.entities=w.entities.filter(e=>!ids.has(e.id));
+  for(const e of w.entities){
+   if(e.kind==="construction"&&e.bedReservations)for(const id of ids)delete e.bedReservations[id];
+   if(e.kind==="character"&&e.bodyCarriedBy&&ids.has(e.bodyCarriedBy))delete e.bodyCarriedBy;
+  }
+  return true;
+ };
+ if(restored&&removeLegacyAvatar(world))store?.commit(world,world.seed);
  const playerId=()=>world.entities.find(e=>e.kind==="character"&&e.ownerId==="local-player")?.id??null;
  const init=(action:Command["action"],commandId:string,position:Position,parameters:Record<string,unknown>)=>{
   const actions:AcceptedAction[]=[];
@@ -53,7 +65,6 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
   if(seed){
    bootstrapSeededWorld(world,seed,command=>init(command.action,command.commandId,command.position,command.parameters));
   }else{
-   init("npc.spawn","player-init",{x:4,y:5},{name:"Meu personagem",ownerId:"local-player"});
    init("npc.spawn","npc-init",{x:13,y:9},{name:"Ayla"});
    init("resource.spawn","wood-init",{x:7,y:8},{resourceType:"wood",quantity:30});
   }
@@ -147,6 +158,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string}={}){
     }
     clock.speed=0;
     const restoredWorld=structuredClone(loaded.world);
+    removeLegacyAvatar(restoredWorld);
     store.switchWorld(restoredWorld,loaded.seed??restoredWorld.seed);
     world=restoredWorld;
     return json(res,200,{ok:true,worldId:world.id,tick:world.tick,paused:true,

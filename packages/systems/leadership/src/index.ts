@@ -108,10 +108,13 @@ export function planAgriculture(world:World,leader:Character){
   (e.kind==="character"&&e.health>0&&!e.ownerId?(e.inventory?.[item]??0):
    e.kind==="construction"&&e.status==="completed"?(e.stock?.[item]??0):0),0);
  const food=foodIds.reduce((n,item)=>n+total(item),0);
+ const nutrition=Object.values(FOOD_ITEMS).reduce((n,item)=>n+total(item.id)*item.satiety,0);
+ // 2 satiety every 8 ticks; target a 240-tick day of consumption per citizen.
+ const reserveTarget=citizens.length*60;
  const crops=world.entities.filter(e=>e.kind==="resource"&&!!e.sourceId&&e.life?.stage!=="dead");
  const hungry=citizens.some(n=>(n.satiety??100)<=35);
  const target=Math.max(2,citizens.length*2);
- if(!hungry&&food>=citizens.length*3&&crops.length>=target)return undefined;
+ if(!hungry&&nutrition>=reserveTarget&&crops.length>=target)return undefined;
  const candidates=Object.values(NATURAL_SOURCES).map(species=>{
   const seeds=total(species.seedItem);
   const zones=world.entities.filter(e=>e.kind==="planting_zone"&&e.sourceId===species.id);
@@ -134,7 +137,7 @@ export function planAgriculture(world:World,leader:Character){
    if(!best||score<best.score)best={position,score};
   }
   if(best)return {position:best.position,sourceId:p.species.id,width:size,height:size,
-   reason:"Produção alimentar: "+food+" alimentos em inventários/estoques; "+p.seeds+" sementes de "+p.species.label};
+   reason:"Produção alimentar: "+food+" alimentos; reserva nutricional "+nutrition+"/"+reserveTarget+"; "+p.seeds+" sementes de "+p.species.label};
  }
  return undefined;
 }

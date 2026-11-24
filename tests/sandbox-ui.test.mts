@@ -47,6 +47,8 @@ test('local server provides clock, real NPC inspection and validated brush comma
  try{
   const initial=await (await fetch(base+'/api/world')).json();
   assert.equal(initial.storageSummary,null);
+  assert.equal(initial.playerId,null);
+  assert.ok(initial.world.entities.every(e=>!e.ownerId));
   assert.equal(initial.npcViews['npc-npc-init'].mood,75);
   const entity=await (await fetch(base+'/api/inspect?entityId=npc-npc-init')).json();
   assert.equal(entity.attributes.values.health,100);
@@ -62,7 +64,7 @@ test('local server provides clock, real NPC inspection and validated brush comma
    {commandId:'paint-test-two',action:'resource.spawn',position:{x:1,y:1},parameters:{resourceType:'food',quantity:8}}
   ]})).json();
   assert.deepEqual(batch.results.map(r=>r.ok),[true,false]);
-  assert.equal((await (await fetch(base+'/api/world')).json()).world.entities.length,4);
+  assert.equal((await (await fetch(base+'/api/world')).json()).world.entities.length,3);
   assert.equal((await post('/api/brush',{role:'player',commands:[]})).status,403);
   assert.equal((await post('/api/clock',{role:'admin',speed:2})).status,200);
  }finally{await new Promise(resolve=>server.close(resolve));}
