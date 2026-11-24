@@ -13,7 +13,7 @@ import {advanceNpcDecisions} from "../../systems/ai/src/index.ts";
 import {advanceNeeds,eatFood,updateNeedEffects} from "../../systems/needs/src/index.ts";
 import {TOOL_PRESETS,evaluateActionRisk} from "../../systems/risk/src/index.ts";
 import {clearHouse,pruneBeds} from "../../systems/housing/src/index.ts";
-import {generateCharacterProfile} from "../../content/src/characters.ts";
+import {generateCharacterProfile,generateStartingInventory} from "../../content/src/characters.ts";
 import {advanceMortality,isCorpse,carriedCorpse,availableGraves,registerBurial} from "../../systems/mortality/src/index.ts";
 import {inBounds} from "../../domain/src/contracts.ts";
 import type {Command, World, Result, Character, Resource, Position} from "../../domain/src/contracts.ts";
@@ -70,7 +70,7 @@ export function applyCommand(world: World, command: Command,
    const character:Character={kind:"character",id,name:typeof name==="string"?name:profile.name,
     traits:profile.traits,attributes:profile.attributes,
     ...(communityRole==="leader"?{communityRole:"leader" as const,leadership:{lastPlanTick:-1,lastReason:"Avaliando necessidades da comunidade"}}:{}),
-    position:{...command.position},health:100,energy:100,satiety:100,inventory:{},equipment:{},injuries:0,
+    position:{...command.position},health:100,energy:100,satiety:100,inventory:typeof ownerId==="string"?{}:generateStartingInventory(world.id,command.commandId,world.tick,profile.traits,MAX_CARRY_ITEMS),equipment:{},injuries:0,
     ...(typeof ownerId==="string"?{ownerId}:{})};
    world.entities.push(character);
   } else if(command.action==="obstacle.spawn"){
@@ -94,7 +94,10 @@ export function applyCommand(world: World, command: Command,
    }
   }
  } else if(command.action==="farming.zone.create"){
-  if(!admin)return reject(command,"UNAUTHORIZED");
+  if(!admin){
+   const actor=actorForCommand(world,command);
+   if(!options.internal||command.actorRole!=="npc"||!actor||actor.communityRole!=="leader"||actor.health<=0||actor.ownerId)return reject(command,"UNAUTHORIZED");
+  }
   const sourceId=command.parameters?.sourceId,width=command.parameters?.width,height=command.parameters?.height;
   if(typeof sourceId!=="string"||!naturalSource(sourceId)||typeof width!=="number"||typeof height!=="number"||
     !Number.isSafeInteger(width)||!Number.isSafeInteger(height)||width<1||height<1||width>12||height>12||
