@@ -10,6 +10,7 @@ export interface BuildingStage {
 export interface BuildingBlueprint {
  id:string; version:number; label:string; displayName:LocalizedText; footprint:Readonly<{width:number;height:number}>; stages:readonly BuildingStage[];
  effects:readonly {capability:string;value:number;unit:string}[];
+ storage?:Readonly<{capacity:number;accepted:readonly string[]}>;
 }
 export const COMMUNITY_HOUSE:Readonly<BuildingBlueprint>=Object.freeze({
  id:"building.community_house",version:1,label:"Casa Comunitária",displayName:{"pt-BR":"Casa Comunitária"},footprint:{width:2,height:2},
