@@ -42,6 +42,13 @@
   <input id="brushSize" type="range" min="1" max="15" value="1" step="1" aria-label="Tamanho do pincel">
   <span id="brushCount">1 célula</span>
  </div>
+ <section id="npcActivityMonitor" class="npc-monitor glass" aria-label="Atividades dos habitantes">
+  <header class="npc-monitor-head">
+   <div class="npc-monitor-title"><strong>Atividades</strong><small id="npcActivityCount">0 habitantes</small></div>
+   <button id="npcActivityToggle" type="button" aria-controls="npcActivityList" aria-expanded="true" aria-label="Recolher atividades" title="Recolher janela de atividades">−</button>
+  </header>
+  <div id="npcActivityList" class="npc-monitor-list" aria-label="Habitantes e histórico de decisões"></div>
+ </section>
  <section id="panel" class="context glass" hidden aria-label="Inspetor contextual">
   <header class="context-head"><div class="portrait" id="portrait">A</div><div class="head-label"><strong id="panelName">Entidade</strong><small id="panelDesc"></small></div>
    <button id="follow" title="Seguir entidade"></button><button id="collapse" title="Recolher painel" aria-label="Recolher painel"></button>

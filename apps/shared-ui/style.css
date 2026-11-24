@@ -148,3 +148,55 @@ button:focus-visible,input:focus-visible,canvas:focus-visible{outline:2px solid 
 .stock-item strong{text-align:right;font-variant-numeric:tabular-nums;color:#f1f6e7}
 .stock-add{width:23px;height:23px;cursor:pointer;border-radius:7px;
  background:#33513b;border:1px solid #52755b;color:#e4f4df;font-size:14px}
+
+/* Compact read-only NPC monitor. Separate from the right-hand entity inspector. */
+.npc-monitor{position:absolute;top:131px;left:16px;width:280px;
+ max-width:calc(100vw - 32px);max-height:min(430px,calc(100vh - 270px));
+ border-radius:15px;z-index:7;display:flex;flex-direction:column;overflow:hidden}
+.npc-monitor-head{display:flex;align-items:center;justify-content:space-between;
+ gap:10px;padding:10px 11px;border-bottom:1px solid var(--line);flex:0 0 auto}
+.npc-monitor-title{display:flex;align-items:center;gap:9px;min-width:0}
+.npc-monitor-title strong{font-size:12px;font-weight:700}
+.npc-monitor-title small{font-size:10px;color:var(--muted);white-space:nowrap}
+.npc-monitor-head button{width:27px;height:25px;border:1px solid rgba(197,220,194,.16);
+ background:#30473a;border-radius:8px;font-size:16px;line-height:1;flex:0 0 auto}
+.npc-monitor-head button:hover{background:#425d48}
+.npc-monitor-list{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;
+ scrollbar-color:#617b65 transparent;padding:4px 6px 8px}
+.npc-monitor-entry{border-radius:10px;border:1px solid transparent;margin:3px 0;
+ background:rgba(130,164,127,.04);overflow:hidden}
+.npc-monitor-entry[open]{border-color:rgba(177,204,166,.18);background:rgba(80,109,83,.12)}
+.npc-monitor-summary{display:flex;align-items:center;gap:9px;padding:9px 8px;
+ cursor:pointer;list-style:none;min-height:49px}
+.npc-monitor-summary::-webkit-details-marker{display:none}
+.npc-monitor-summary:hover{background:rgba(140,175,134,.1)}
+.npc-monitor-indicator{flex:0 0 7px;height:7px;border-radius:100%;background:#96c799}
+.npc-monitor-indicator.is-leader{background:#e4c881}
+.npc-monitor-indicator.is-dead{background:#b6928b}
+.npc-monitor-labels{display:flex;flex-direction:column;min-width:0;flex:1;gap:3px}
+.npc-monitor-name{font-size:11px;font-weight:680;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.npc-monitor-last{font-size:10px;color:#adbfaf;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.npc-monitor-chevron{flex:0 0 7px;width:7px;height:7px;border-right:1.6px solid #9db5a0;
+ border-bottom:1.6px solid #9db5a0;transform:rotate(45deg);transition:transform .15s}
+.npc-monitor-entry[open] .npc-monitor-chevron{transform:rotate(225deg)}
+.npc-monitor-history{max-height:155px;overflow-y:auto;overscroll-behavior:contain;
+ padding:3px 8px 8px 23px;scrollbar-width:thin;scrollbar-color:#617b65 transparent}
+.npc-monitor-event{padding:8px 0;border-top:1px solid rgba(220,235,213,.08)}
+.npc-monitor-event-head{display:flex;gap:8px;align-items:baseline;justify-content:space-between;
+ font-size:9px;color:#93a894;font-variant-numeric:tabular-nums}
+.npc-monitor-event-head strong{font-weight:650;font-size:10px;color:#e0eada;text-align:right}
+.npc-monitor-event p{margin:4px 0 0;color:#b7c9b7;font-size:10px;line-height:1.45;
+ overflow-wrap:anywhere;user-select:text}
+.npc-monitor-empty{padding:9px;margin:0;color:#a8bba8;font-size:10px;line-height:1.5}
+.npc-monitor-collapsed .npc-monitor-list{display:none}
+.npc-monitor-collapsed .npc-monitor-head{border-bottom:0}
+@media(max-width:1190px){
+ .npc-monitor{top:149px;max-height:min(410px,calc(100vh - 255px))}
+}
+@media(max-width:740px){
+ .npc-monitor{top:124px;left:8px;width:min(246px,calc(100vw - 16px));
+  max-height:min(42vh,295px);border-radius:12px}
+ .npc-monitor-head{padding:8px}
+ .npc-monitor-summary{padding:7px;min-height:45px}
+ .npc-monitor-history{max-height:123px}
+}
