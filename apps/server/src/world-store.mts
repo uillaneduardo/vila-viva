@@ -28,7 +28,9 @@ export class FileWorldStore {
  readonly logsDirectory:string;
  timelineId=randomUUID();
  lastSequence=0;
- constructor(readonly root:string){
+ readonly root:string;
+ constructor(root:string){
+  this.root=root;
   if(!root)throw Error("INVALID_DATA_DIR");
   mkdirSync(root,{recursive:true,mode:0o700});
   this.savesDirectory=join(root,"saves");this.logsDirectory=join(root,"logs");
