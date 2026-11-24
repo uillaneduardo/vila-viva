@@ -1,3 +1,5 @@
+import {getWorldVisualPack} from './visual-packs.js';
+import {resolveCharacterState} from './character-visual-state.js';
 /** World sprite registry. Render-only; no gameplay authority or inventory mutation. */
 export const SPRITES=Object.freeze({
  'character.human':{id:'entities/human',states:['idle','moving','working','resting']},
@@ -9,19 +11,11 @@ export const SPRITES=Object.freeze({
 });
 
 /** Atlas source is local, transparent, and deliberately independent of UI icons. */
-export const WORLD_ATLASES=Object.freeze({
- 'vegetation/apple_tree':Object.freeze({
-  src:'/assets/world/vegetation/apple_tree_atlas_96.png',
-  frameWidth:96,frameHeight:96,frameCount:4,
-  pivotX:48,pivotY:88, // aligned to the entity's world footprint
-  states:Object.freeze(['leafless','foliage','fruit_sparse','fruit_ripe'])
- })
-});
+export const WORLD_ATLASES=getWorldVisualPack();
 
 /** Map authoritative entity state to an appearance without changing the entity. */
-export function resolveWorldSprite(entity){
- if(entity?.kind==='character')return entity.health<=0?
-  {id:'entities/human',state:'dead',scale:.79}:{id:'entities/human',state:'idle',scale:.79};
+export function resolveWorldSprite(entity,context){
+ if(entity?.kind==='character')return {id:'entities/human',state:resolveCharacterState(entity,context),scale:1.45};
  if(entity?.kind==='construction'){
   const states=entity.blueprintId==='building.depot'?
    ['site','foundation','structure']:['site','foundation','structure','roof'];
@@ -49,15 +43,16 @@ export function resolveWorldSprite(entity){
 }
 
 export class SpriteLibrary {
- constructor(){this.images=new Map();this.atlases=new Map();}
+ constructor({pack=getWorldVisualPack()}={}){this.images=new Map();this.atlases=new Map();this.pack=pack;}
+ setPack(pack){this.pack=pack;this.atlases.clear();this.preload();}
  register(id,image){this.images.set(id,image);}
  preload(){
   if(typeof Image==='undefined')return;
-  for(const [id,definition] of Object.entries(WORLD_ATLASES)){
+  for(const [id,definition] of Object.entries(this.pack)){
    const image=new Image();
    this.atlases.set(id,{image,definition,ready:false});
-   image.onload=()=>{const entry=this.atlases.get(id);if(entry)entry.ready=image.naturalWidth===definition.frameWidth*definition.frameCount&&image.naturalHeight===definition.frameHeight;};
-   image.onerror=()=>{const entry=this.atlases.get(id);if(entry)entry.ready=false;};
+   image.onload=()=>{const entry=this.atlases.get(id);if(entry?.image===image)entry.ready=image.naturalWidth===definition.frameWidth*definition.frameCount&&image.naturalHeight===definition.frameHeight;};
+   image.onerror=()=>{const entry=this.atlases.get(id);if(entry?.image===image)entry.ready=false;};
    image.src=definition.src;
   }
  }

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="384" height="96" viewBox="0 0 384 96">
+<defs>
+<g id="shadow"><ellipse cx="48" cy="66" rx="18" ry="7" fill="#182e23" opacity=".55"/></g>
+<g id="body"><rect x="33" y="30" width="30" height="25" rx="7" fill="#90b0a4"/><circle cx="48" cy="22" r="14" fill="#dec59a"/></g>
+<g id="legs"><path d="M39 53l-1 12M57 53l1 12" stroke="#b6a583" stroke-width="8" stroke-linecap="round"/></g>
+</defs>
+<g><use href="#shadow"/><use href="#legs"/><use href="#body"/></g>
+<g transform="translate(96 0)"><use href="#shadow"/><path d="M40 53l-4 10M55 53l4 12" stroke="#b6a583" stroke-width="8" stroke-linecap="round"/><use href="#body"/></g>
+<g transform="translate(192 0)"><use href="#shadow"/><path d="M60 37l19-13" stroke="#b29b70" stroke-width="6"/><path d="M70 16l20 13" stroke="#bdc8bf" stroke-width="7"/><use href="#legs"/><use href="#body"/></g>
+<g transform="translate(288 0)"><use href="#shadow"/><rect x="19" y="43" width="58" height="23" rx="4" fill="#94835e"/><rect x="43" y="45" width="31" height="19" fill="#94afa5"/><circle cx="32" cy="54" r="11" fill="#dec59a"/></g>
+</svg>
