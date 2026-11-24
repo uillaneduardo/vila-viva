@@ -3,6 +3,7 @@ import test from 'node:test';
 import {createWorld,applyCommand,advanceTick} from '../packages/engine/src/engine.ts';
 import {routeToEntity} from '../packages/systems/pathfinding/src/index.ts';
 import {buildingCapabilities,storageFree,storageDefinition,storedTotal} from '../packages/systems/construction/src/index.ts';
+import {buildingBlueprint} from '../packages/content/src/buildings/registry.ts';
 import {resolveWorldSprite} from '../packages/renderer/src/sprites.js';
 import {makePrototype} from '../apps/server/src/index.mts';
 import {readFile} from 'node:fs/promises';
@@ -59,7 +60,7 @@ test('planned depot can be constructed by stages without unlocking storage prema
  const site=w.entities[0];
  assert.equal(storageDefinition(site),undefined);
  for(let step=0;step<3;step++){
-  const blueprint=(await import('../packages/content/src/buildings/registry.ts')).buildingBlueprint('building.depot');
+  const blueprint=buildingBlueprint('building.depot');
   const stage=blueprint.stages[step];
   for(const [materialId,quantity] of Object.entries(stage.materials))
    assert.equal(god(w,'s'+step+materialId,'construction.admin_supply',{targetId:site.id,
