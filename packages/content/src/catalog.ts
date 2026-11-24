@@ -16,6 +16,8 @@ export function createBaseRegistry():DefinitionRegistry {
  for(const action of [
   {id:"mine.extract",displayName:{"pt-BR":"Operar mina"},roles:["npc","player"],targets:["construction"],requires:["position","energy"],readonly:false,description:"Extrair minério finito com trabalhador presente"},
   {id:"item.drop",displayName:{"pt-BR":"Deixar item no chão"},roles:["npc","player"],targets:["character"],requires:["position","inventory"],readonly:false,description:"Transferir item físico do inventário para o chão"},
+  {id:"storage.temporary.create",displayName:{"pt-BR":"Demarcar depósito temporário"},roles:["npc"],targets:["position"],requires:["position","inventory"],readonly:false,description:"Criar área de armazenamento e depositar carga física"},
+  {id:"storage.temporary.remove",displayName:{"pt-BR":"Remover depósito temporário"},roles:["npc"],targets:["construction"],requires:["position"],readonly:false,description:"Remover área e deixar estoque físico no chão"},
   {id:"item.pickup",displayName:{"pt-BR":"Recolher item"},roles:["npc","player"],targets:["item"],requires:["position","inventory"],readonly:false,description:"Recolher pilha física no chão"},
   {id:"entity.inspect",displayName:{"pt-BR":"Inspecionar"},roles:["player","npc","admin"],targets:["character","resource","item","storage","construction","terrain"],requires:[],readonly:true,description:"Inspeção autorizada sem alterar o mundo"},
   {id:"movement.move",displayName:{"pt-BR":"Mover"},roles:["player","npc"],targets:["position"],requires:["position","movement","energy"],readonly:false,description:"Mover ator físico"},
