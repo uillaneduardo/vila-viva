@@ -1,4 +1,4 @@
-import {soilColor} from "../../content/src/soil.js";
+import {soilColor,canCultivateCell} from "../../content/src/soil.js";
 import {Camera,hitTest,brushCells} from './camera.js';
 import {SpriteLibrary,resolveWorldSprite} from './sprites.js';
 import {createOcclusionResolver} from './occlusion.js';
@@ -286,6 +286,7 @@ export class Scene {
     let blocked=false;
     for(let y=anchor.y;y<anchor.y+height;y++)for(let x=anchor.x;x<anchor.x+width;x++){
      if(x<0||y<0||x>=this.world.width||y>=this.world.height||
+      (['farm','food'].includes(this.brush.kind)&&!canCultivateCell(this.world,x,y))||
       this.world.entities.some(e=>e.kind==='planting_zone'?
        (this.brush.kind==='farm'&&x>=e.position.x&&x<e.position.x+e.footprint.width&&y>=e.position.y&&y<e.position.y+e.footprint.height):
        (this.brush.kind==='farm'&&e.kind==='character')?false:e.kind==='construction'?

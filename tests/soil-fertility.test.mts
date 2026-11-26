@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {createWorld,applyCommand} from "../packages/engine/src/engine.ts";
+import {canCreateZone,canPlantAt,makeZone} from "../packages/systems/farming/src/index.ts";
 import {bootstrapSeededWorld} from "../packages/content/src/world-seeds.ts";
-import {soilAt,SOIL_TYPES} from "../packages/content/src/soil.js";
+import {soilAt,SOIL_TYPES,canCultivateArea,canCultivateCell} from "../packages/content/src/soil.js";
 import {makeNaturalSource,advanceNaturalSources} from "../packages/systems/nature/src/index.ts";
 import {validateWorld} from "../packages/protocol/src/world-snapshot.ts";
 import {TerrainCache} from "../packages/renderer/src/terrain-cache.js";
@@ -20,7 +21,7 @@ test("maturation and fruit replenishment follow soil rates without changing yiel
  const w=world("soil-a");
  const byRate=new Map<number,{x:number;y:number}>();
  for(let y=0;y<w.height;y++)for(let x=0;x<w.width;x++)byRate.set(soilAt(w,x,y).rate,{x,y});
- const sorted=[...byRate.keys()].sort((a,b)=>a-b),slow=sorted[0],fast=sorted.at(-1)!;
+ const sorted=[...byRate.keys()].filter(rate=>rate>0).sort((a,b)=>a-b),slow=sorted[0],fast=sorted.at(-1)!;
  assert.ok(slow<fast);
  for(const rate of [slow,fast]){
   const local=world("soil-a"),crop=makeNaturalSource("crop",byRate.get(rate)!,"carrot");
@@ -48,4 +49,34 @@ test("terrain cache distinguishes seed and fertility overlay",()=>{
  assert.equal(cache.get(0,0,32,24,32,true,a,false),initial);
  assert.notEqual(cache.get(0,0,32,24,32,true,b,false),initial);
  assert.notEqual(cache.get(0,0,32,24,32,true,a,true),initial);
+});
+
+test("sterile soil forbids every agricultural placement, including a mixed footprint",()=>{
+ const w=world("soil-a");
+ let blocked,good,mixed;
+ for(let y=0;y<w.height;y++)for(let x=0;x<w.width;x++){
+  if(!canCultivateCell(w,x,y))blocked={x,y};else good={x,y};
+  if(x+1<w.width&&canCultivateCell(w,x,y)!==canCultivateCell(w,x+1,y))mixed={x,y};
+ }
+ assert.ok(blocked&&good&&mixed);
+ assert.equal(soilAt(w,blocked.x,blocked.y).rate,0);
+ assert.equal(canCultivateArea(w,mixed,2,1),false);
+ assert.equal(canCreateZone(w,"carrot",mixed,2,1),false);
+ assert.equal(canCreateZone(w,"carrot",good,1,1),true);
+ const rejected=applyCommand(w,{worldId:w.id,commandId:"bad-zone",actorRole:"admin",action:"farming.zone.create",position:mixed,parameters:{sourceId:"carrot",width:2,height:1}});
+ assert.equal(rejected.ok,false);
+ const leader={id:"leader",kind:"character" as const,name:"Leader",position:good,health:100,energy:100,communityRole:"leader" as const};
+ w.entities.push(leader);
+ assert.equal(applyCommand(w,{worldId:w.id,commandId:"bad-leader-zone",actorRole:"npc",actorId:leader.id,action:"farming.zone.create",position:blocked,parameters:{sourceId:"carrot",width:1,height:1}},{internal:true}).ok,false);
+ assert.equal(canPlantAt(w,makeZone("zone","carrot",blocked,1,1),blocked),false);
+ assert.equal(applyCommand(w,{worldId:w.id,commandId:"bad-tree",actorRole:"admin",action:"resource.spawn",position:blocked,parameters:{resourceType:"food",sourceId:"apple_tree",ageTicks:0,quantity:0}}).ok,false);
+});
+test("initial orchard and food are always on cultivable soil across seeds and dimensions",()=>{
+ for(const [width,height] of [[24,16],[32,24],[48,32],[64,48]])for(let n=0;n<24;n++){
+  const w=createWorld("soil-bootstrap",width,height);
+  bootstrapSeededWorld(w,"fertility-"+n,c=>applyCommand(w,{...c,worldId:w.id,actorRole:"admin"}));
+  const orchard=w.entities.find(e=>e.kind==="planting_zone");
+  assert.ok(orchard&&canCultivateArea(w,orchard.position,3,3));
+  for(const e of w.entities)if(e.kind==="resource"&&e.sourceId)assert.ok(canCultivateCell(w,e.position.x,e.position.y));
+ }
 });
