@@ -1,6 +1,7 @@
 import type {World,Character,Entity,Resource,Construction,Command,Result,Position} from "../../../domain/src/contracts.ts";
 import {canEnter,blockingEntity} from "../../collision/src/index.ts";
 import {routeToEntity,routeCost} from "../../pathfinding/src/index.ts";
+import {removalSafe} from "../../construction/src/removal.ts";
 import {materialsRemaining,hasMaterials,storageDefinition,storageFree} from "../../construction/src/index.ts";
 import {bedsIn,reservationCount,reserveBed,reservedHouse,releaseBed,enterHouse,exitHouse,sleepRecovery} from "../../housing/src/index.ts";
 import {EAT_THRESHOLD} from "../../needs/src/index.ts";
@@ -36,7 +37,7 @@ const resources=(world:World):Resource[]=>
 const depots=(world:World):Construction[]=>
  world.entities.filter((e):e is Construction=>e.kind==="construction"&&!!storageDefinition(e));
 const sites=(world:World):Construction[]=>
- world.entities.filter((e):e is Construction=>e.kind==="construction"&&(e.status==="site"||!!e.upgrade));
+ world.entities.filter((e):e is Construction=>e.kind==="construction"&&!e.removalOrder&&(e.status==="site"||!!e.upgrade));
 
 function selectTask(world:World,npc:Character,targets:Entity[],activity:string,reason:string,
  action:Command["action"],parameters?:(e:Entity)=>Record<string,unknown>|undefined):Task|null {
@@ -79,7 +80,7 @@ function committedPlanting(world:World,npc:Character):Task|null{
  if(!intent)return null;
  const zone=world.entities.find((e):e is FarmingZone=>e.kind==="planting_zone"&&e.id===intent.zoneId);
  const species=zone&&naturalSource(zone.sourceId);
- if(zone&&species&&(npc.inventory?.[species.seedItem]??0)>0&&
+ if(zone&&!zone.removalOrder&&species&&(npc.inventory?.[species.seedItem]??0)>0&&
    world.tick-intent.lastProgressTick<PLANTING_STALL_TICKS){
   const choice=reachablePlots(world,npc,zone).find(p=>p.position.x===intent.position.x&&p.position.y===intent.position.y);
   if(choice)return {...choice,targetId:zone.id,activity:"Plantando",
@@ -90,7 +91,7 @@ function committedPlanting(world:World,npc:Character):Task|null{
 }
 /** Farming tasks require a reachable plot before procuring seeds. */
 function plantingTask(world:World,npc:Character):Task|null {
- const zones=world.entities.filter((e):e is FarmingZone=>e.kind==="planting_zone");
+ const zones=world.entities.filter((e):e is FarmingZone=>e.kind==="planting_zone"&&!e.removalOrder);
  const free=CARRY_LIMIT-load(npc),warehouses=depots(world);
  for(const zone of zones){
   const species=naturalSource(zone.sourceId);
@@ -423,6 +424,8 @@ function choose(world:World,npc:Character):Task|null{
  const cargo=storedCargo(world,npc);
  if(cargo)return cargo;
  const pickup=groundTask(world,npc);if(pickup)return pickup;
+ const removal=selectTask(world,npc,world.entities.filter(e=>(e.kind==="construction"||e.kind==="planting_zone")&&!!e.removalOrder&&removalSafe(world,e)),"Desmontando","Executar ordem de remoção e liberar terreno","construction.removal.work");
+ if(removal)return {...removal,domain:"building"};
  if(load(npc)<CARRY_LIMIT){
   const permanent=depots(world).filter(d=>d.blueprintId==="building.depot"&&storageFree(d)>0);
   const temporary=depots(world).filter(isTemporaryStorage);
@@ -586,7 +589,7 @@ export function travelActivity(action:Command["action"],activity:string,resource
   "Operando mina":"Indo minerar","Plantando":"Indo plantar","Renovando pomar":"Indo renovar pomar",
   "Obtendo sementes":"Indo colher sementes","Colhendo safra":"Indo colher safra",
   "Colhendo alimento":"Indo colher alimento","Buscando recursos":"Indo colher recursos",
-  "Construindo":"Indo construir","Fabricando":"Indo fabricar",
+  "Desmontando":"Indo desmontar","Construindo":"Indo construir","Fabricando":"Indo fabricar",
   "Entregando materiais":"Carregando materiais para a obra","Retirando insumos":"Indo buscar insumos",
   "Distribuindo produção":"Indo buscar produção","Transportando minério":"Indo buscar minério na mina",
   "Consolidando estoque":"Indo recolher estoque temporário","Removendo depósito temporário":"Indo remover depósito temporário",

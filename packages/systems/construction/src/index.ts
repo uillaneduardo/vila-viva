@@ -6,7 +6,7 @@ import {buildingBlueprint} from "../../../content/src/buildings/registry.ts";
 export function createConstructionSite(id:string,position:Position,blueprint:BuildingBlueprint):Construction {
  return {id,kind:"construction",blueprintId:blueprint.id,blueprintVersion:blueprint.version,
   position:{...position},footprint:{...blueprint.footprint},status:"site",availability:"unavailable",
-  stageIndex:0,delivered:{},workDone:0,
+  stageIndex:0,delivered:{},workDone:0,investedMaterials:{},
   ...(blueprint.storage?{stock:{}}:{}),...(blueprint.mining?{mineRemaining:{iron_ore:80,copper_ore:60,stone:100}}:{}),...(blueprint.housing?{bedReservations:{}}:{}),
   ...(blueprint.cemetery?{burials:[]}: {}),
   ...(blueprint.production?{productionOrders:[]}: {})};
@@ -61,6 +61,9 @@ export function applyConstructionWork(site:Construction,amount:number,tick:numbe
  if(!stage||!hasMaterials(site)||!Number.isSafeInteger(amount)||amount<1||!Number.isSafeInteger(tick))throw Error("Invalid construction work");
  site.workDone=Math.min(stage.workUnits,site.workDone+amount);
  if(site.workDone<stage.workUnits)return {buildingCompleted:false};
+ // Record only materials actually consumed in this transition (including explicit admin supplies).
+ site.investedMaterials??={};
+ for(const [id,n] of Object.entries(stage.materials))site.investedMaterials[id]=(site.investedMaterials[id]??0)+n;
  if(site.upgrade){const level=site.upgrade.targetLevel;site.level=level;delete site.upgrade;site.workDone=0;site.delivered={};return {stageCompleted:stage.id,buildingCompleted:false,upgraded:level};}
  site.stageIndex++;
  site.workDone=0;site.delivered={};
