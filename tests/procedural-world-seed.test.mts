@@ -56,3 +56,47 @@ test("invalid seeds and undersized maps fail before creating commands",()=>{
  assert.throws(()=>starterCommands("x".repeat(81),createWorld("x",24,16)),/INVALID_SEED/);
  assert.throws(()=>starterCommands("valid",createWorld("x",23,16)),/WORLD_TOO_SMALL_FOR_SEED/);
 });
+
+test("seeded abundance varies independently and every basic resource starts positive",()=>{
+ const types=["wood","stone","iron_ore","copper_ore","food"];
+ const counts=new Map(types.map(type=>[type,new Set<number>()]));
+ const amounts=new Map(types.map(type=>[type,new Set<number>()]));
+ for(let i=0;i<48;i++){
+  const world=build("abundance-"+i);
+  for(const type of types){
+   const resources=world.entities.filter(e=>e.kind==="resource"&&e.resourceType===type);
+   assert.ok(resources.length>=1,type+" missing in "+i);
+   const maxCount=type==="wood"?5:type==="stone"?4:type==="food"?7:3;
+   assert.ok(resources.length<=maxCount);
+   counts.get(type)!.add(resources.length);
+   for(const entity of resources){
+    assert.equal(entity.kind,"resource");
+    const [min,max]=type==="food"?[8,30]:type==="wood"||type==="stone"?[80,240]:[60,220];
+    assert.ok(entity.quantity>=min&&entity.quantity<=max);
+    amounts.get(type)!.add(entity.quantity);
+   }
+  }
+ }
+ for(const type of types){
+  assert.ok(counts.get(type)!.size>1,type+" fixed source count");
+  assert.ok(amounts.get(type)!.size>1,type+" fixed quantity");
+ }
+});
+test("all supported dimensions preserve minimum resources, nearby essentials and bounded density",()=>{
+ for(const [width,height] of [[24,16],[32,24],[48,32],[64,48]]){
+  for(const seed of ["scarcity","abundance","nearby","oturo-2026"]){
+   const commands=starterCommands(seed,createWorld("seed-test",width,height));
+   const sources=commands.filter(c=>c.action==="resource.spawn");
+   const bonus=Math.min(3,Math.floor(Math.log2(width*height/(24*16))));
+   assert.ok(sources.length>=5&&sources.length<=22+5*bonus);
+   for(const type of ["wood","stone","iron_ore","copper_ore","food"])
+    assert.ok(sources.some(c=>c.parameters.resourceType===type));
+   const leader=commands.find(c=>c.commandId==="seed-leader")!;
+   for(const type of ["wood","stone","food"])
+    assert.ok(sources.some(c=>c.parameters.resourceType===type&&
+     Math.abs(c.position.x-leader.position.x)+Math.abs(c.position.y-leader.position.y)<=11));
+   const world=build(seed,width,height);
+   assert.equal(world.entities.filter(e=>e.kind==="resource").length,sources.length);
+  }
+ }
+});
