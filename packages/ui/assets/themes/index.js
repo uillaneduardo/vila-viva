@@ -7,7 +7,8 @@ export const UI_THEMES=Object.freeze({
   "--glass":"rgba(19,27,23,.95)",
   "--accent":"#b4d3a9",
   "--green":"#8fb78b"
- })
+ }),
+ "rustic-dark":Object.freeze({"--text":"#f3e7cf","--muted":"#c5b49a","--line":"rgba(218,180,111,.3)","--glass":"rgba(42,33,29,.95)","--accent":"#ebc483","--green":"#b6bd83"})
 });
 export const DEFAULT_UI_THEME="forest-dark";
 export function getUiTheme(id=DEFAULT_UI_THEME){

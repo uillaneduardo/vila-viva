@@ -4,9 +4,11 @@ import {createLayeredRenderAdapter} from '../../packages/renderer/src/layered-re
 import {createTickRenderAdapter} from '../../packages/renderer/src/tick-render-adapter.js';
 import {connectWorld} from '../../packages/client-sdk/src/world-stream.js';
 import {createUiVisual} from '../../packages/ui/assets/visual.js';
+import {uiAssets} from '../../packages/ui/assets/registry.js';
+import {registerRusticUi} from '../../packages/ui/assets/rustic-pack.js';
 import {applyUiTheme} from '../../packages/ui/assets/themes/index.js';
 import {SpriteLibrary} from '../../packages/renderer/src/sprites.js';
-import {getWorldVisualPack} from '../../packages/renderer/src/visual-packs.js';
+import {getWorldVisualPack,WORLD_VISUAL_PACKS,DEFAULT_WORLD_PACK} from '../../packages/renderer/src/visual-packs.js';
 import {Scene} from '../../packages/renderer/src/scene.js';
 import {brushCells} from '../../packages/renderer/src/camera.js';
 import {createTouchGestures} from '../../packages/ui/src/touch-gestures.js';
@@ -18,8 +20,35 @@ import {createBrowserConnection} from '../../packages/client-sdk/src/browser-con
 const browserMode=location.pathname.replace(/\/$/,'')==='/browser';
 const local=browserMode?createBrowserConnection():null;
 const el=id=>document.getElementById(id),role=document.body.dataset.role;
-applyUiTheme(document.documentElement);
-const surface=new Scene(el('game'),{spriteLibrary:new SpriteLibrary({pack:getWorldVisualPack(new URLSearchParams(location.search).get('visualPack')??undefined)})});
+const packPreference='oturo.visualPack';
+const validPack=id=>Object.hasOwn(WORLD_VISUAL_PACKS,id);
+let savedPack;try{savedPack=localStorage.getItem(packPreference);}catch{}
+const queryPack=new URLSearchParams(location.search).get('visualPack');
+let activePack=validPack(queryPack)?queryPack:validPack(savedPack)?savedPack:DEFAULT_WORLD_PACK;
+registerRusticUi();
+function applyPackTheme(id){
+ const theme=id==='rustic'?'rustic-dark':'forest-dark';
+ uiAssets.setTheme(theme);applyUiTheme(document.documentElement,theme);
+}
+applyPackTheme(activePack);
+const surface=new Scene(el('game'),{spriteLibrary:new SpriteLibrary({pack:getWorldVisualPack(activePack)})});
+const packSelect=document.createElement('select');
+packSelect.className='glass';packSelect.setAttribute('aria-label','Pacote gráfico');packSelect.title='Pacote gráfico';
+for(const [id,label] of Object.entries({simple:'Simples',classic:'Clássico',rustic:'Rústico'})){
+ const option=document.createElement('option');option.value=id;option.textContent=label;packSelect.append(option);
+}
+packSelect.value=activePack;
+(document.getElementById('worldManager')??document.querySelector('.top-right'))?.append(packSelect);
+packSelect.addEventListener('change',()=>{
+ const id=packSelect.value;if(!validPack(id)||id===activePack)return;
+ activePack=id;surface.sprites.setPack(getWorldVisualPack(id));applyPackTheme(id);
+ for(const node of document.querySelectorAll('.ui-visual[data-ui-visual]')){
+  const size=parseInt(node.style.getPropertyValue('--ui-visual-size'),10)||20;
+  node.replaceWith(createUiVisual(node.dataset.uiVisual,{size,state:node.dataset.visualState}));
+ }
+ try{localStorage.setItem(packPreference,id);}catch{}
+ try{const url=new URL(location.href);url.searchParams.set('visualPack',id);history.replaceState(null,'',url);}catch{}
+});
 const rendererMode=new URLSearchParams(location.search).get('renderer');
 const scene=rendererMode==='legacy'?surface:rendererMode==='tick'?createTickRenderAdapter(surface):rendererMode==='layered'?createLayeredRenderAdapter(surface):createMotionRenderAdapter(surface);
 const inspector=createInspector({
