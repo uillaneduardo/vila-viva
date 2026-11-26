@@ -1,0 +1,23 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createCompletedBuilding,startUpgrade,acceptMaterial,applyConstructionWork,currentStage} from '../packages/systems/construction/src/index.ts';
+import {buildingBlueprint} from '../packages/content/src/buildings/registry.ts';
+import {bedsIn,dependentBedsIn} from '../packages/systems/housing/src/index.ts';
+import {cemeteryCapacity,availableGraves} from '../packages/systems/mortality/src/index.ts';
+import {validateWorld} from '../packages/protocol/src/world-snapshot.ts';
+import {createWorld} from '../packages/engine/src/engine.ts';
+test('housing and cemetery upgrades preserve reservations, residents and burials',()=>{
+ const w=createWorld('capacity-upgrades');
+ const make=(id,blueprintId,x)=>{const b=createCompletedBuilding(id,{x,y:5},buildingBlueprint(blueprintId),w.tick);w.entities.push(b);return b;};
+ const house=make('house','building.community_house',2),family=make('family','building.family_house',6),grave=make('grave','building.cemetery',10);
+ house.bedReservations={resident:{expiresTick:180}};
+ family.residents=['resident'];family.bedReservations={resident:{expiresTick:180}};
+ grave.burials=[{npcId:'dead',name:'Memorial',deathTick:0,burialTick:0,cause:'test'}];
+ const complete=(b,check)=>{assert.ok(startUpgrade(b,w.tick));const stage=currentStage(b);for(const [id,n] of Object.entries(stage.materials))assert.ok(acceptMaterial(b,id,n));check();validateWorld(w);assert.ok(applyConstructionWork(b,stage.workUnits,w.tick).upgraded);validateWorld(w);};
+ complete(house,()=>assert.equal(bedsIn(house),6));assert.equal(bedsIn(house),9);assert.equal(house.bedReservations.resident.expiresTick,180);
+ complete(house,()=>assert.equal(bedsIn(house),9));assert.equal(bedsIn(house),12);
+ complete(family,()=>assert.equal(dependentBedsIn(family),1));assert.equal(dependentBedsIn(family),2);assert.equal(bedsIn(family),2);assert.deepEqual(family.residents,['resident']);
+ complete(family,()=>assert.equal(dependentBedsIn(family),2));assert.equal(dependentBedsIn(family),4);
+ complete(grave,()=>assert.equal(cemeteryCapacity(grave),12));assert.equal(availableGraves(grave),23);
+ complete(grave,()=>assert.equal(cemeteryCapacity(grave),24));assert.equal(availableGraves(grave),47);assert.equal(grave.burials[0].npcId,'dead');
+});

@@ -1,3 +1,4 @@
+import {storageDefinition} from "../packages/systems/construction/src/index.ts";
 import {performance} from "node:perf_hooks";
 import {createWorld,applyCommand,advanceTick} from "../packages/engine/src/engine.ts";
 import {bootstrapSeededWorld} from "../packages/content/src/world-seeds.ts";
@@ -10,7 +11,7 @@ const ticks=Number(process.argv[3]??15000);
 if(!Number.isSafeInteger(ticks)||ticks<1||ticks>100000)throw Error("Invalid tick count");
 const w=createWorld("measurement",24,16);
 bootstrapSeededWorld(w,seed,c=>applyCommand(w,{...c,worldId:w.id,actorRole:"admin"}));
-const actions:Record<string,number>={};
+const actions:Record<string,number>={},events:Record<string,number>={};
 const samples:unknown[]=[];
 const sample=()=>{
  const alive=w.entities.filter(e=>e.kind==="character"&&!e.ownerId&&e.health>0);
@@ -33,13 +34,13 @@ const sample=()=>{
   completed:buildings.filter(e=>e.status==="completed").length,
   blocked:alive.filter(e=>e.ai?.activity==="Bloqueado").length,
   temporaryStorage:{count:temporary.length,empty:temporary.filter(e=>stockTotal(e)===0).length,stock:temporary.reduce((a,e)=>a+stockTotal(e),0)},
-  conventionalStorage:{count:conventional.length,stock:conventional.reduce((a,e)=>a+stockTotal(e),0)}};
+  conventionalStorage:{count:conventional.length,stock:conventional.reduce((a,e)=>a+stockTotal(e),0),capacity:conventional.reduce((a,e)=>a+(storageDefinition(e)?.capacity??0),0),levels:conventional.map(e=>e.level??1),improvements:conventional.filter(e=>e.upgrade).map(e=>({id:e.id,targetLevel:e.upgrade.targetLevel,delivered:e.delivered,workDone:e.workDone}))}};
 };
 validateWorld(w);samples.push(sample());diagnostics.observe(w);const start=performance.now();
 for(let i=0;i<ticks;i++){
- advanceTick(w,a=>{actions[a.action]=(actions[a.action]??0)+1;});
+ advanceTick(w,a=>{actions[a.action]=(actions[a.action]??0)+1;for(const event of a.events)events[event.type]=(events[event.type]??0)+1;});
  diagnostics.observe(w);
  if((i+1)%1000===0||i+1===ticks){validateWorld(w);samples.push(sample());}
 }
 const elapsedMs=performance.now()-start;
-console.log(JSON.stringify({seed,ticks,elapsedMs,msPerTick:elapsedMs/ticks,actions,samples,diagnostics:diagnostics.report(),timingIncludesDiagnostics:true,snapshotValidationEveryTicks:1000},null,2));
+console.log(JSON.stringify({seed,ticks,elapsedMs,msPerTick:elapsedMs/ticks,actions,events,samples,diagnostics:diagnostics.report(),timingIncludesDiagnostics:true,snapshotValidationEveryTicks:1000},null,2));

@@ -1,3 +1,4 @@
+import {workerCapacity} from "../../../packages/systems/construction/src/work-cycle.ts";
 import {PersistenceWorker} from "./persistence-worker.mts";
 import {TickScheduler} from "./tick-scheduler.mts";
 import {TimingMetrics} from "./timing-metrics.mts";
@@ -6,13 +7,13 @@ import {baseRegistry,RESOURCE_PRESETS} from "../../../packages/content/src/catal
 import {EFFECTS} from "../../../packages/content/src/effects/catalog.ts";
 import {COMMUNITY_HOUSE} from "../../../packages/content/src/buildings/community-house.ts";
 import {BUILDING_BLUEPRINTS,buildingBlueprint} from "../../../packages/content/src/buildings/registry.ts";
-import {currentStage,materialsRemaining,hasMaterials,buildingCapabilities,storageDefinition,storedTotal,storageFree} from "../../../packages/systems/construction/src/index.ts";
+import {currentStage,materialsRemaining,hasMaterials,buildingCapabilities,storageDefinition,storedTotal,storageFree,buildingLevel,nextUpgrade} from "../../../packages/systems/construction/src/index.ts";
 import {NATURAL_SOURCES} from "../../../packages/content/src/natural-sources.ts";
 import {FOOD_ITEMS} from "../../../packages/content/src/foods.ts";
 import {countZoneCrops} from "../../../packages/systems/farming/src/index.ts";
 import {SCENERY_PRESETS} from "../../../packages/content/src/scenery.ts";
 import {resolveAttributes} from "../../../packages/systems/effects/src/resolver.ts";
-import {bedsIn,reservationCount} from "../../../packages/systems/housing/src/index.ts";
+import {bedsIn,reservationCount,dependentBedsIn} from "../../../packages/systems/housing/src/index.ts";
 import {TOOL_PRESETS,injuryProbability} from "../../../packages/systems/risk/src/index.ts";
 import {TRAITS} from "../../../packages/content/src/characters.ts";
 import {cemeteryCapacity,availableGraves} from "../../../packages/systems/mortality/src/index.ts";
@@ -112,6 +113,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string;asyncPersist
   timings.measure("simulation",()=>advanceTick(world,a=>actions.push(a)));
   timings.measure("persistence",()=>store?.commit(world,world.seed,actions));
   timings.measure("publish",()=>publishRevision());
+  timings.record("tickToPublish",performance.now()-now);
  };
  const clockView=()=>({speed:clock.speed,paused:clock.speed===0,tick:world.tick,day:1+Math.floor(world.tick/240),hour:Math.floor(world.tick/10)%24,minute:(world.tick%10)*6});
  // Tick is independent from browser refresh. Command-triggered ticks remain
@@ -123,11 +125,12 @@ export function makePrototype(options:{dataDir?:string;seed?:string;asyncPersist
    if(busy||fault)return;
    scheduler.pulse(clock.speed,()=>{
     const job=exclusive(async()=>{
-     const draft=structuredClone(world),actions:AcceptedAction[]=[];
-     const now=performance.now();if(lastTickAt!==null)timings.record("tickInterval",now-lastTickAt);lastTickAt=now;
+     const now=performance.now();
+     const draft=timings.measure("clone",()=>structuredClone(world)),actions:AcceptedAction[]=[];if(lastTickAt!==null)timings.record("tickInterval",now-lastTickAt);lastTickAt=now;
      timings.measure("simulation",()=>advanceTick(draft,a=>actions.push(a)));
      const begin=performance.now();await durable(draft,actions);timings.record("persistence",performance.now()-begin);
      world=draft;timings.measure("publish",()=>publishRevision());
+     timings.record("tickToPublish",performance.now()-now);
     });
     pendingTick=job.catch(error=>{fault=true;clock.speed=0;scheduler.reset();console.error("Async simulation paused",error);publishRevision();}).finally(()=>{pendingTick=null;});
    });return;
@@ -305,7 +308,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string;asyncPersist
     buildingBlueprints:Object.fromEntries(Object.values(BUILDING_BLUEPRINTS).map(b=>[b.id,{
       id:b.id,label:displayText(b.displayName),footprint:b.footprint,version:b.version,
       stages:b.stages.map(s=>({id:s.id,label:displayText(s.displayName),materials:s.materials,workUnits:s.workUnits})),
-      effects:b.effects,storage:b.storage??null,housing:b.housing??null,cemetery:b.cemetery??null,
+      effects:b.effects,upgrades:b.upgrades??[],storage:b.storage??null,housing:b.housing??null,cemetery:b.cemetery??null,
       production:b.production??null,mining:b.mining??null
     }])),
     naturalSources:Object.fromEntries(Object.values(NATURAL_SOURCES).map(s=>[s.id,{
@@ -355,8 +358,10 @@ export function makePrototype(options:{dataDir?:string;seed?:string;asyncPersist
       }:null,
       construction:entity.kind==="construction"?{
        blueprintId:entity.blueprintId,blueprintVersion:entity.blueprintVersion,
+       level:buildingLevel(entity),upgrade:entity.upgrade??null,nextUpgrade:nextUpgrade(entity)??null,
        stage:currentStage(entity)?.id??null,remaining:materialsRemaining(entity),
        materialsReady:hasMaterials(entity),capabilities:buildingCapabilities(entity),
+       workerCapacity:workerCapacity(entity),
        mining:entity.mineRemaining?{remaining:entity.mineRemaining,stock:entity.stock??{}}:null,
        stageIndex:entity.stageIndex,status:entity.status,availability:entity.availability,
        production:productionDefinition(entity)?{
@@ -370,7 +375,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string;asyncPersist
         burials:entity.burials??[]
        }:null,
        housing:bedsIn(entity)>0?{
-        beds:bedsIn(entity),reserved:reservationCount(entity),residents:entity.residents??[],dependentBeds:buildingBlueprint(entity.blueprintId)?.housing?.dependentBeds??0,
+        beds:bedsIn(entity),reserved:reservationCount(entity),residents:entity.residents??[],dependentBeds:dependentBedsIn(entity),
         reservations:Object.entries(entity.bedReservations??{}).map(([npcId,data])=>({
          npcId,name:world.entities.find(e=>e.id===npcId&&e.kind==="character")?.name??npcId,
          expiresTick:data.expiresTick

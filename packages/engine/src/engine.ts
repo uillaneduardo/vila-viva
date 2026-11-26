@@ -1,3 +1,4 @@
+import {canUseWorkSlot,recordWorkSlot} from "../../systems/construction/src/work-cycle.ts";
 import {expireEffects} from "../../systems/effects/src/manager.ts";
 import {resolveAttributes} from "../../systems/effects/src/resolver.ts";
 import {baseRegistry,resourcePreset} from "../../content/src/catalog.ts";
@@ -8,7 +9,7 @@ import {makeZone,canCreateZone,canPlantAt,plantInZone} from "../../systems/farmi
 import {makeNaturalSource,advanceNaturalSources} from "../../systems/nature/src/index.ts";
 import {canEnter,orthogonallyAdjacent,canPlaceFootprint,canPlaceEntity,movementCost} from "../../systems/collision/src/index.ts";
 import {buildingBlueprint} from "../../content/src/buildings/registry.ts";
-import {createConstructionSite,createCompletedBuilding,currentStage,materialsRemaining,hasMaterials,nearFootprint,acceptMaterial,applyConstructionWork,storageDefinition,storageFree} from "../../systems/construction/src/index.ts";
+import {createConstructionSite,createCompletedBuilding,currentStage,materialsRemaining,hasMaterials,nearFootprint,acceptMaterial,applyConstructionWork,storageDefinition,storageFree,startUpgrade} from "../../systems/construction/src/index.ts";
 import {advanceNpcDecisions,NPC_ACTION_INTERVAL} from "../../systems/ai/src/index.ts";
 import {advanceNeeds,eatFood,updateNeedEffects} from "../../systems/needs/src/index.ts";
 import {miningYield,isMineral} from "../../content/src/extraction.ts";
@@ -215,7 +216,7 @@ export function applyCommand(world: World, command: Command,
    if(admin)return reject(command,"UNAUTHORIZED");
    const leader=actorForCommand(world,command);
    if(!leader||leader.communityRole!=="leader"||leader.health<=0)return reject(command,"UNAUTHORIZED");
-   if(world.entities.some(e=>e.kind==="construction"&&e.status==="site"))return reject(command,"BLOCKED");
+   if(world.entities.some(e=>e.kind==="construction"&&(e.status==="site"||e.upgrade)))return reject(command,"BLOCKED");
   }else if(!admin)return reject(command,"UNAUTHORIZED");
   const blueprintId=command.parameters?.blueprintId;
   const blueprint=typeof blueprintId==="string"?buildingBlueprint(blueprintId):undefined;
@@ -243,7 +244,7 @@ export function applyCommand(world: World, command: Command,
   if(!actor)return reject(command,"UNAUTHORIZED");
   if(!mine||mine.kind!=="construction"||mine.blueprintId!=="building.mine"||!storageDefinition(mine))return reject(command,"NOT_READY");
   if(actor.health<=0||actor.energy<=0||!nearFootprint(actor.position,mine))return reject(command,"BLOCKED");
-  if(mine.lastMiningTick===world.tick)return reject(command,"NOT_READY");
+  if(actor.sleepingInId||!canUseWorkSlot(mine,actor.id,world.tick))return reject(command,"NOT_READY");
   const item=command.parameters?.materialId;
   if(typeof item!=="string"||!["iron_ore","copper_ore","stone"].includes(item))return reject(command,"INVALID_PAYLOAD");
   const remaining=mine.mineRemaining?.[item]??0;
@@ -252,7 +253,7 @@ export function applyCommand(world: World, command: Command,
   const amount=Math.min(remaining,storageFree(mine),rollDrop(world,command,"mine",range.min,range.max));
   if(!amount)return reject(command,"INVENTORY_FULL");
   mine.mineRemaining![item]-=amount;mine.stock??={};mine.stock[item]=(mine.stock[item]??0)+amount;
-  mine.lastMiningTick=world.tick;actor.energy=Math.max(0,actor.energy-1);
+  recordWorkSlot(mine,actor.id,world.tick);mine.lastMiningTick=world.tick;actor.energy=Math.max(0,actor.energy-1);
   riskActor=actor;riskActivity=("resource.gather:"+item) as typeof riskActivity;
  } else if(command.action==="production.order"){
   const target=world.entities.find(e=>e.id===command.targetId);
@@ -274,8 +275,10 @@ export function applyCommand(world: World, command: Command,
   const actor=actorForCommand(world,command);
   if(!actor)return reject(command,"UNAUTHORIZED");
   if(actor.health<=0||actor.energy<=0||!nearFootprint(actor.position,target))return reject(command,"BLOCKED");
+  if(actor.sleepingInId||!canUseWorkSlot(target,actor.id,world.tick))return reject(command,"NOT_READY");
   const output=applyProductionWork(target,correctTool(actor,"production.work")?2:1);
   if(!output)return reject(command,"NOT_READY");
+  recordWorkSlot(target,actor.id,world.tick);
   actor.energy=Math.max(0,actor.energy-1);
   riskActor=actor;riskActivity="production.work";
   if(output.completed)additionalEvents.push({type:"production.batch_finished",entityId:target.id});
@@ -292,12 +295,26 @@ export function applyCommand(world: World, command: Command,
   if(actor.equipment?.tool)actor.inventory![actor.equipment.tool]=(actor.inventory![actor.equipment.tool]??0)+1;
   actor.equipment={tool};
   additionalEvents.push({type:"npc.tool_equipped",entityId:actor.id});
+ } else if(command.action==="construction.upgrade"||command.action==="construction.upgrade_cancel"){
+  const target=world.entities.find(e=>e.id===command.targetId);
+  if(!target)return reject(command,"NOT_FOUND");
+  if(target.kind!=="construction")return reject(command,"INVALID_TARGET");
+  if(command.action==="construction.upgrade"){
+   if(!admin){const actor=actorForCommand(world,command);if(!actor||actor.health<=0||actor.sleepingInId||actor.communityRole!=="leader")return reject(command,"UNAUTHORIZED");}
+   if(world.entities.some(e=>e.kind==="construction"&&(e.status==="site"||e.upgrade)))return reject(command,"BLOCKED");
+   if(!startUpgrade(target,world.tick))return reject(command,"NOT_READY");
+  }else{
+   if(!admin)return reject(command,"UNAUTHORIZED");
+   if(!target.upgrade)return reject(command,"NOT_READY");
+   for(const [item,n] of Object.entries(target.delivered))dropItem(world,target.position,item,n);
+   delete target.upgrade;target.delivered={};target.workDone=0;
+  }
  } else if(command.action==="construction.deliver"||command.action==="construction.admin_supply"||
            command.action==="construction.work"||command.action==="construction.admin_work"){
   const target=world.entities.find(e=>e.id===command.targetId);
   if(!target)return reject(command,"NOT_FOUND");
   if(target.kind!=="construction")return reject(command,"INVALID_TARGET");
-  if(target.status!=="site")return reject(command,"ALREADY_COMPLETED");
+  if(!currentStage(target))return reject(command,"ALREADY_COMPLETED");
   const debug=command.action.startsWith("construction.admin_");
   if(debug!==admin)return reject(command,"UNAUTHORIZED");
   const actor=debug?undefined:actorForCommand(world,command);
@@ -319,6 +336,7 @@ export function applyCommand(world: World, command: Command,
    const result=applyConstructionWork(target,amount,world.tick+1);
    if(actor){actor.energy=Math.max(0,actor.energy-1);riskActor=actor;riskActivity="construction.work";}
    if(result.stageCompleted)additionalEvents.push({type:"construction.stage_completed",entityId:target.id});
+   if(result.upgraded)additionalEvents.push({type:"building.upgraded",entityId:target.id});
    if(result.buildingCompleted)additionalEvents.push({type:"building.completed",entityId:target.id});
   }
  } else if(command.action==="storage.deposit"||command.action==="storage.withdraw"||command.action==="storage.admin_supply"){
@@ -433,6 +451,7 @@ export function applyCommand(world: World, command: Command,
   if(index<0)return reject(command,"NOT_FOUND");
   const target=world.entities[index];
   if(target.kind!=="construction")return reject(command,"INVALID_TARGET");
+  if(target.upgrade){for(const [item,n] of Object.entries(target.delivered))dropItem(world,target.position,item,n);delete target.upgrade;target.delivered={};target.workDone=0;}
   if(isTemporaryStorage(target)){
    for(const [item,quantity] of Object.entries(target.stock??{}))dropItem(world,target.position,item,quantity);
    world.entities.splice(index,1);

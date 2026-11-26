@@ -9,27 +9,31 @@ import {planProduction,productionNeeds} from "./production.ts";
 import {NATURAL_SOURCES} from "../../../content/src/natural-sources.ts";
 import {FOOD_ITEMS} from "../../../content/src/foods.ts";
 import {availablePlots,canCreateZone} from "../../farming/src/index.ts";
-import {storageFree,storageDefinition} from "../../construction/src/index.ts";
+import {storageFree,storageDefinition,nextUpgrade,buildingLevel} from "../../construction/src/index.ts";
 import {isTemporaryStorage} from "../../storage/src/temporary.ts";
 import {productionDefinition} from "../../production/src/index.ts";
-export type ProposedConstruction={blueprintId:string;position:Position;score:number;reason:string};
+import {upgradeDemand,reachableUpgradeSupply} from "./upgrades.ts";
+export type ProposedConstruction={blueprintId:string;position:Position;score:number;reason:string;upgradeTargetId?:string};
 const manhattan=(a:Position,b:Position)=>Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
 const living=(world:World):Character[]=>world.entities.filter((e):e is Character=>
  e.kind==="character"&&!e.ownerId&&e.health>0);
 const buildings=(world:World):Construction[]=>world.entities.filter((e):e is Construction=>
  e.kind==="construction"&&e.status!=="destroyed");
+/** Storage pressure is independent of whether new land or an upgrade is chosen. */
+function storagePressure(world:World){
+ const permanent=buildings(world).filter(b=>b.blueprintId==="building.depot");
+ const capacity=permanent.reduce((n,b)=>n+(storageDefinition(b)?.capacity??0),0);
+ const free=permanent.reduce((n,b)=>n+storageFree(b),0);
+ const overflow=buildings(world).filter(isTemporaryStorage).reduce((n,b)=>n+Object.values(b.stock??{}).reduce((sum,q)=>sum+Math.max(0,q),0),0);
+ return {permanent,capacity,free,overflow,needed:capacity>0&&free<=capacity*.15&&overflow>=30};
+}
 const isProjectNeeded=(world:World,id:string):boolean=>{
  const existing=buildings(world);
  if(id==="building.depot"){
-  const permanent=existing.filter(b=>b.blueprintId===id);
+  const {permanent,needed}=storagePressure(world);
   if(!permanent.length)return true;
   if(permanent.some(b=>b.status==="site"))return false;
-  const capacity=permanent.reduce((n,b)=>n+(storageDefinition(b)?.capacity??0),0);
-  const free=permanent.reduce((n,b)=>n+storageFree(b),0);
-  const temporaryStock=existing.filter(isTemporaryStorage).reduce((n,b)=>n+
-   Object.values(b.stock??{}).reduce((sum,quantity)=>sum+Math.max(0,quantity),0),0);
-  // Expand only under measured overflow; reserve housing and construction opportunities.
-  return capacity>0&&free<=capacity*.15&&temporaryStock>=30&&permanent.length<Math.max(2,living(world).length);
+  return needed&&permanent.length<Math.max(2,living(world).length);
  }
  if(id==="building.workshop")return !existing.some(b=>b.blueprintId===id);
  if(id==="building.family_house")return existing.filter(b=>b.blueprintId===id).length<Math.floor(living(world).length/2);
@@ -97,9 +101,9 @@ function locationCandidates(world:World,leader:Character,blueprintId:string):{po
 /** Planning produces an intent; ONLY engine command validation can create a construction. */
 export function proposeNextConstruction(world:World,leader:Character):ProposedConstruction|undefined {
  if(leader.communityRole!=="leader"||leader.health<=0)return undefined;
- if(buildings(world).filter(b=>b.status==="site").length>=MAX_SIMULTANEOUS_PROJECTS)return undefined;
+ if(buildings(world).filter(b=>b.status==="site"||b.upgrade).length>=MAX_SIMULTANEOUS_PROJECTS)return undefined;
  const available=availableResources(world);
- const candidates=LEADERSHIP_PROJECTS.filter(policy=>isProjectNeeded(world,policy.blueprintId))
+ const candidates:ProposedConstruction[]=LEADERSHIP_PROJECTS.filter(policy=>isProjectNeeded(world,policy.blueprintId))
   .map(policy=>{
    const blueprint=buildingBlueprint(policy.blueprintId);
    if(!blueprint)return undefined;
@@ -113,7 +117,25 @@ export function proposeNextConstruction(world:World,leader:Character):ProposedCo
     score:policy.priority+emergency+location.score,
     reason:policy.need+"; localização acessível, materiais iniciais existentes e sem sobreposição"};
   }).filter((x):x is ProposedConstruction=>!!x);
- candidates.sort((a,b)=>b.score-a.score||a.blueprintId.localeCompare(b.blueprintId));
+ // Evaluate only capabilities with an observable shortage; no speculative family expansion.
+ if(!leader.sleepingInId&&!living(world).some(n=>(n.satiety??100)<=10)){
+  const pressure=storagePressure(world);
+  for(const target of buildings(world)){
+   const upgrade=nextUpgrade(target);if(!upgrade||target.upgrade)continue;
+   const demand=upgradeDemand(world,target,pressure);if(!demand)continue;
+   const policy=LEADERSHIP_PROJECTS.find(p=>p.blueprintId===target.blueprintId);
+   const blueprint=buildingBlueprint(target.blueprintId);
+   if(!policy||!blueprint)continue;
+   const route=routeToEntity(world,leader.position,target,leader.id);if(!route)continue;
+   if(Object.entries(upgrade.stage.materials).some(([item,n])=>reachableUpgradeSupply(world,leader,target,item)<n))continue;
+   const cost=(stages:readonly {materials:Readonly<Record<string,number>>;workUnits:number}[])=>stages.reduce((n,stage)=>n+Object.values(stage.materials).reduce((a,b)=>a+b,0)+stage.workUnits,0);
+   const efficiency=demand.gain/cost([upgrade.stage]),baseEfficiency=demand.base/cost(blueprint.stages);
+   const score=policy.priority+demand.urgency-(route.length-1)*1.5+Math.max(-20,Math.min(20,10*(efficiency/baseEfficiency-1)));
+   candidates.push({blueprintId:target.blueprintId,position:{...target.position},upgradeTargetId:target.id,score,
+    reason:demand.reason+"; ampliar nível "+buildingLevel(target)+"→"+upgrade.level+" (+"+demand.gain+"), materiais alcançáveis e sem novo terreno"});
+  }
+ }
+ candidates.sort((a,b)=>b.score-a.score||a.blueprintId.localeCompare(b.blueprintId)||(a.upgradeTargetId??"").localeCompare(b.upgradeTargetId??""));
  return candidates[0];
 }
 /** Food planning is independent of the single construction-site budget. */
@@ -190,9 +212,9 @@ export function advanceLeaderDecisions(world:World,execute:(cmd:Command)=>Result
     "Ordem rejeitada: "+outcome.error;
   }
  }
- const active=buildings(world).find(site=>site.status==="site");
+ const active=buildings(world).find(site=>site.status==="site"||site.upgrade);
  if(active){
-  leader.leadership.lastReason="Obra em andamento: "+(buildingBlueprint(active.blueprintId)?.label??active.blueprintId);
+  leader.leadership.lastReason=(active.upgrade?"Melhoria em andamento: ":"Obra em andamento: ")+(buildingBlueprint(active.blueprintId)?.label??active.blueprintId);
   return;
  }
  const proposal=proposeNextConstruction(world,leader);
@@ -202,12 +224,12 @@ export function advanceLeaderDecisions(world:World,execute:(cmd:Command)=>Result
  }
  const id="leader-"+leader.id+"-"+world.tick;
  const outcome=execute({worldId:world.id,commandId:id,actorRole:"npc",actorId:leader.id,
-  action:"construction.propose",position:proposal.position,
+  action:proposal.upgradeTargetId?"construction.upgrade":"construction.propose",targetId:proposal.upgradeTargetId,position:proposal.position,
   parameters:{blueprintId:proposal.blueprintId,mode:"site",reason:proposal.reason}});
  leader.leadership.lastPlanTick=world.tick;
  leader.leadership.lastReason=outcome.ok?proposal.reason:"Proposta recusada: "+outcome.error;
  if(outcome.ok){
   leader.leadership.lastBlueprintId=proposal.blueprintId;
-  leader.leadership.lastSiteId="construction-"+id;
+  leader.leadership.lastSiteId=proposal.upgradeTargetId??"construction-"+id;
  }
 }

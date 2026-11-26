@@ -1,6 +1,6 @@
 export type Role = "player" | "npc" | "admin";
 export type EntityKind = "character" | "resource" | "obstacle" | "construction";
-export type ActionId = "storage.temporary.create" | "storage.temporary.remove" | "item.drop" | "mine.extract" | "item.pickup" | "entity.inspect" | "movement.move" | "npc.spawn" | "resource.spawn" | "resource.harvest" | "obstacle.spawn" | "construction.place" | "construction.deliver" | "construction.work" | "construction.admin_supply" | "construction.admin_work" | "resource.gather" | "storage.deposit" | "storage.withdraw" | "storage.admin_supply" | "construction.remove" | "construction.destroy" | "npc.admin_equip" | "npc.eat" | "farming.zone.create" | "farming.plant" | "nature.cut" | "burial.pickup" | "burial.inter" | "burial.drop" | "construction.propose" | "production.order" | "production.work" | "npc.equip";
+export type ActionId = "construction.upgrade" | "construction.upgrade_cancel" | "storage.temporary.create" | "storage.temporary.remove" | "item.drop" | "mine.extract" | "item.pickup" | "entity.inspect" | "movement.move" | "npc.spawn" | "resource.spawn" | "resource.harvest" | "obstacle.spawn" | "construction.place" | "construction.deliver" | "construction.work" | "construction.admin_supply" | "construction.admin_work" | "resource.gather" | "storage.deposit" | "storage.withdraw" | "storage.admin_supply" | "construction.remove" | "construction.destroy" | "npc.admin_equip" | "npc.eat" | "farming.zone.create" | "farming.plant" | "nature.cut" | "burial.pickup" | "burial.inter" | "burial.drop" | "construction.propose" | "production.order" | "production.work" | "npc.equip";
 export type FailureCode = "UNAUTHORIZED" | "NOT_FOUND" | "INVALID_TARGET" | "INVALID_PAYLOAD" | "OUT_OF_BOUNDS" | "BLOCKED" | "DUPLICATE_COMMAND" | "EXHAUSTED" | "INVENTORY_FULL" | "NOT_READY" | "ALREADY_COMPLETED";
 export interface Position { x: number; y: number }
 /** Visual record of an accepted cell move, not a reservation or future gameplay action. */
@@ -33,7 +33,10 @@ export interface Construction {
  position:Position; footprint:{width:number;height:number};
  status:"site"|"completed"|"destroyed"; availability:"unavailable"|"available";
  stageIndex:number; delivered:Inventory; workDone:number; completedTick?:number;
+ /** Absent level means legacy level 1; active improvement retains current capabilities. */
+ level?:number; upgrade?:{targetLevel:number;startedTick:number};
  residents?:string[]; mineRemaining?:Inventory; lastMiningTick?:number; stock?:Inventory; bedReservations?:Record<string,{expiresTick:number}>;
+ workCycle?:{tick:number;actors:string[]};
  productionOrders?:Array<{recipeId:string;quantity:number;workDone:number}>;
  burials?:{npcId:string;name:string;deathTick:number;burialTick:number;cause:string}[];
 }

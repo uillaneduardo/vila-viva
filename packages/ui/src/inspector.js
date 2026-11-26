@@ -135,6 +135,20 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
    html+=row('Projeto',blueprint?.label||entity.blueprintId)+row('Área',entity.footprint.width+' × '+entity.footprint.height+' células');
    html+=row('Estado',destroyed?'Destruída · bloqueia passagem':completed?'Disponível':stage?.label||'Canteiro');
    if(completed){
+    const level=entity.level??1,next=blueprint?.upgrades?.find(u=>u.level===level+1);
+    html+=row('Nível',level);
+    if(next){
+     html+='<h3>Evolução para nível '+safe(next.level)+'</h3>';
+     for(const [id,value] of Object.entries(next.capacities))html+=row(id,(capabilities[id]??'—')+' → '+value);
+     const improving=entity.upgrade?.targetLevel===next.level;
+     for(const [id,required] of Object.entries(next.stage.materials))html+=row(catalog?.items?.[id]?.label??id,(improving?(entity.delivered?.[id]??0)+' / ':'')+required);
+     html+=row('Trabalho',improving?(entity.workDone??0)+' / '+next.stage.workUnits:next.stage.workUnits);
+     if(improving){
+      html+=bar('Melhoria',entity.workDone/next.stage.workUnits*100,'#a8cca1')+
+       '<p class="empty">A construção permanece disponível no nível atual até concluir a melhoria.</p>';
+      if(options.role==='admin')html+='<button type="button" class="context-action" data-construction-action="construction.upgrade_cancel">Cancelar melhoria</button>';
+     }else if(options.role==='admin')html+='<button type="button" class="context-action" data-construction-action="construction.upgrade">Planejar melhoria</button>';
+    }else if(blueprint?.upgrades?.length)html+=row('Evolução','Nível máximo');
     html+='<h3>Capacidades desbloqueadas</h3>';
     for(const effect of blueprint?.effects??[])html+=row(effect.capability,capabilities[effect.capability]===undefined?'Inativa':capabilities[effect.capability]+' '+effect.unit);
     if(details?.construction?.housing){
@@ -151,6 +165,7 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
       '<div class="data-row"><span>'+safe(record.name)+'</span><strong>Tick '+safe(record.burialTick)+'</strong></div>').join(''):
       '<p class="empty">Nenhum habitante sepultado.</p>';
     }
+    if(details?.construction?.workerCapacity>0){html+='<h3>Capacidade de trabalho</h3>'+row('Operadores por tick',details.construction.workerCapacity);}
     if(details?.construction?.mining){html+='<h3>Reservas subterrâneas</h3>'+Object.entries(details.construction.mining.remaining).map(([id,n])=>row(catalog?.items?.[id]?.label??id,n)).join('');}
     if(details?.construction?.production){
      const prod=details.construction.production;
