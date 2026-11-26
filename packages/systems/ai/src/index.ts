@@ -454,14 +454,43 @@ function rest(world:World,npc:Character,execute:ActionHandler):boolean {
    "Sem cama acessível; recuperação lenta +"+gain+" energia por ciclo",house?.id);
  return true;
 }
+/** Presentation only: describe the selected task while travelling, never claim work already happened. */
+export function travelActivity(action:Command["action"],activity:string,resourceType?:string):string {
+ if(action==="resource.gather"){
+  if(resourceType==="wood")return "Indo coletar madeira";
+  if(resourceType==="stone")return "Indo minerar pedra";
+  if(resourceType==="iron")return "Indo minerar ferro";
+  if(resourceType==="copper")return "Indo minerar cobre";
+  return "Indo extrair recursos";
+ }
+ if(action==="storage.deposit"){
+  if(activity==="Entregando à oficina")return "Carregando para a oficina";
+  if(activity==="Armazenando temporariamente")return "Carregando para depósito temporário";
+  if(activity==="Liberando espaço para alimento")return "Indo liberar espaço para alimento";
+  return "Carregando para o depósito";
+ }
+ const labels:Record<string,string>={
+  "Operando mina":"Indo minerar","Plantando":"Indo plantar","Renovando pomar":"Indo renovar pomar",
+  "Obtendo sementes":"Indo colher sementes","Colhendo safra":"Indo colher safra",
+  "Colhendo alimento":"Indo colher alimento","Buscando recursos":"Indo colher recursos",
+  "Construindo":"Indo construir","Fabricando":"Indo fabricar",
+  "Entregando materiais":"Carregando materiais para a obra","Retirando insumos":"Indo buscar insumos",
+  "Distribuindo produção":"Indo buscar produção","Transportando minério":"Indo buscar minério na mina",
+  "Consolidando estoque":"Indo recolher estoque temporário","Removendo depósito temporário":"Indo remover depósito temporário",
+  "Cortando madeira seca":"Indo cortar madeira seca","Recolhendo itens":"Indo recolher itens",
+  "Sepultando":"Transportando falecido ao cemitério","Recolhendo falecido":"Indo recolher falecido"
+ };
+ return labels[activity]??activity;
+}
 function executeTask(world:World,npc:Character,task:Task,execute:ActionHandler):void {
  const effective=resolveAttributes({...npc,attributes:{...npc.attributes,energy:npc.energy,health:npc.health}},world.tick).values;
  const cycle=Math.floor(world.tick/NPC_ACTION_INTERVAL);
+ const travel=travelActivity(task.action,task.activity,task.target.kind==="resource"?task.target.resourceType:undefined);
  if(task.route.length>1&&world.tick<(npc.nextMoveTick??0)){
-  record(npc,world,"Movimento lento","Tempo de travessia do terreno",task.target.id,task.route.slice(1));return;
+  record(npc,world,travel,task.reason+"; travessia lenta",task.targetId??task.target.id,task.route.slice(1));return;
  }
  if(task.route.length>1&&effective.movementSpeed<.8&&cycle%2===1){
-  record(npc,world,"Movimento lento","Atributos/efeitos reduzem velocidade; recuperando fôlego",task.target.id,task.route.slice(1));
+  record(npc,world,travel,task.reason+"; recuperando fôlego",task.targetId??task.target.id,task.route.slice(1));
   return;
  }
  if(task.action==="construction.work"&&effective.workRate<.7&&cycle%2===1){
@@ -472,7 +501,7 @@ function executeTask(world:World,npc:Character,task:Task,execute:ActionHandler):
   const next=task.route[1];
   const result=execute({commandId:"ai-"+world.tick+"-"+npc.id,worldId:world.id,actorRole:"npc",
    actorId:npc.id,action:"movement.move",targetId:npc.id,position:next});
-  if(result.ok)record(npc,world,"Deslocando-se",task.reason,task.targetId??task.target.id,task.route.slice(1));
+  if(result.ok)record(npc,world,travel,task.reason,task.targetId??task.target.id,task.route.slice(1));
   else record(npc,world,"Bloqueado","Caminho mudou ("+result.error+"); recalculará no próximo ciclo",task.targetId??task.target.id);
   return;
  }
