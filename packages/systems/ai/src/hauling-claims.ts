@@ -12,6 +12,7 @@ export function haulingAvailable(world:World,npc:Character,target:Construction,a
   if(other.kind!=="character"||other.id===npc.id)continue;
   const c=activeHaulingClaim(world,other);
   if(c?.targetId===target.id&&c.action===action&&(action==="storage.deposit"||c.itemId===itemId))available-=c.quantity;
+  if(c?.action==="storage.withdraw"&&c.constructionDestinationId===target.id&&action==="construction.deliver"&&c.itemId===itemId)available-=c.quantity;
  }
  return Math.max(0,available);
 }

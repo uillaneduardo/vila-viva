@@ -28,7 +28,7 @@ type ActionHandler=(command:Command)=>Result;
 type Task={
  target:Entity; route:Position[]; activity:string; reason:string;
  action:Command["action"]; parameters?:Record<string,unknown>; position?:Position; targetId?:string;
- domain?:WorkDomain; extractionPickup?:boolean
+ domain?:WorkDomain; extractionPickup?:boolean; constructionDestinationId?:string
 };
 const load=(npc:Character)=>Object.values(npc.inventory??{}).reduce((total,value)=>total+Math.max(0,value),0);
 const resources=(world:World):Resource[]=>
@@ -267,22 +267,59 @@ function equipmentTask(world:World,npc:Character):Task|null{
   ()=>({materialId:item,quantity:1}));
  return source?{...source,domain:"hauling"}:null;
 }
+/** Pair a real withdrawal with reachable outstanding construction demand. */
+function constructionWithdrawal(world:World,npc:Character,site:Construction,item:string,limit:number,warehouses:Construction[]):Task|null{
+ const demand=haulingAvailable(world,npc,site,"construction.deliver",item);
+ const quantity=Math.min(demand,limit);
+ if(quantity<=0)return null;
+ const candidates=warehouses.filter(d=>d.id!==site.id&&stocked(d,item)>0).map(d=>{
+  const task=selectTask(world,npc,[d],"Buscando material","Levar "+item+" ao canteiro","storage.withdraw",
+   ()=>({materialId:item,quantity:Math.min(quantity,stocked(d,item))}));
+  if(!task)return null;
+  const from=task.route.at(-1)!;
+  const onward=routeToEntity(world,from,site,npc.id);
+  if(!onward)return null;
+  return {task:{...task,constructionDestinationId:site.id},cost:routeCost(world,task.route,npc.id)+routeCost(world,onward,npc.id)};
+ }).filter((x):x is NonNullable<typeof x>=>!!x);
+ candidates.sort((a,b)=>a.cost-b.cost||a.task.target.id.localeCompare(b.task.target.id));
+ return candidates[0]?.task??null;
+}
+function committedConstructionHaul(world:World,npc:Character):Task|null{
+ const claim=activeHaulingClaim(world,npc);
+ if(!claim)return null;
+ const cancel=()=>{delete npc.ai!.haulingClaim;return null;};
+ if(claim.action==="storage.withdraw"&&claim.constructionDestinationId){
+  const site=sites(world).find(s=>s.id===claim.constructionDestinationId);
+  const source=depots(world).find(d=>d.id===claim.targetId);
+  if(!site||!source)return cancel();
+  const task=constructionWithdrawal(world,npc,site,claim.itemId,Math.min(claim.quantity,CARRY_LIMIT-load(npc)),[source]);
+  return task?{...task,domain:"hauling"}:cancel();
+ }
+ if(claim.action==="construction.deliver"){
+  const site=sites(world).find(s=>s.id===claim.targetId);
+  if(!site)return cancel();
+  const quantity=Math.min(claim.quantity,npc.inventory?.[claim.itemId]??0,haulingAvailable(world,npc,site,"construction.deliver",claim.itemId));
+  if(quantity<=0)return cancel();
+  const task=selectTask(world,npc,[site],"Entregando materiais","Canteiro requer "+claim.itemId,"construction.deliver",()=>({materialId:claim.itemId,quantity}));
+  return task?{...task,domain:"hauling"}:cancel();
+ }
+ return null;
+}
 function constructionTasks(world:World,npc:Character):{deliver:Task|null;work:Task|null;source:Task|null}{
  const projects=sites(world),warehouses=depots(world);
  const inventory=npc.inventory??{},free=CARRY_LIMIT-load(npc);
  let deliver:Task|null=null,work:Task|null=null,source:Task|null=null;
  for(const site of projects){
   const missing=materialsRemaining(site);
-  for(const [item,amount] of Object.entries(missing)){
+  for(const [item,physicalAmount] of Object.entries(missing)){
+   const amount=Math.min(physicalAmount,haulingAvailable(world,npc,site,"construction.deliver",item));
    if(amount<=0)continue;
    if((inventory[item]??0)>0&&!deliver)
     deliver=selectTask(world,npc,[site],"Entregando materiais",
      "Canteiro requer "+item,"construction.deliver",
      ()=>({materialId:item,quantity:Math.min(amount,inventory[item])}));
    if(free>0&&!source){
-    source=selectTask(world,npc,warehouses.filter(d=>stocked(d,item)>0),
-     "Buscando material","Levar "+item+" ao canteiro","storage.withdraw",
-     target=>({materialId:item,quantity:Math.min(amount,free,stocked(target as Construction,item))}));
+    source=constructionWithdrawal(world,npc,site,item,Math.min(amount,free),warehouses);
     if(!source)source=selectTask(world,npc,resources(world).filter(r=>!r.sourceId&&r.resourceType===item),
      "Coletando material","Canteiro demanda "+item,"resource.gather");
    }
@@ -369,6 +406,7 @@ function committedExtraction(world:World,npc:Character):Task|null{
 function choose(world:World,npc:Character):Task|null{
  const funeral=burialTask(world,npc);
  if(funeral)return funeral;
+ const committedHaul=committedConstructionHaul(world,npc);if(committedHaul)return committedHaul;
  const construction=constructionTasks(world,npc);
  // Urgent delivery is followed through before any new collection.
  if(construction.deliver)return construction.deliver;
@@ -561,8 +599,8 @@ function executeTask(world:World,npc:Character,task:Task,execute:ActionHandler):
  const claim=activeHaulingClaim(world,npc);
  if(isHaulingAction(task.action)&&task.target.kind==="construction"&&typeof task.parameters?.materialId==="string"&&typeof task.parameters.quantity==="number"&&task.parameters.quantity>0&&npc.health>35&&npc.energy>NPC_REST_THRESHOLD&&(npc.satiety??100)>EAT_THRESHOLD){
   npc.ai??={activity:null,reason:"",route:[],lastDecisionTick:world.tick,history:[]};
-  const same=claim?.targetId===task.target.id&&claim.action===task.action&&claim.itemId===task.parameters.materialId;
-  npc.ai.haulingClaim={targetId:task.target.id,action:task.action,itemId:task.parameters.materialId,quantity:task.parameters.quantity,lastProgressTick:same?claim.lastProgressTick:world.tick};
+  const same=claim?.targetId===task.target.id&&claim.action===task.action&&claim.itemId===task.parameters.materialId&&claim.constructionDestinationId===task.constructionDestinationId;
+  npc.ai.haulingClaim={targetId:task.target.id,action:task.action,itemId:task.parameters.materialId,quantity:task.parameters.quantity,lastProgressTick:same?claim.lastProgressTick:world.tick,...(task.constructionDestinationId?{constructionDestinationId:task.constructionDestinationId}:{})};
  }else if(npc.ai)delete npc.ai.haulingClaim;
  const extracting=task.action==="resource.gather"||task.action==="mine.extract";
  if(extracting){
@@ -606,7 +644,13 @@ function executeTask(world:World,npc:Character,task:Task,execute:ActionHandler):
   actorRole:"npc",actorId:npc.id,action:task.action,targetId:task.targetId??task.target.id,
   position:task.position,parameters:task.parameters});
  if(npc.ai){
+  const completed=npc.ai.haulingClaim;
   delete npc.ai.haulingClaim;
+  if(result.ok&&completed?.action==="storage.withdraw"&&completed.constructionDestinationId){
+   const site=sites(world).find(s=>s.id===completed.constructionDestinationId);
+   const quantity=site?Math.min(completed.quantity,npc.inventory?.[completed.itemId]??0,haulingAvailable(world,npc,site,"construction.deliver",completed.itemId)):0;
+   if(site&&quantity>0)npc.ai.haulingClaim={targetId:site.id,action:"construction.deliver",itemId:completed.itemId,quantity,lastProgressTick:world.tick};
+  }
   delete npc.ai.plantingCommitment;
   if(npc.ai.extractionCommitment){
    if(result.ok)npc.ai.extractionCommitment.lastProgressTick=world.tick;

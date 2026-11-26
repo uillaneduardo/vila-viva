@@ -48,7 +48,7 @@ export function validateWorld(value:unknown):asserts value is World {
    if(!object(c)||typeof c.targetId!=="string"||!/^[\w:-]{1,120}$/.test(c.targetId)||
     !["storage.withdraw","storage.deposit","construction.deliver"].includes(String(c.action))||
     typeof c.itemId!=="string"||!isItem(c.itemId)||!safeInt(c.quantity,12)||c.quantity<1||
-    !safeInt(c.lastProgressTick,value.tick))throw Error("INVALID_WORLD");
+    !safeInt(c.lastProgressTick,value.tick)||c.constructionDestinationId!==undefined&&(c.action!=="storage.withdraw"||typeof c.constructionDestinationId!=="string"||!/^[\w:-]{1,120}$/.test(c.constructionDestinationId)||c.constructionDestinationId===c.targetId))throw Error("INVALID_WORLD");
   }
   if(entity.kind==="character"&&entity.sleepingInId!==undefined&&(typeof entity.sleepingInId!=="string"||!/^[\w:-]{1,120}$/.test(entity.sleepingInId)))throw Error("INVALID_WORLD");
   if(entity.kind==="character"&&entity.movementSegment!==undefined){

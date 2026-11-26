@@ -21,7 +21,7 @@ export interface PlantingCommitment {zoneId:string;position:Position;startedTick
 /** Extraction intent, not a reservation of source, inventory or destination. */
 export interface ExtractionCommitment {targetId:string;action:"resource.gather"|"mine.extract";itemId:string;startedTick:number;lastProgressTick:number}
 /** Advisory physical hauling claim, scoped to one action; no stock is moved until the command succeeds. */
-export interface HaulingClaim {targetId:string;action:"storage.withdraw"|"storage.deposit"|"construction.deliver";itemId:string;quantity:number;lastProgressTick:number}
+export interface HaulingClaim {targetId:string;action:"storage.withdraw"|"storage.deposit"|"construction.deliver";itemId:string;quantity:number;lastProgressTick:number;constructionDestinationId?:string}
 export interface NpcDecisionState {
  activity:string|null; reason:string; targetId?:string; route:Position[];
  lastDecisionTick:number; history:Array<{tick:number;activity:string;reason:string;targetId?:string}>;
