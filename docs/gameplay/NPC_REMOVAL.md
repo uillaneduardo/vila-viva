@@ -1,0 +1,7 @@
+# Ordens de desconstrução e limpeza (#114)
+- Modo Deus ou líder interno autoriza uma ordem; NPC saudável e acordado executa adjacente, uma unidade de trabalho e energia por ação. Sobrevivência e logística urgente precedem a ordem. O líder pode ordenar limpeza de ruínas automaticamente, não destruir edifícios ativos por conta própria.
+- Desconstruir: 50% dos materiais estruturais realmente registrados, arredondado para baixo por item; quatro unidades de trabalho por célula (mínimo quatro). Demolir: 25%, duas por célula (mínimo duas). Ambos liberam a área ao concluir; o comando administrativo antigo de destruir ainda deixa ruína.
+- Estoque e materiais entregues mas não incorporados retornam integralmente como pilhas físicas, sem exceder inventário do trabalhador. Sem reembolso estrutural fictício para construções instantâneas ou etapas legadas não registradas. Melhorias consumidas entram no registro.
+- Zona de cultivo só é removível por NPC se nenhuma planta/recurso estiver na área nem vinculada a ela. Uma zona recém-colhida não é automaticamente descartada; requer ordem. Plantio fica suspenso durante ordem, cancelamento restaura elegibilidade.
+- Proteger ocupantes e sepulturas; revalidar em cada unidade de trabalho. O progresso permanece ao interromper por fome, descanso ou bloqueio. Comandos administrativos imediatos continuam separados.
+- Campos opcionais compatíveis com saves antigos; compartilhados pelo motor de servidor e /browser. Verificar CI, conflitos com PR #111 (AI/contratos/protocolo), homologação de navegador e deploy antes de concluir.

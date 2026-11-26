@@ -1,6 +1,6 @@
 export type Role = "player" | "npc" | "admin";
 export type EntityKind = "character" | "resource" | "obstacle" | "construction";
-export type ActionId = "construction.upgrade" | "construction.upgrade_cancel" | "storage.temporary.create" | "storage.temporary.remove" | "item.drop" | "mine.extract" | "item.pickup" | "entity.inspect" | "movement.move" | "npc.spawn" | "resource.spawn" | "resource.harvest" | "obstacle.spawn" | "construction.place" | "construction.deliver" | "construction.work" | "construction.admin_supply" | "construction.admin_work" | "resource.gather" | "storage.deposit" | "storage.withdraw" | "storage.admin_supply" | "construction.remove" | "construction.destroy" | "npc.admin_equip" | "npc.eat" | "farming.zone.create" | "farming.plant" | "nature.cut" | "burial.pickup" | "burial.inter" | "burial.drop" | "construction.propose" | "production.order" | "production.work" | "npc.equip";
+export type ActionId = "construction.removal.plan" | "construction.removal.cancel" | "construction.removal.work" | "farming.zone.remove" | "construction.upgrade" | "construction.upgrade_cancel" | "storage.temporary.create" | "storage.temporary.remove" | "item.drop" | "mine.extract" | "item.pickup" | "entity.inspect" | "movement.move" | "npc.spawn" | "resource.spawn" | "resource.harvest" | "obstacle.spawn" | "construction.place" | "construction.deliver" | "construction.work" | "construction.admin_supply" | "construction.admin_work" | "resource.gather" | "storage.deposit" | "storage.withdraw" | "storage.admin_supply" | "construction.remove" | "construction.destroy" | "npc.admin_equip" | "npc.eat" | "farming.zone.create" | "farming.plant" | "nature.cut" | "burial.pickup" | "burial.inter" | "burial.drop" | "construction.propose" | "production.order" | "production.work" | "npc.equip";
 export type FailureCode = "UNAUTHORIZED" | "NOT_FOUND" | "INVALID_TARGET" | "INVALID_PAYLOAD" | "OUT_OF_BOUNDS" | "BLOCKED" | "DUPLICATE_COMMAND" | "EXHAUSTED" | "INVENTORY_FULL" | "NOT_READY" | "ALREADY_COMPLETED";
 export interface Position { x: number; y: number }
 /** Visual record of an accepted cell move, not a reservation or future gameplay action. */
@@ -32,7 +32,9 @@ export interface NpcDecisionState {
 }
 export interface NaturalLife { ageTicks:number; stage:NaturalStage; health:number; productionProgress:number; growthRemainder?:number; productionRemainder?:number }
 export interface Resource { id: string; kind: "resource"; resourceType: string; position: Position; quantity: number; maximum: number; sourceId?:string; productId?:string; life?:NaturalLife; plantedInZoneId?:string }
-export interface FarmingZone { id:string; kind:"planting_zone"; sourceId:string; position:Position; footprint:{width:number;height:number} }
+export type RemovalMode = "deconstruct" | "demolish" | "clear";
+export interface RemovalOrder {mode:RemovalMode; workDone:number}
+export interface FarmingZone { removalOrder?:RemovalOrder; id:string; kind:"planting_zone"; sourceId:string; position:Position; footprint:{width:number;height:number} }
 export interface Obstacle { id:string; kind:"obstacle"; obstacleType:string; position:Position; blocksMovement:boolean }
 export interface Construction {
  id:string; kind:"construction"; blueprintId:string; blueprintVersion:number;
@@ -40,6 +42,7 @@ export interface Construction {
  status:"site"|"completed"|"destroyed"; availability:"unavailable"|"available";
  stageIndex:number; delivered:Inventory; workDone:number; completedTick?:number;
  /** Absent level means legacy level 1; active improvement retains current capabilities. */
+ investedMaterials?:Inventory; removalOrder?:RemovalOrder;
  level?:number; upgrade?:{targetLevel:number;startedTick:number};
  residents?:string[]; mineRemaining?:Inventory; lastMiningTick?:number; stock?:Inventory; bedReservations?:Record<string,{expiresTick:number}>;
  workCycle?:{tick:number;actors:string[]};

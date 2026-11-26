@@ -77,6 +77,10 @@ test("initial orchard and food are always on cultivable soil across seeds and di
   bootstrapSeededWorld(w,"fertility-"+n,c=>applyCommand(w,{...c,worldId:w.id,actorRole:"admin"}));
   const orchard=w.entities.find(e=>e.kind==="planting_zone");
   assert.ok(orchard&&canCultivateArea(w,orchard.position,3,3));
+  const leader=w.entities.find(e=>e.kind==="character"&&e.communityRole==="leader")!;
+  const apples=w.entities.filter(e=>e.kind==="resource"&&e.sourceId==="apple_tree");
+  assert.ok(apples.length>=1);
+  assert.ok(apples.some(e=>Math.abs(e.position.x-leader.position.x)+Math.abs(e.position.y-leader.position.y)<=11));
   for(const e of w.entities)if(e.kind==="resource"&&e.sourceId)assert.ok(canCultivateCell(w,e.position.x,e.position.y));
  }
 });

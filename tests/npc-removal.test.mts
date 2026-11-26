@@ -1,0 +1,31 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {createWorld,applyCommand} from "../packages/engine/src/engine.ts";
+import {createConstructionSite,acceptMaterial,applyConstructionWork,createCompletedBuilding} from "../packages/systems/construction/src/index.ts";
+import {buildingBlueprint} from "../packages/content/src/buildings/registry.ts";
+import {makeZone} from "../packages/systems/farming/src/index.ts";
+import {removalWorkUnits,salvageMaterials} from "../packages/systems/construction/src/removal.ts";
+import type {Command,Character} from "../packages/domain/src/contracts.ts";
+test("NPC disassembles recorded construction with physical salvage, one time only",()=>{
+ const world=createWorld("removal",12,12),def=buildingBlueprint("building.community_house")!;
+ const site=createConstructionSite("house",{x:4,y:4},def);
+ for(const [id,n] of Object.entries(def.stages[0].materials))assert.ok(acceptMaterial(site,id,n));
+ applyConstructionWork(site,def.stages[0].workUnits,0);
+ const npc:Character={id:"worker",kind:"character",name:"Worker",position:{x:3,y:4},health:100,energy:100,inventory:{}};
+ world.entities.push(site,npc);
+ let i=0;
+ const cmd=(action:Command["action"],actorRole:Command["actorRole"],parameters?:Record<string,unknown>)=>applyCommand(world,{worldId:world.id,commandId:"c"+(++i),action,actorRole,actorId:npc.id,targetId:site.id,parameters},{internal:actorRole==="npc"});
+ assert.equal(cmd("construction.removal.work","npc").ok,false);
+ assert.equal(cmd("construction.removal.plan","admin",{mode:"deconstruct"}).ok,true);
+ for(let n=0;n<removalWorkUnits(site,"deconstruct");n++)assert.equal(cmd("construction.removal.work","npc").ok,true);
+ assert.equal(world.entities.some(e=>e.id===site.id),false);
+ const items=Object.fromEntries(world.entities.filter(e=>e.kind==="item").map(e=>[e.itemId,e.quantity]));
+ assert.deepEqual(items,{stone:6,wood:2});assert.equal(cmd("construction.removal.work","npc").ok,false);
+});
+test("instant building does not generate structural salvage; zones with crops cannot be ordered",()=>{
+ const world=createWorld("zone",12,12),def=buildingBlueprint("building.community_house")!;
+ assert.deepEqual(salvageMaterials(createCompletedBuilding("instant",{x:1,y:1},def,0),"deconstruct"),{});
+ const zone=makeZone("zone","carrot",{x:4,y:4},2,2);
+ world.entities.push(zone,{id:"crop",kind:"resource",position:{x:5,y:5},resourceType:"food",quantity:0,maximum:1,plantedInZoneId:zone.id});
+ assert.equal(applyCommand(world,{worldId:world.id,commandId:"plan",actorRole:"admin",action:"construction.removal.plan",targetId:zone.id,parameters:{mode:"clear"}}).ok,false);
+});

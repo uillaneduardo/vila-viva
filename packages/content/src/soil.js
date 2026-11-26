@@ -31,14 +31,15 @@ function grid(world,key){
  // Extremely barren rolls still need a viable starter area. Only repair the central
  // patch if there is no cultivable 3x3 nearby or too little soil for initial trees.
  const cx=Math.floor(world.width/2),cy=Math.floor(world.height/2);
- let nearby=false,usable=0;
+ let nearby=false,usable=0,central=0;
+ for(let y=Math.max(0,cy-4);y<Math.min(world.height,cy+4);y++)for(let x=Math.max(0,cx-4);x<Math.min(world.width,cx+4);x++)if(data[y*world.width+x]>0)central++;
  for(const value of data)if(value>0)usable++;
  for(let y=Math.max(0,cy-5);y<=Math.min(world.height-3,cy+3)&&!nearby;y++)
   for(let x=Math.max(0,cx-5);x<=Math.min(world.width-3,cx+3)&&!nearby;x++){
    let valid=true;for(let dy=0;dy<3;dy++)for(let dx=0;dx<3;dx++)if(data[(y+dy)*world.width+x+dx]===0)valid=false;
    if(valid)nearby=true;
   }
- if(!nearby||usable<64){
+ if(!nearby||usable<64||central<24){
   for(let y=Math.max(0,cy-4);y<Math.min(world.height,cy+4);y++)
    for(let x=Math.max(0,cx-4);x<Math.min(world.width,cx+4);x++)
     if(data[y*world.width+x]===0)data[y*world.width+x]=2;

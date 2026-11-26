@@ -28,7 +28,7 @@ export function canCreateZone(world:World,sourceId:string,position:Position,widt
 }
 /** Physical plant takes exactly one seed, in a free plot inside a matching zone. */
 export function canPlantAt(world:World,zone:FarmingZone,cell:Position):boolean {
- return zoneContains(zone,cell)&&inBounds(world,cell)&&canCultivateCell(world,cell.x,cell.y)&&
+ return !zone.removalOrder&&zoneContains(zone,cell)&&inBounds(world,cell)&&canCultivateCell(world,cell.x,cell.y)&&
   !world.entities.some(e=>e.id!==zone.id&&e.kind!=="item"&&occupiesCell(e,cell));
 }
 export function availablePlots(world:World,zone:FarmingZone):Position[] {

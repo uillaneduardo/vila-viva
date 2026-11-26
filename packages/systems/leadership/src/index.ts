@@ -156,7 +156,7 @@ export function planAgriculture(world:World,leader:Character){
  if(!hungry&&nutrition>=reserveTarget&&crops.length>=target)return undefined;
  const candidates=Object.values(NATURAL_SOURCES).filter(species=>Object.hasOwn(FOOD_ITEMS,species.productId)).map(species=>{
   const seeds=total(species.seedItem);
-  const zones=world.entities.filter(e=>e.kind==="planting_zone"&&e.sourceId===species.id);
+  const zones=world.entities.filter(e=>e.kind==="planting_zone"&&!e.removalOrder&&e.sourceId===species.id);
   const capacity=zones.reduce((n,z)=>n+(z.kind==="planting_zone"?z.footprint.width*z.footprint.height:0),0);
   const active=crops.filter(e=>e.kind==="resource"&&e.sourceId===species.id).length;
   const free=zones.reduce((n,z)=>n+(z.kind==="planting_zone"?availablePlots(world,z).length:0),0);
@@ -180,11 +180,18 @@ export function planAgriculture(world:World,leader:Character){
  }
  return undefined;
 }
+import {removalSafe} from "../../construction/src/removal.ts";
 export function advanceLeaderDecisions(world:World,execute:(cmd:Command)=>Result):void {
  if(world.tick%LEADER_DECISION_INTERVAL!==0)return;
  const leader=living(world).find(npc=>npc.communityRole==="leader");
  if(!leader)return;
  leader.leadership??={lastPlanTick:-1,lastReason:"Avaliando comunidade"};
+ // Ruins are already unavailable; a leader may order clearance, never dismantle a live building automatically.
+ const ruin=world.entities.find(e=>e.kind==="construction"&&e.status==="destroyed"&&!e.removalOrder&&removalSafe(world,e));
+ if(ruin&&!world.entities.some(e=>(e.kind==="construction"||e.kind==="planting_zone")&&e.removalOrder)){
+  const result=execute({worldId:world.id,commandId:"leader-clear-"+world.tick+"-"+leader.id,actorRole:"npc",actorId:leader.id,action:"construction.removal.plan",targetId:ruin.id,parameters:{mode:"demolish"}});
+  if(result.ok){leader.leadership.lastReason="Liberar terreno ocupado por ruína";return;}
+ }
  const agriculture=planAgriculture(world,leader);
  if(agriculture){
   const result=execute({worldId:world.id,commandId:"leader-farm-"+world.tick+"-"+leader.id,
