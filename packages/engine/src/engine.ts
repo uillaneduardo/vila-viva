@@ -1,3 +1,4 @@
+import {removalSafe,removalWorkUnits,nearRemoval,salvageMaterials} from "../../systems/construction/src/removal.ts";
 import {canUseWorkSlot,recordWorkSlot} from "../../systems/construction/src/work-cycle.ts";
 import {expireEffects} from "../../systems/effects/src/manager.ts";
 import {resolveAttributes} from "../../systems/effects/src/resolver.ts";
@@ -125,6 +126,7 @@ export function applyCommand(world: World, command: Command,
   const zone=world.entities.find(e=>e.id===command.targetId);
   if(!zone)return reject(command,"NOT_FOUND");
   if(zone.kind!=="planting_zone")return reject(command,"INVALID_TARGET");
+  if(zone.removalOrder)return reject(command,"BLOCKED");
   const species=naturalSource(zone.sourceId),actor=actorForCommand(world,command);
   if(!actor)return reject(command,"UNAUTHORIZED");
   if(!species||!command.position)return reject(command,"INVALID_PAYLOAD");
@@ -295,11 +297,45 @@ export function applyCommand(world: World, command: Command,
   if(actor.equipment?.tool)actor.inventory![actor.equipment.tool]=(actor.inventory![actor.equipment.tool]??0)+1;
   actor.equipment={tool};
   additionalEvents.push({type:"npc.tool_equipped",entityId:actor.id});
+ } else if(command.action==="construction.removal.plan"||command.action==="construction.removal.cancel"||command.action==="construction.removal.work"){
+  const target=world.entities.find(e=>e.id===command.targetId);
+  if(!target)return reject(command,"NOT_FOUND");
+  if(target.kind!=="construction"&&target.kind!=="planting_zone")return reject(command,"INVALID_TARGET");
+  const actor=admin?undefined:actorForCommand(world,command);
+  if(!admin&&(!options.internal||!actor||actor.ownerId||actor.health<=0||actor.sleepingInId))return reject(command,"UNAUTHORIZED");
+  if(command.action==="construction.removal.plan"||command.action==="construction.removal.cancel"){
+   if(!admin&&actor?.communityRole!=="leader")return reject(command,"UNAUTHORIZED");
+   if(command.action==="construction.removal.cancel"){
+    if(!target.removalOrder)return reject(command,"NOT_READY");
+    delete target.removalOrder;
+   }else{
+    const mode=command.parameters?.mode;
+    if(target.kind==="planting_zone"?mode!=="clear":mode!=="deconstruct"&&mode!=="demolish")return reject(command,"INVALID_PAYLOAD");
+    if(target.removalOrder||!removalSafe(world,target))return reject(command,"BLOCKED");
+    target.removalOrder={mode:mode as "deconstruct"|"demolish"|"clear",workDone:0};
+   }
+  }else{
+   if(!actor||admin||actor.energy<=0||!nearRemoval(actor.position,target)||!removalSafe(world,target))return reject(command,"BLOCKED");
+   const order=target.removalOrder;
+   if(!order)return reject(command,"NOT_READY");
+   const total=removalWorkUnits(target,order.mode);
+   order.workDone=Math.min(total,order.workDone+1);actor.energy=Math.max(0,actor.energy-1);
+   if(order.workDone===total){
+    if(target.kind==="construction"){
+     for(const inventory of [salvageMaterials(target,order.mode),target.delivered,target.stock??{}])
+      for(const [id,n] of Object.entries(inventory))if(isItem(id)&&Number.isSafeInteger(n)&&n>0)dropItem(world,target.position,id,n);
+     clearHouse(world,target);
+    }
+    world.entities.splice(world.entities.indexOf(target),1);
+    additionalEvents.push({type:target.kind==="construction"?"building.removed":"farming.zone.cleared",entityId:target.id});
+   }
+  }
  } else if(command.action==="construction.upgrade"||command.action==="construction.upgrade_cancel"){
   const target=world.entities.find(e=>e.id===command.targetId);
   if(!target)return reject(command,"NOT_FOUND");
   if(target.kind!=="construction")return reject(command,"INVALID_TARGET");
   if(command.action==="construction.upgrade"){
+   if(target.removalOrder)return reject(command,"BLOCKED");
    if(!admin){const actor=actorForCommand(world,command);if(!actor||actor.health<=0||actor.sleepingInId||actor.communityRole!=="leader")return reject(command,"UNAUTHORIZED");}
    if(world.entities.some(e=>e.kind==="construction"&&(e.status==="site"||e.upgrade)))return reject(command,"BLOCKED");
    if(!startUpgrade(target,world.tick))return reject(command,"NOT_READY");
@@ -314,6 +350,7 @@ export function applyCommand(world: World, command: Command,
   const target=world.entities.find(e=>e.id===command.targetId);
   if(!target)return reject(command,"NOT_FOUND");
   if(target.kind!=="construction")return reject(command,"INVALID_TARGET");
+  if(target.removalOrder)return reject(command,"BLOCKED");
   if(!currentStage(target))return reject(command,"ALREADY_COMPLETED");
   const debug=command.action.startsWith("construction.admin_");
   if(debug!==admin)return reject(command,"UNAUTHORIZED");

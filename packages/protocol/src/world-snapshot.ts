@@ -64,6 +64,11 @@ export function validateWorld(value:unknown):asserts value is World {
     entity.position.x+entity.footprint.width>value.width||
     entity.position.y+entity.footprint.height>value.height)throw Error("INVALID_WORLD");
   }
+  if((entity.kind==="construction"||entity.kind==="planting_zone")&&entity.removalOrder!==undefined){
+   const order=entity.removalOrder;
+   if(!object(order)||(entity.kind==="planting_zone"?order.mode!=="clear":!["deconstruct","demolish"].includes(String(order.mode)))||!safeInt(order.workDone,576))throw Error("INVALID_WORLD");
+  }
+  if(entity.kind==="construction"&&entity.investedMaterials!==undefined&&(!object(entity.investedMaterials)||Object.entries(entity.investedMaterials).some(([id,n])=>!isItem(id)||!safeInt(n,1e6))))throw Error("INVALID_WORLD");
   if(entity.kind==="construction"&&(
    typeof entity.blueprintId!=="string"||
    !["site","completed","destroyed"].includes(String(entity.status))||

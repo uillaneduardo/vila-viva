@@ -1,10 +1,10 @@
 import type {World,Entity,Position} from "../../../domain/src/contracts.ts";
 import {movementCost,orthogonallyAdjacent} from "../../collision/src/index.ts";
-import {nearFootprint} from "../../construction/src/index.ts";
+import {nearRemoval} from "../../construction/src/removal.ts";
 const DIRECTIONS:readonly Position[]=[{x:0,y:-1},{x:1,y:0},{x:0,y:1},{x:-1,y:0}];
 const key=(p:Position)=>p.x+","+p.y;
 export const adjacentToEntity=(point:Position,target:Entity):boolean=>
- target.kind==="construction"?nearFootprint(point,target):target.kind==="item"?(point.x===target.position.x&&point.y===target.position.y)||orthogonallyAdjacent(point,target.position):orthogonallyAdjacent(point,target.position);
+ target.kind==="construction"||target.kind==="planting_zone"?nearRemoval(point,target):target.kind==="item"?(point.x===target.position.x&&point.y===target.position.y)||orthogonallyAdjacent(point,target.position):orthogonallyAdjacent(point,target.position);
 /** A* with an admissible distance-to-footprint heuristic and deterministic ties. */
 export function routeCost(world:World,route:Position[],ignoreActorId?:string):number{
  return route.slice(1).reduce((sum,p)=>sum+movementCost(world,p,ignoreActorId),0);
@@ -12,7 +12,8 @@ export function routeCost(world:World,route:Position[],ignoreActorId?:string):nu
 export function routeToEntity(world:World,start:Position,target:Entity,ignoreActorId?:string,allowTargetCell=false):Position[]|null {
  const reached=(p:Position)=>adjacentToEntity(p,target)||allowTargetCell&&p.x===target.position.x&&p.y===target.position.y;
  if(reached(start))return [{...start}];
- const width=target.kind==="construction"?target.footprint.width:1,height=target.kind==="construction"?target.footprint.height:1;
+ const area=target.kind==="construction"||target.kind==="planting_zone";
+ const width=area?target.footprint.width:1,height=area?target.footprint.height:1;
  const heuristic=(p:Position)=>Math.max(0,Math.max(target.position.x-p.x,p.x-(target.position.x+width-1),0)+
   Math.max(target.position.y-p.y,p.y-(target.position.y+height-1),0)-1);
  const open=[{point:{...start},g:0,f:heuristic(start),order:0}];

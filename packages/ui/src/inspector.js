@@ -234,9 +234,16 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{},onFollow
    if(destroyed)html+='<p class="empty">Ruína: sem efeitos ou serviços. O terreno permanece bloqueado até a remoção.</p>';
    if(options.role==='admin'){
     html+='<h3>Gerenciar construção</h3>';
+    if(entity.removalOrder){
+     html+=row('Ordem de remoção',entity.removalOrder.mode==='deconstruct'?'Desconstrução':'Demolição')+row('Trabalho realizado',entity.removalOrder.workDone);
+     html+='<button type="button" class="context-action" data-construction-action="construction.removal.cancel">Cancelar ordem</button>';
+    }else{
+     html+='<button type="button" class="context-action" data-construction-action="construction.removal.plan" data-mode="deconstruct">NPCs: desconstruir (50% dos materiais)</button>';
+     html+='<button type="button" class="context-action" data-construction-action="construction.removal.plan" data-mode="demolish">NPCs: demolir (25% dos materiais)</button>';
+    }
     if(!destroyed)html+='<button type="button" class="context-action" data-construction-action="construction.destroy">Destruir construção (manter ruína)</button>';
     html+='<button type="button" class="context-action" data-construction-action="construction.remove">Remover construção do mapa</button>';
-    html+='<p class="empty">A remoção descarta todo material/estoque associado. Não há reembolso nesta versão.</p>';
+    html+='<p class="empty">Os comandos imediatos não recuperam materiais estruturais. Ordens aos NPCs recuperam materiais registrados e estoque físico; casas ocupadas e sepulturas são protegidas.</p>';
    }
    html+=row('Posição',entity.position.x+', '+entity.position.y);
   }else if(entity.kind==='planting_zone'){
@@ -252,7 +259,11 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{},onFollow
     row('Ciclo',def?.growthMode==='perennial'?'Perene':'Safra única')+
     row('Colisão','Área atravessável');
    html+='<p class="empty">Os habitantes precisam carregar sementes reais ou retirá-las do depósito para plantar.</p>';
-   if(options.role==='admin')html+='<button type="button" class="context-action" data-construction-action="farming.zone.remove">Remover zona (manter plantas)</button>';
+   if(options.role==='admin'){
+    if(entity.removalOrder)html+=row('Limpeza: trabalho realizado',entity.removalOrder.workDone)+'<button type="button" class="context-action" data-construction-action="construction.removal.cancel">Cancelar limpeza</button>';
+    else html+='<button type="button" class="context-action" data-construction-action="construction.removal.plan" data-mode="clear" '+(farm?.planted>0?'disabled':'')+'>NPCs: limpar zona vazia</button>';
+    html+='<button type="button" class="context-action" data-construction-action="farming.zone.remove">Remover zona (manter plantas)</button>';
+   }
   }else if(entity.kind==='obstacle'){
    html='<h3>Elemento de cenário</h3>'+row('Tipo',catalog?.scenery?.[entity.obstacleType]||entity.obstacleType)+
     row('Impede passagem',entity.blocksMovement?'Sim':'Não')+row('Minerável','Não')+
@@ -292,6 +303,7 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{},onFollow
      const parameters=['construction.admin_supply','storage.admin_supply'].includes(action)?
       {materialId:button.dataset.material,quantity:Number(button.dataset.amount)}:
       action==='construction.admin_work'?{workUnits:Number(button.dataset.amount)}:
+      action==='construction.removal.plan'?{mode:button.dataset.mode}:
       action==='production.order'?{recipeId:button.dataset.recipe,quantity:1}:{};
      onConstruction(entity.id,action,parameters);
     });

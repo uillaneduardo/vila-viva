@@ -179,11 +179,18 @@ export function planAgriculture(world:World,leader:Character){
  }
  return undefined;
 }
+import {removalSafe} from "../../construction/src/removal.ts";
 export function advanceLeaderDecisions(world:World,execute:(cmd:Command)=>Result):void {
  if(world.tick%LEADER_DECISION_INTERVAL!==0)return;
  const leader=living(world).find(npc=>npc.communityRole==="leader");
  if(!leader)return;
  leader.leadership??={lastPlanTick:-1,lastReason:"Avaliando comunidade"};
+ // Ruins are already unavailable; a leader may order clearance, never dismantle a live building automatically.
+ const ruin=world.entities.find(e=>e.kind==="construction"&&e.status==="destroyed"&&!e.removalOrder&&removalSafe(world,e));
+ if(ruin&&!world.entities.some(e=>(e.kind==="construction"||e.kind==="planting_zone")&&e.removalOrder)){
+  const result=execute({worldId:world.id,commandId:"leader-clear-"+world.tick+"-"+leader.id,actorRole:"npc",actorId:leader.id,action:"construction.removal.plan",targetId:ruin.id,parameters:{mode:"demolish"}});
+  if(result.ok){leader.leadership.lastReason="Liberar terreno ocupado por ruína";return;}
+ }
  const agriculture=planAgriculture(world,leader);
  if(agriculture){
   const result=execute({worldId:world.id,commandId:"leader-farm-"+world.tick+"-"+leader.id,
