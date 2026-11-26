@@ -102,7 +102,7 @@ test('NPCs autonomously gather, walk, store and record reasons without advancing
  assert.equal(w.tick,start+190); // no hidden tick inflation from NPC actions
  assert.ok(warehouse.stock.wood>0);
  assert.ok(w.entities.find(e=>e.id==='resource-wood').quantity<original);
- assert.ok(actor.ai.history.some(e=>e.activity==='Deslocando-se'));
+ assert.ok(actor.ai.history.some(e=>e.activity==='Indo coletar madeira'||e.activity==='Carregando para o depósito'));
  assert.ok(actor.ai.history.some(e=>e.activity==='Buscando recursos'));
  assert.ok(actor.ai.history.some(e=>e.activity==='Armazenando recursos'));
  assert.ok(actor.energy>0);
