@@ -10,7 +10,7 @@ import {UI_VISUAL_MANIFEST} from "../packages/ui/assets/manifest.js";
 
 test("God Mode submenus map to existing domain catalog IDs, with replaceable semantic visuals",()=>{
  assert.deepEqual(godMenuOptions("npc").map(o=>o.id),["settler","leader"]);
- assert.deepEqual(godMenuOptions("stone").map(o=>o.id),["wood","stone:stone","stone:iron_ore","stone:copper_ore","food:apple_adult","food:apple_seedling","food:medicinal_herb_adult"]);
+ assert.deepEqual(godMenuOptions("stone").map(o=>o.id),["stone","iron_ore","copper_ore"]);
  assert.deepEqual(godMenuOptions("food").map(o=>o.id),["apple_adult","apple_seedling","medicinal_herb_adult"]);
  assert.deepEqual(godMenuOptions("scenery").map(o=>o.id),["boulder","wall","statue"]);
  assert.deepEqual(godMenuOptions("farm",{farmingSpecies:NATURAL_SOURCES}).map(o=>o.id),
@@ -90,7 +90,7 @@ test("clickable squares preserve active state, phase selection and blueprint siz
   assert.equal(elements.godSubmenu.hidden,false);
   assert.equal(elements.brushPanel.hidden,false);
   assert.deepEqual(elements.godSubmenuChoices.children.map(b=>b.dataset.preset),
-   ["stone","iron_ore","copper_ore"]);
+   ["wood","stone:stone","stone:iron_ore","stone:copper_ore","food:apple_adult","food:apple_seedling","food:medicinal_herb_adult"]);
   assert.equal(presets.at(-1),"resource:wood");
   elements.godSubmenuChoices.children[2].click();
   assert.equal(presets.at(-1),"resource:stone:iron_ore");
