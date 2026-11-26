@@ -41,11 +41,13 @@ export function createHud({role,onTool,onClock,onSize,onShape=()=>{},onPreset=()
   stone:'Adicionar pedra ou jazidas minerais',food:'Adicionar vegetação',farm:'Demarcar zona de cultivo',
   scenery:'Posicionar obstáculos sólidos',house:'Posicionar canteiro de obras'};
  for(const [id,label,glyph] of toolDefs){
+  if(role==='admin'&&['events','stats'].includes(id))continue;
+  if(role==='admin'&&['stone','food'].includes(id))continue;
   const b=document.createElement('button');b.type='button';b.dataset.tool=id;
   b.className='dock-button'+(id==='inspect'?' active':'');
   b.innerHTML='<span class="glyph"></span><span class="dock-label"></span>';
   b.querySelector('.glyph').append(createUiVisual(glyph,{size:20}));
-  b.querySelector('.dock-label').textContent=label;
+  b.querySelector('.dock-label').textContent=id==='wood'?'Recursos':label;
   b.title=label;
   if(role!=='admin'&&id!=='inspect'){b.disabled=true;b.title='Ação disponível somente no Modo Deus';}
   if(['events','stats'].includes(id)){b.disabled=true;b.title='Sistema ainda não implementado';}
@@ -93,6 +95,7 @@ export function createHud({role,onTool,onClock,onSize,onShape=()=>{},onPreset=()
   if(![...choices.children].some(button=>button.dataset.preset===value))return;
   selectedByTool.set(currentTool,value);
   applySelection(choices,'preset',value);
+  if(['wood','stone','food'].includes(currentTool)){onPreset('resource:'+value);return;}
   onPreset(value);
   if(currentTool==='house')updateHouseArea();
  };
@@ -103,8 +106,9 @@ export function createHud({role,onTool,onClock,onSize,onShape=()=>{},onPreset=()
   onBuildMode(value);
  };
  const renderSubmenu=()=>{
-  const options=godMenuOptions(currentTool,{blueprints,farmingSpecies});
-  if(role!=='admin'||!options.length||!HAS_GOD_SUBMENU.includes(currentTool)){
+  const resources=['wood','stone','food'].includes(currentTool);
+  const options=resources?[{id:'wood',label:'Madeira',icon:'action.add-wood'},...godMenuOptions('stone').map(x=>({...x,id:'stone:'+x.id})),...godMenuOptions('food').map(x=>({...x,id:'food:'+x.id}))]:godMenuOptions(currentTool,{blueprints,farmingSpecies});
+  if(role!=='admin'||!options.length||(!resources&&!HAS_GOD_SUBMENU.includes(currentTool))){
    submenu.hidden=true;choices.replaceChildren();return;
   }
   const selected=selectedByTool.get(currentTool);
@@ -136,7 +140,7 @@ export function createHud({role,onTool,onClock,onSize,onShape=()=>{},onPreset=()
   tool(id){
    currentTool=id;
    for(const button of dock.querySelectorAll('[data-tool]'))
-    button.classList.toggle('active',button.dataset.tool===id);
+    button.classList.toggle('active',button.dataset.tool===id||button.dataset.tool==='wood'&&['stone','food'].includes(id));
    const brush=brushTools.includes(id)&&role==='admin';
    const isHouse=id==='house';
    range.disabled=isHouse;minus.disabled=isHouse;plus.disabled=isHouse;

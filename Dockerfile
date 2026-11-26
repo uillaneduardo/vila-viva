@@ -8,6 +8,7 @@ RUN npm install --omit=dev --no-package-lock --ignore-scripts
 COPY --chown=node:node apps ./apps
 COPY --chown=node:node packages ./packages
 COPY --chown=node:node public ./public
+RUN npm exec --yes --package=esbuild@0.25.12 -- esbuild apps/browser-runtime/src/worker.ts --bundle --platform=browser --format=esm --outfile=apps/browser-runtime/worker.js
 # On first named-volume mount Docker propagates this directory's node ownership.
 RUN mkdir -p /opt/oturo/data && chown node:node /opt/oturo/data
 USER node

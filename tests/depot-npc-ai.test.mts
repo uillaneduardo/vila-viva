@@ -97,13 +97,14 @@ test('NPCs autonomously gather, walk, store and record reasons without advancing
  actor.inventory={}; // isolate logistics from randomized spawn cargo
  const original=w.entities.find(e=>e.id==='resource-wood').quantity;
  const start=w.tick;
- for(let i=0;i<190;i++)advanceTick(w);
+ const observed=new Set();
+ for(let i=0;i<190;i++){advanceTick(w);observed.add(actor.ai?.activity);}
  const warehouse=w.entities.find(e=>e.id==='construction-warehouse');
  assert.equal(w.tick,start+190); // no hidden tick inflation from NPC actions
  assert.ok(warehouse.stock.wood>0);
  assert.ok(w.entities.find(e=>e.id==='resource-wood').quantity<original);
- assert.ok(actor.ai.history.some(e=>e.activity==='Deslocando-se'));
- assert.ok(actor.ai.history.some(e=>e.activity==='Buscando recursos'));
+ assert.ok(actor.ai.history.some(e=>e.activity==='Indo coletar madeira'||e.activity==='Carregando para o depósito'));
+ assert.ok(observed.has('Buscando recursos'));
  assert.ok(actor.ai.history.some(e=>e.activity==='Armazenando recursos'));
  assert.ok(actor.energy>0);
  assert.ok(actor.ai.history.length<=8);

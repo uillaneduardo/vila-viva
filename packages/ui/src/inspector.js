@@ -1,12 +1,13 @@
 import {createUiVisual} from '../assets/visual.js';
-const names={overview:'Resumo',health:'Atributos',effects:'Efeitos',box:'Inventário'};
+import {workProfile} from './work-profile.js';
+const names={overview:'Resumo',health:'Atributos',effects:'Efeitos',box:'Inventário',work:'Trabalho',history:'Histórico'};
 const safe=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const row=(k,v)=>'<div class="data-row"><span>'+safe(k)+'</span><strong>'+safe(v)+'</strong></div>';
 const bar=(label,value,color)=>{
  const n=Math.max(0,Math.min(100,Number(value)||0));
  return '<div class="stat"><div class="stat-head"><span>'+safe(label)+'</span><strong>'+Math.round(n)+'%</strong></div><div class="track"><div class="fill" style="width:'+n+'%;background:'+color+'"></div></div></div>';
 };
-export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
+export function createInspector({onHarvest=()=>{},onConstruction=()=>{},onFollow=()=>{}}={}){
  const el=id=>document.getElementById(id);
  let selectedId=null,active='overview',collapsed=false,sections='',lastContent='';
  const open=()=>{el('panel').hidden=false;el('expand').hidden=true;};
@@ -16,14 +17,15 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
  el('expand').replaceChildren(createUiVisual('control.expand',{size:18}));
  el('collapse').addEventListener('click',collapse);
  el('expand').addEventListener('click',()=>{collapsed=false;open();});
- el('follow').replaceChildren(createUiVisual('control.follow',{size:17}));el('follow').disabled=true;el('follow').title='Rota do NPC pode ser observada ao passar o mouse';
+ el('follow').replaceChildren(createUiVisual('control.follow',{size:17}));el('follow').disabled=true;el('follow').title='Seguir NPC com a câmera';el('follow').setAttribute('aria-label','Seguir NPC com a câmera');el('follow').addEventListener('click',onFollow);
+ function setFollowing(value){el('follow').setAttribute('aria-pressed',String(value));el('follow').title=value?'Parar de seguir NPC':'Seguir NPC com a câmera';}
  function setSelection(id){
   if(selectedId!==id){selectedId=id;active='overview';sections='';lastContent='';collapsed=false;}
   if(!id)close();else if(collapsed)collapse();else open();
  }
  function render(entity,details,catalog,options={}){
   if(!entity||selectedId!==entity.id)return;
-  const isNpc=entity.kind==='character';
+  const isNpc=entity.kind==='character';el('follow').disabled=!isNpc||entity.health<=0;
   el('portrait').textContent=isNpc?(entity.health<=0?'☠':entity.name?.charAt(0).toUpperCase()||'?'):
    entity.kind==='construction'?'⌂':entity.kind==='planting_zone'?'▦':entity.kind==='obstacle'?'▣':({wood:'♣',stone:'◆',food:'●'})[entity.resourceType]||'■';
   el('panelName').textContent=entity.kind==='item'?(catalog?.items?.[entity.itemId]?.label??entity.itemId):isNpc?entity.name:entity.kind==='planting_zone'?
@@ -37,7 +39,7 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
    'Área de plantio · Sem bloqueio de passagem':entity.kind==='construction'?
    (entity.status==='destroyed'?'Ruína · Edificação destruída':entity.status==='completed'?'Edificação concluída':'Canteiro de obras · Construção em andamento'):entity.kind==='obstacle'?
    'Elemento estático · Não coletável':entity.sourceId?'Fonte viva · Cultivo':'Fonte de recurso';
-  const allowed=isNpc?['overview','health','effects']:['overview'];
+  const allowed=isNpc?['overview','work','health','effects','box','history']:['overview'];
   if(!allowed.includes(active))active='overview';
   const signature=allowed.join(',');
   if(signature!==sections){
@@ -45,7 +47,7 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
    for(const id of allowed){
     const b=document.createElement('button');b.type='button';b.dataset.section=id;
     b.className='nav-item';b.title=names[id];b.setAttribute('aria-label',names[id]);
-    b.replaceChildren(createUiVisual(({overview:'section.overview',health:'section.attributes',effects:'section.effects'})[id]||'ui.unavailable',{size:19}));
+    b.replaceChildren(createUiVisual(({overview:'section.overview',health:'section.attributes',effects:'section.effects',work:'action.metrics',box:'section.inventory',history:'action.events'})[id]||'ui.unavailable',{size:19}));
     const text=document.createElement('span');text.textContent=names[id];b.append(text);
     b.addEventListener('click',()=>{active=id;lastContent='';render(entity,details,catalog,options);});
     nav.append(b);
@@ -69,10 +71,6 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
     html+='<h3>Informações</h3>'+row('Posição',entity.position.x+', '+entity.position.y)+row('Atividade',ai?.activity??'Aguardando')+
      row('Rota',ai?.route?.length?Math.max(0,ai.route.length-1)+' passos planejados':'Sem rota')+
      row('Destino',ai?.targetId??'Nenhum');
-    html+='<h3>Últimas decisões</h3>';
-    const decisions=details?.decisions??[];
-    html+=decisions.length?decisions.slice(-6).reverse().map(item=>'<div class="data-row"><span>Tick '+safe(item.tick)+' · '+safe(item.activity)+'</span><strong style="max-width:50%;white-space:normal;text-align:right">'+safe(item.reason)+'</strong></div>').join(''):
-     '<p class="empty">Nenhuma decisão autônoma registrada.</p>';
     if(entity.communityRole==='leader'){
      const plan=details?.leadership??entity.leadership;
      html+='<h3>Liderança e planejamento</h3>'+
@@ -84,6 +82,15 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
       row('Tick de produção',plan?.lastProductionTick??'—')+
       '<p class="empty">'+safe(plan?.productionReason??'Ainda sem necessidade produtiva')+'</p>';
     }
+   } else if(active==='work'){
+    const profile=workProfile(entity,catalog);
+    html='<h3>Função e afinidades</h3>'+row('Função comunitária',entity.communityRole==='leader'?'Líder':'Habitante')+
+     row('Preferência predominante',profile.preference)+row('Atividade',entity.ai?.activity??'Aguardando')+
+     row('Destino',entity.ai?.targetId??'Nenhum')+
+     row('Compromisso',entity.ai?.extractionCommitment?.targetId??entity.ai?.plantingCommitment?.zoneId??'Nenhum')+
+     '<p class="empty">Afinidade ×1,00 é neutra. Preferência não é profissão fixa nem prioridade atribuída.</p>';
+    for(const affinity of profile.affinities)html+=row(affinity.label,affinity.factor.toFixed(2)+'×');
+    html+=row('Prioridade do líder','Ainda não implementada');
     html+='<h3>Identidade e traços</h3>';
     for(const id of entity.traits??[]){
      const trait=catalog?.traits?.[id];
@@ -92,6 +99,12 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
      html+=row(trait?.label??id,(trait?.description??'Característica pessoal')+
       (affinities?' · '+affinities:''));
     }
+   } else if(active==='history'){
+    html+='<h3>Últimas decisões</h3>';
+    const decisions=details?.decisions??entity.ai?.history??[];
+    html+=decisions.length?decisions.slice(-6).reverse().map(item=>'<div class="data-row"><span>Tick '+safe(item.tick)+' · '+safe(item.activity)+'</span><strong style="max-width:50%;white-space:normal;text-align:right">'+safe(item.reason)+'</strong></div>').join(''):
+     '<p class="empty">Nenhuma decisão autônoma registrada.</p>';
+   } else if(active==='box'){
     html+='<h3>Equipamentos e riscos</h3>';
     const gear=entity.equipment?.tool;
     const risk=details?.survival?.risk;
@@ -165,6 +178,7 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
       '<div class="data-row"><span>'+safe(record.name)+'</span><strong>Tick '+safe(record.burialTick)+'</strong></div>').join(''):
       '<p class="empty">Nenhum habitante sepultado.</p>';
     }
+    if(details?.construction?.workerCapacity>0){html+='<h3>Capacidade de trabalho</h3>'+row('Operadores por tick',details.construction.workerCapacity);}
     if(details?.construction?.mining){html+='<h3>Reservas subterrâneas</h3>'+Object.entries(details.construction.mining.remaining).map(([id,n])=>row(catalog?.items?.[id]?.label??id,n)).join('');}
     if(details?.construction?.production){
      const prod=details.construction.production;
@@ -283,5 +297,5 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
     });
    }}
  }
- return {setSelection,render,close};
+ return {setSelection,render,close,setFollowing};
 }

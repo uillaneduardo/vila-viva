@@ -16,10 +16,16 @@ export interface Character { id: string; kind: "character"; name: string; positi
  traits?:string[]; deathTick?:number; causeOfDeath?:string; bodyCarriedBy?:string;
  communityRole?:"leader"; leadership?:{lastPlanTick:number;lastBlueprintId?:string;lastReason:string;lastSiteId?:string;
  lastProductionTick?:number;lastRecipeId?:string;productionReason?:string}; }
+/** A bounded planting intent; no inventory or physical occupancy is reserved. */
+export interface PlantingCommitment {zoneId:string;position:Position;startedTick:number;lastProgressTick:number}
+/** Extraction intent, not a reservation of source, inventory or destination. */
+export interface ExtractionCommitment {targetId:string;action:"resource.gather"|"mine.extract";itemId:string;startedTick:number;lastProgressTick:number}
 export interface NpcDecisionState {
  activity:string|null; reason:string; targetId?:string; route:Position[];
  lastDecisionTick:number; history:Array<{tick:number;activity:string;reason:string;targetId?:string}>;
  resting?:boolean;
+ plantingCommitment?:PlantingCommitment;
+ extractionCommitment?:ExtractionCommitment;
 }
 export interface NaturalLife { ageTicks:number; stage:NaturalStage; health:number; productionProgress:number }
 export interface Resource { id: string; kind: "resource"; resourceType: string; position: Position; quantity: number; maximum: number; sourceId?:string; productId?:string; life?:NaturalLife; plantedInZoneId?:string }
@@ -33,6 +39,7 @@ export interface Construction {
  /** Absent level means legacy level 1; active improvement retains current capabilities. */
  level?:number; upgrade?:{targetLevel:number;startedTick:number};
  residents?:string[]; mineRemaining?:Inventory; lastMiningTick?:number; stock?:Inventory; bedReservations?:Record<string,{expiresTick:number}>;
+ workCycle?:{tick:number;actors:string[]};
  productionOrders?:Array<{recipeId:string;quantity:number;workDone:number}>;
  burials?:{npcId:string;name:string;deathTick:number;burialTick:number;cause:string}[];
 }

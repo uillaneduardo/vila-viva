@@ -1,3 +1,4 @@
+import {workerCapacity} from "../../../packages/systems/construction/src/work-cycle.ts";
 import {PersistenceWorker} from "./persistence-worker.mts";
 import {TickScheduler} from "./tick-scheduler.mts";
 import {TimingMetrics} from "./timing-metrics.mts";
@@ -360,6 +361,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string;asyncPersist
        level:buildingLevel(entity),upgrade:entity.upgrade??null,nextUpgrade:nextUpgrade(entity)??null,
        stage:currentStage(entity)?.id??null,remaining:materialsRemaining(entity),
        materialsReady:hasMaterials(entity),capabilities:buildingCapabilities(entity),
+       workerCapacity:workerCapacity(entity),
        mining:entity.mineRemaining?{remaining:entity.mineRemaining,stock:entity.stock??{}}:null,
        stageIndex:entity.stageIndex,status:entity.status,availability:entity.availability,
        production:productionDefinition(entity)?{
@@ -427,7 +429,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string;asyncPersist
     return json(res,200,{results,world,clock:clockView()});
    }
    if(req.method!=="GET"&&req.method!=="HEAD")return json(res,405,{error:"METHOD_NOT_ALLOWED"});
-   const path=url.pathname==="/"?"/apps/player-web/index.html":url.pathname==="/admin"?"/apps/admin-web/index.html":url.pathname;
+   const path=url.pathname==="/browser"||url.pathname==="/browser/"?"/apps/admin-web/index.html":url.pathname==="/"?"/apps/player-web/index.html":url.pathname==="/admin"?"/apps/admin-web/index.html":url.pathname;
    // Static binary assets are restricted to approved public UI/world namespaces.
    const publicAsset=path.startsWith("/assets/ui/")||path.startsWith("/assets/world/");
    const assetPath=publicAsset?"/public"+path:path;

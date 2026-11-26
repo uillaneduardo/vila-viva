@@ -86,20 +86,20 @@ function makeHud(role="admin"){
 test("clickable squares preserve active state, phase selection and blueprint size without dropdown",()=>{
  const {hud,elements,presets,phases,cleanup}=makeHud();
  try{
-  hud.tool("stone");
+  hud.tool("wood");
   assert.equal(elements.godSubmenu.hidden,false);
   assert.equal(elements.brushPanel.hidden,false);
   assert.deepEqual(elements.godSubmenuChoices.children.map(b=>b.dataset.preset),
-   ["stone","iron_ore","copper_ore"]);
-  assert.equal(presets.at(-1),"stone");
-  elements.godSubmenuChoices.children[1].click();
-  assert.equal(presets.at(-1),"iron_ore");
-  assert.equal(elements.godSubmenuChoices.children[1].attributes["aria-pressed"],"true");
+   ["wood","stone:stone","stone:iron_ore","stone:copper_ore","food:apple_adult","food:apple_seedling","food:medicinal_herb_adult"]);
+  assert.equal(presets.at(-1),"resource:wood");
+  elements.godSubmenuChoices.children[2].click();
+  assert.equal(presets.at(-1),"resource:stone:iron_ore");
+  assert.equal(elements.godSubmenuChoices.children[2].attributes["aria-pressed"],"true");
   assert.equal(elements.godSubmenuChoices.children[0].attributes["aria-pressed"],"false");
   hud.tool("npc");
   assert.equal(presets.at(-1),"settler");
-  hud.tool("stone");
-  assert.equal(presets.at(-1),"iron_ore","reselecting a tool restores the last option");
+  hud.tool("wood");
+  assert.equal(presets.at(-1),"resource:stone:iron_ore","reselecting a tool restores the last option");
 
   hud.setBlueprints(BUILDING_BLUEPRINTS);
   hud.tool("house");
@@ -134,7 +134,7 @@ test("clickable squares preserve active state, phase selection and blueprint siz
   assert.equal(elements.godSubmenu.hidden,true);
   assert.equal(elements.brushPanel.hidden,true);
   hud.tool("wood");
-  assert.equal(elements.godSubmenu.hidden,true);
+  assert.equal(elements.godSubmenu.hidden,false);
   assert.equal(elements.brushPanel.hidden,false);
  }finally{cleanup();}
 });

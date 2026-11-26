@@ -56,11 +56,13 @@
    </div>
   </section>
  </div>
- <section id="npcActivityMonitor" class="npc-monitor glass" aria-label="Atividades dos habitantes">
+ <section id="npcActivityMonitor" class="npc-monitor glass" aria-label="Gerenciamento da comunidade">
   <header class="npc-monitor-head">
-   <div class="npc-monitor-title"><strong>Atividades</strong><small id="npcActivityCount">0 habitantes</small></div>
+   <div class="npc-monitor-title"><strong>Comunidade</strong><small id="npcActivityCount">0 habitantes</small></div>
    <button id="npcActivityToggle" type="button" aria-controls="npcActivityList" aria-expanded="true" aria-label="Recolher atividades" title="Recolher janela de atividades">−</button>
   </header>
+  <nav id="communityTabs" class="community-tabs" aria-label="Gerenciamento da comunidade"></nav>
+  <div id="communityContent" class="community-content" hidden></div>
   <div id="npcActivityList" class="npc-monitor-list" aria-label="Habitantes e histórico de decisões"></div>
  </section>
  <section id="panel" class="context glass" hidden aria-label="Inspetor contextual">

@@ -13,23 +13,31 @@ import {createTouchGestures} from '../../packages/ui/src/touch-gestures.js';
 import {createHud} from '../../packages/ui/src/hud.js';
 import {createInspector} from '../../packages/ui/src/inspector.js';
 import {createNpcActivityMonitor} from '../../packages/ui/src/npc-activity-monitor.js';
+import {createCommunityPanel} from '../../packages/ui/src/community-panel.js';
+import {createBrowserConnection} from '../../packages/client-sdk/src/browser-connection.js';
+const browserMode=location.pathname.replace(/\/$/,'')==='/browser';
+const local=browserMode?createBrowserConnection():null;
 const el=id=>document.getElementById(id),role=document.body.dataset.role;
 applyUiTheme(document.documentElement);
 const surface=new Scene(el('game'),{spriteLibrary:new SpriteLibrary({pack:getWorldVisualPack(new URLSearchParams(location.search).get('visualPack')??undefined)})});
 const rendererMode=new URLSearchParams(location.search).get('renderer');
 const scene=rendererMode==='legacy'?surface:rendererMode==='tick'?createTickRenderAdapter(surface):rendererMode==='layered'?createLayeredRenderAdapter(surface):createMotionRenderAdapter(surface);
 const inspector=createInspector({
+ onFollow:()=>{const entity=snapshot?.world.entities.find(e=>e.id===selectedId);if(entity?.kind!=='character'||entity.health<=0)return;followingId=followingId===entity.id?null:entity.id;inspector.setFollowing(!!followingId);},
  onHarvest:(id)=>void harvestSelected(id),
  onConstruction:(id,action,parameters)=>void executeConstruction(id,action,parameters)
 });
 const npcActivityMonitor=role==='admin'?createNpcActivityMonitor(el('npcActivityMonitor')):null;
 let snapshot=null,catalog=null,selectedId=null,hoverId=null,tool='inspect',brushSize=1,brushShape='square',preset='apple_adult',buildMode='site';
+let followingId=null;
+const community=role==='admin'?createCommunityPanel(el('npcActivityMonitor'),{onSelect:id=>{const entity=snapshot?.world.entities.find(e=>e.id===id);if(!entity)return;tool='inspect';hud.tool(tool);scene.setBrush(null);setSelection(entity);if(compactUi.matches)community.collapse();},onWorld:()=>{if(el('worldManager')?.hidden)el('worldManagerToggle')?.click();}}):null;
 let pan=null,painting=new Map(),loading=false,inspection=null,lastSpeed=1;
 let stream=null,inspectAt=0,inspectSequence=0,visualEpoch=0,frames=0,fps=0,lastEpoch=null,lastHudAt=-Infinity;
 const keys=new Set();
 const frameIntervals=new PerformanceWindow(),paintCosts=new PerformanceWindow(),sampleGaps=new PerformanceWindow();
 let lastVisualSample=null,lastFrameTime=null;
 const request=async(path,options)=>{
+ if(local)return local.request(path,options);
  const response=await fetch(path,options),data=await response.json();
  if(!response.ok)throw Error(data.error||data.result?.error||'Falha na comunicação');
  return data;
@@ -45,6 +53,10 @@ const hud=createHud({
   hoverId=null;scene.setHover(null);el('tooltip').hidden=true;
  },
  onPreset(value){
+  if(value.startsWith('resource:')){
+   const parts=value.slice(9).split(':');tool=parts[0];preset=parts[1]??'wood';
+   scene.setBrush({kind:tool,size:brushSize,shape:brushShape});return;
+  }
   preset=value;
   if(tool==='house')scene.setBrush({kind:'house',size:1,
    footprint:catalog?.buildingBlueprints?.[value]?.footprint??{width:2,height:2}});
@@ -58,6 +70,7 @@ hud.tool('inspect');hud.size(1);
 const status=message=>{el('statusMessage').textContent=message;};
 const eventCoordinates=e=>{const rect=scene.canvas.getBoundingClientRect();return {x:e.clientX-rect.left,y:e.clientY-rect.top};};
 function setSelection(entity){
+ followingId=null;inspector.setFollowing(false);
  selectedId=entity?.id??null;inspector.setSelection(selectedId);scene.setSelection(selectedId);
  inspection=null;inspectSequence++;inspectAt=0;if(entity)refreshInspector(entity);
 }
@@ -200,7 +213,7 @@ function applyWorld(data,{reset=false,epoch=null,sampleTime}={}){
  if(reset||changed){sampleGaps.clear();lastVisualSample=null;}
  if(lastVisualSample!==null)sampleGaps.add(now-lastVisualSample);
  lastVisualSample=now;
- if(reset||changed||clockChanged||data.clock.paused||now-lastHudAt>=250){hud.update(data);npcActivityMonitor?.update(data);lastHudAt=now;}
+ if(reset||changed||clockChanged||data.clock.paused||now-lastHudAt>=250){hud.update(data);npcActivityMonitor?.update(data);community?.update(data,catalog);lastHudAt=now;}
  const selected=data.world.entities.find(e=>e.id===selectedId);
  if(selectedId&&!selected)setSelection(null);
  else if(selected&&performance.now()-inspectAt>=500)void refreshInspector(selected);
@@ -211,13 +224,13 @@ async function refresh(){
   if(!catalog){
    catalog=await request('/api/catalog');
    hud.setBlueprints(catalog.buildingBlueprints);
-   hud.setFarmingSpecies(catalog.naturalSources);
+   hud.setFarmingSpecies(catalog.naturalSources);community?.update(snapshot,catalog);
   }
   if(stream?.live)return;
   const epoch=visualEpoch,data=await request('/api/world');
   if(stream?.live||epoch!==visualEpoch)return;
   applyWorld(data);
-  el('connection').textContent='Sincronização HTTP';
+  el('connection').textContent=browserMode?'Local · navegador':'Sincronização HTTP';
   el('connection').classList.remove('offline');
  }catch(error){if(stream?.live)return;el('connection').textContent='Sem conexão';el('connection').classList.add('offline');status('Servidor indisponível: '+error.message);}
  finally{loading=false;}
@@ -231,7 +244,9 @@ if(role==='admin'&&el('worldManagerToggle')){
    body:JSON.stringify({role:'admin',...body})});
   return result;
  };
- const download=url=>{
+ const download=async url=>{
+  if(local){try{const data=await local.request(url);const blob=new Blob([typeof data==='string'?data:JSON.stringify(data,null,2)],{type:'application/octet-stream'});const link=URL.createObjectURL(blob);const a=document.createElement('a');a.href=link;a.download=url.includes('activity')?'oturo-browser-activity.jsonl':'oturo-browser-world.json';a.click();setTimeout(()=>URL.revokeObjectURL(link),1000);}catch(e){status(e.message);}return;}
+
   const a=document.createElement('a');a.href=url;a.download='';document.body.append(a);
   a.click();a.remove();
  };
@@ -341,7 +356,7 @@ if(role==='admin'&&el('worldManagerToggle')){
 // Touch navigation uses the same camera and command callbacks, never a second world stream.
 const clearTouchPreview=()=>{painting.clear();scene.pointer=null;el('tooltip').hidden=true;scene.setHover(null);};
 const touch=createTouchGestures({
- pan:(dx,dy)=>{scene.camera.pan(dx,dy);clearTouchPreview();},
+ pan:(dx,dy)=>{followingId=null;inspector.setFollowing(false);scene.camera.pan(dx,dy);clearTouchPreview();},
  zoom:(x,y,factor)=>{scene.camera.zoomAt(x,y,factor);el('zoom').textContent=Math.round(scene.camera.zoom*100)+'%';},
  cancel:clearTouchPreview,
  tap:point=>{
@@ -384,7 +399,7 @@ stockToggle.addEventListener('click',()=>{
 const connectionNode=el('connection');
 const syncConnectionLabel=()=>{
  const value=connectionNode.textContent;
- connectionNode.dataset.state=value==='Sem conexão'?'disconnected':value==='Ao vivo'?'live':'pending';
+ connectionNode.dataset.state=value==='Sem conexão'?'disconnected':(value==='Ao vivo'||value==='Local · navegador')?'live':'pending';
  connectionNode.parentElement.title=value;
  connectionNode.parentElement.setAttribute('aria-label',value);
 };
@@ -420,7 +435,7 @@ scene.canvas.addEventListener('pointermove',e=>{
   }
   const diff=Math.hypot(point.x-pan.start.x,point.y-pan.start.y);
   if(diff>5&&(pan.button===1||!pan.entity))pan.drag=true;
-  if(pan.drag){scene.camera.pan(point.x-pan.last.x,point.y-pan.last.y);scene.canvas.classList.add('dragging');}
+  if(pan.drag){followingId=null;inspector.setFollowing(false);scene.camera.pan(point.x-pan.last.x,point.y-pan.last.y);scene.canvas.classList.add('dragging');}
   pan.last=point;el('tooltip').hidden=true;return;
  }
  updateHover(point);
@@ -449,7 +464,14 @@ let last=performance.now();
 function animate(now){
  const dt=Math.min(.06,(now-last)/1000);last=now;
  const x=Number(keys.has('KeyD'))-Number(keys.has('KeyA')),y=Number(keys.has('KeyS'))-Number(keys.has('KeyW'));
- if(x||y){const factor=420*dt/Math.max(1,Math.hypot(x,y));scene.camera.pan(-x*factor,-y*factor);}
+ if(x||y){followingId=null;inspector.setFollowing(false);const factor=420*dt/Math.max(1,Math.hypot(x,y));scene.camera.pan(-x*factor,-y*factor);}
+ if(followingId){
+  const npc=snapshot?.world.entities.find(e=>e.id===followingId&&e.kind==='character'&&e.health>0);
+  if(!npc){followingId=null;inspector.setFollowing(false);}
+  else{const segment=npc.movementSegment;const tick=snapshot.world.tick;const t=segment?Math.max(0,Math.min(1,(tick-segment.startTick)/Math.max(1,segment.endTick-segment.startTick))):1;
+   const pos=segment?{x:segment.from.x+(segment.to.x-segment.from.x)*t,y:segment.from.y+(segment.to.y-segment.from.y)*t}:npc.position;
+   const k=Math.min(1,dt*10);scene.camera.center.x+=((pos.x+.5)*scene.camera.tile-scene.camera.center.x)*k;scene.camera.center.y+=((pos.y+.5)*scene.camera.tile-scene.camera.center.y)*k;}
+ }
  if(lastFrameTime!==null&&now-lastFrameTime<1000)frameIntervals.add(now-lastFrameTime);
  lastFrameTime=now;
  const paintStart=performance.now();frames++;scene.paint(now);paintCosts.add(performance.now()-paintStart);requestAnimationFrame(animate);
@@ -457,10 +479,11 @@ function animate(now){
 requestAnimationFrame(animate);
 el('worldTick').textContent='Carregando mundo…';
 el('introHint').replaceChildren(createUiVisual('action.inspect',{size:15}),document.createTextNode(' Sobrevivência ativa: NPCs comem, reservam camas e podem se ferir. Use o inspetor para acompanhar decisões.'));
+if(browserMode){document.title='Oturo · Simulação local';el('introHint').textContent='Simulação local: motor no navegador, mundo independente do servidor.';}
 refresh();
-stream=connectWorld({onState:(data,meta)=>applyWorld(data,meta),
- onStatus:state=>{const node=el('connection');node.textContent=state==='live'?'Ao vivo':state==='connecting'?'Conectando…':'Reconectando…';node.classList.toggle('offline',state!=='live');},
- onMetrics:({updates,bytes,rtt})=>{fps=frames;frames=0;const node=el('connection');const ms=v=>v===null?'—':v.toFixed(1)+' ms';node.title=fps+' FPS · '+updates+' atualizações/s · '+Math.round(bytes/1024)+' KiB/s · RTT '+(rtt===null?'—':Math.round(rtt)+' ms')+' · frame p95 '+ms(frameIntervals.summary().p95)+' · desenho p95 '+ms(paintCosts.summary().p95)+' · intervalo de estados p95 '+ms(sampleGaps.summary().p95);}
+stream=(local?local.connect:connectWorld)({onState:(data,meta)=>applyWorld(data,meta),
+ onStatus:state=>{const node=el('connection');node.textContent=state==='live'?(browserMode?'Local · navegador':'Ao vivo'):state==='connecting'?'Conectando…':'Reconectando…';node.classList.toggle('offline',state!=='live');},
+ onMetrics:({updates,bytes,rtt})=>{fps=frames;frames=0;community?.metrics({fps,updates,bytes,rtt,frame:frameIntervals.summary().p95,paint:paintCosts.summary().p95});const node=el('connection');const ms=v=>v===null?'—':v.toFixed(1)+' ms';node.title=fps+' FPS · '+updates+' atualizações/s · '+Math.round(bytes/1024)+' KiB/s · RTT '+(rtt===null?'—':Math.round(rtt)+' ms')+' · frame p95 '+ms(frameIntervals.summary().p95)+' · desenho p95 '+ms(paintCosts.summary().p95)+' · intervalo de estados p95 '+ms(sampleGaps.summary().p95);}
 });
 setInterval(()=>{if(!stream.live)void refresh();},650);
 addEventListener('pagehide',event=>{if(!event.persisted)stream.close();});

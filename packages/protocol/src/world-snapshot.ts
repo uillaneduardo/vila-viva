@@ -29,6 +29,20 @@ export function validateWorld(value:unknown):asserts value is World {
    !safeInt(entity.energy,100)||
    entity.nextMoveTick!==undefined&&(typeof entity.nextMoveTick!=="number"||!Number.isFinite(entity.nextMoveTick)||entity.nextMoveTick<0)||entity.satiety!==undefined&&!safeInt(entity.satiety,100)))
    throw Error("INVALID_WORLD");
+  if(entity.kind==="character"&&object(entity.ai)&&entity.ai.plantingCommitment!==undefined){
+   const p=entity.ai.plantingCommitment;
+   if(!object(p)||typeof p.zoneId!=="string"||!/^[\w:-]{1,120}$/.test(p.zoneId)||
+    !position(p.position,value.width,value.height)||!safeInt(p.startedTick,value.tick)||
+    !safeInt(p.lastProgressTick,value.tick)||p.lastProgressTick<p.startedTick)throw Error("INVALID_WORLD");
+  }
+  if(entity.kind==="character"&&object(entity.ai)&&entity.ai.extractionCommitment!==undefined){
+   const p=entity.ai.extractionCommitment;
+   if(!object(p)||typeof p.targetId!=="string"||!/^[\w:-]{1,120}$/.test(p.targetId)||
+    (p.action!=="resource.gather"&&p.action!=="mine.extract")||
+    typeof p.itemId!=="string"||!["wood","stone","iron_ore","copper_ore"].includes(p.itemId)||
+    p.action==="mine.extract"&&p.itemId==="wood"||
+    !safeInt(p.startedTick,value.tick)||!safeInt(p.lastProgressTick,value.tick)||p.lastProgressTick<p.startedTick)throw Error("INVALID_WORLD");
+  }
   if(entity.kind==="character"&&entity.sleepingInId!==undefined&&(typeof entity.sleepingInId!=="string"||!/^[\w:-]{1,120}$/.test(entity.sleepingInId)))throw Error("INVALID_WORLD");
   if(entity.kind==="character"&&entity.movementSegment!==undefined){
    const m=entity.movementSegment;
@@ -55,6 +69,7 @@ export function validateWorld(value:unknown):asserts value is World {
     if(!object(u)||!next||entity.status!=="completed"||entity.availability!=="available"||u.targetLevel!==next.level||!safeInt(u.startedTick,value.tick)||!safeInt(entity.workDone,next.stage.workUnits-1)||!object(entity.delivered)||Object.entries(entity.delivered).some(([id,n])=>!Object.hasOwn(next.stage.materials,id)||!safeInt(n,next.stage.materials[id])))throw Error("INVALID_WORLD");
    }
   }
+  if(entity.kind==="construction"&&entity.workCycle!==undefined){const c=entity.workCycle;if(!object(c)||!safeInt(c.tick,value.tick)||!Array.isArray(c.actors)||c.actors.length<1||c.actors.length>4||new Set(c.actors).size!==c.actors.length||c.actors.some(id=>typeof id!=="string"||!/^[\w:-]{1,120}$/.test(id)))throw Error("INVALID_WORLD");}
   if(entity.kind==="item"&&(typeof entity.itemId!=="string"||!isItem(entity.itemId)||!safeInt(entity.quantity,1e9)||entity.quantity<1||!safeInt(entity.createdTick,value.tick)))throw Error("INVALID_WORLD");
   if(entity.kind==="resource"&&(!safeInt(entity.quantity,1e9)||!safeInt(entity.maximum,1e9)))throw Error("INVALID_WORLD");
  }

@@ -65,6 +65,9 @@ jobs:
           done
           test "$(curl -fsS http://127.0.0.1:18586/version.txt | tr -d '\r\n')" = "$GITHUB_SHA"
           curl -fsS http://127.0.0.1:18586/admin | grep -F ADMINISTRADOR >/dev/null
+          curl -fsS http://127.0.0.1:18586/browser | grep -F ADMINISTRADOR >/dev/null
+          curl -fsS http://127.0.0.1:18586/apps/browser-runtime/worker.js -o /tmp/browser-worker.js
+          test -s /tmp/browser-worker.js
           curl -fsS http://127.0.0.1:18586/apps/player-web/assets-preview.html | grep -F Oturo >/dev/null
           curl -fsS http://127.0.0.1:18586/api/world | grep -F '"world"' >/dev/null
           curl -fsS http://127.0.0.1:18586/assets/world/vegetation/apple_tree_atlas_96.png -o /tmp/oturo-apple-atlas.png

@@ -1,0 +1,23 @@
+name: Persistence baseline
+on:
+  pull_request:
+    paths:
+      - 'scripts/persistence-baseline.mts'
+      - '.github/workflows/persistence-baseline.yml'
+  workflow_dispatch:
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+      - run: npm install --no-audit --no-fund --ignore-scripts
+      - run: node --experimental-strip-types scripts/persistence-baseline.mts
+        env:
+          OTURO_BENCH_MS: '3000'
+          OTURO_BENCH_NPCS: '6,50'
+          OTURO_BENCH_SPEEDS: '1,4'
+          OTURO_BENCH_OBSERVERS: '1'
