@@ -429,7 +429,7 @@ export function makePrototype(options:{dataDir?:string;seed?:string;asyncPersist
     return json(res,200,{results,world,clock:clockView()});
    }
    if(req.method!=="GET"&&req.method!=="HEAD")return json(res,405,{error:"METHOD_NOT_ALLOWED"});
-   const path=url.pathname==="/"?"/apps/player-web/index.html":url.pathname==="/admin"?"/apps/admin-web/index.html":url.pathname;
+   const path=url.pathname==="/browser"||url.pathname==="/browser/"?"/apps/admin-web/index.html":url.pathname==="/"?"/apps/player-web/index.html":url.pathname==="/admin"?"/apps/admin-web/index.html":url.pathname;
    // Static binary assets are restricted to approved public UI/world namespaces.
    const publicAsset=path.startsWith("/assets/ui/")||path.startsWith("/assets/world/");
    const assetPath=publicAsset?"/public"+path:path;
