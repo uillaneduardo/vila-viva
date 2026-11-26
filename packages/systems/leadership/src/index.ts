@@ -1,3 +1,4 @@
+import {averageFertility} from "../../../content/src/soil.js";
 import type {World,Character,Construction,Position,Command,Result} from "../../../domain/src/contracts.ts";
 import {buildingBlueprint} from "../../../content/src/buildings/registry.ts";
 import {LEADERSHIP_PROJECTS,LEADER_DECISION_INTERVAL,MAX_SIMULTANEOUS_PROJECTS} from "../../../content/src/leadership.ts";
@@ -155,7 +156,7 @@ export function planAgriculture(world:World,leader:Character){
  if(!hungry&&nutrition>=reserveTarget&&crops.length>=target)return undefined;
  const candidates=Object.values(NATURAL_SOURCES).filter(species=>Object.hasOwn(FOOD_ITEMS,species.productId)).map(species=>{
   const seeds=total(species.seedItem);
-  const zones=world.entities.filter(e=>e.kind==="planting_zone"&&e.sourceId===species.id);
+  const zones=world.entities.filter(e=>e.kind==="planting_zone"&&!e.removalOrder&&e.sourceId===species.id);
   const capacity=zones.reduce((n,z)=>n+(z.kind==="planting_zone"?z.footprint.width*z.footprint.height:0),0);
   const active=crops.filter(e=>e.kind==="resource"&&e.sourceId===species.id).length;
   const free=zones.reduce((n,z)=>n+(z.kind==="planting_zone"?availablePlots(world,z).length:0),0);
@@ -171,7 +172,7 @@ export function planAgriculture(world:World,leader:Character){
    const candidate={kind:"resource" as const,id:"agriculture-candidate",position,resourceType:"food" as const,quantity:0,maximum:0};
    const route=routeToEntity(world,leader.position,candidate,leader.id);
    if(!route)continue;
-   const score=route.length+citizens.reduce((n,a)=>n+manhattan(position,a.position),0)/citizens.length;
+   const score=route.length+citizens.reduce((n,a)=>n+manhattan(position,a.position),0)/citizens.length+(150-averageFertility(world,position,size,size))*.08;
    if(!best||score<best.score)best={position,score};
   }
   if(best)return {position:best.position,sourceId:p.species.id,width:size,height:size,

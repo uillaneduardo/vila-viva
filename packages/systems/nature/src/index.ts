@@ -1,3 +1,4 @@
+import {soilAt} from "../../../content/src/soil.js";
 import {naturalSource,stageForAge,healthForAge} from "../../../content/src/natural-sources.ts";
 import type {World,Resource,NaturalLife} from "../../../domain/src/contracts.ts";
 
@@ -19,11 +20,19 @@ export function advanceNaturalSources(world:World):void {
   const def=naturalSource(entity.sourceId);
   if(!def)continue;
   const life=entity.life;
-  life.ageTicks++;
+  const rate=soilAt(world,entity.position.x,entity.position.y).rate;
+  const previousAge=life.ageTicks;
+  // Fertility accelerates maturation, not senescence. Integer carry preserves fractional ticks.
+  if(previousAge<def.stages.mature){
+   const growth=(life.growthRemainder??0)+rate;
+   life.ageTicks=Math.min(def.stages.mature,previousAge+Math.floor(growth/100));
+   const remainder=life.ageTicks>=def.stages.mature?0:growth%100;
+   if(remainder)life.growthRemainder=remainder;else delete life.growthRemainder;
+  }else life.ageTicks++;
   life.stage=stageForAge(def,life.ageTicks);
   life.health=healthForAge(def,life.ageTicks);
   if(life.stage==="dead"){
-   life.productionProgress=0;entity.quantity=0;
+   life.productionProgress=0;delete life.productionRemainder;entity.quantity=0;
    // Annual crops wither and leave the cultivated cell free for reseeding.
    if(def.growthMode==="single_harvest")expired.push(entity.id);
    continue;
@@ -31,12 +40,14 @@ export function advanceNaturalSources(world:World):void {
   if(life.stage!=="mature"&&life.stage!=="old")continue;
   if(def.growthMode==="single_harvest"){
    // One finite harvest; not a regenerating source.
-   if(life.ageTicks===def.stages.mature)entity.quantity=def.production.capacity;
+   if(previousAge<def.stages.mature&&life.ageTicks>=def.stages.mature)entity.quantity=def.production.capacity;
    continue;
   }
-  life.productionProgress++;
+  const production=(life.productionRemainder??0)+rate;
+  life.productionProgress+=Math.floor(production/100);
+  if(production%100)life.productionRemainder=production%100;else delete life.productionRemainder;
   if(life.productionProgress>=def.production.intervalTicks) {
-   life.productionProgress=0;
+   life.productionProgress-=def.production.intervalTicks;
    const yieldCount=life.stage==="old"?Math.max(1,Math.floor(def.production.amount/2)):def.production.amount;
    entity.quantity=Math.min(entity.maximum,entity.quantity+yieldCount);
   }

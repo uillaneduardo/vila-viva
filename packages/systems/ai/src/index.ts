@@ -1,3 +1,4 @@
+import {soilAt} from "../../../content/src/soil.js";
 import type {World,Character,Entity,Resource,Construction,Command,Result,Position} from "../../../domain/src/contracts.ts";
 import {canEnter,blockingEntity} from "../../collision/src/index.ts";
 import {routeToEntity,routeCost} from "../../pathfinding/src/index.ts";
@@ -65,7 +66,7 @@ function reachablePlots(world:World,npc:Character,zone:FarmingZone,respectClaims
   const route=routeToEntity(world,npc.position,target,npc.id);
   return route?{position,route,target}:null;
  }).filter((x):x is {position:Position;route:Position[];target:Resource}=>!!x)
- .sort((a,b)=>routeCost(world,a.route,npc.id)-routeCost(world,b.route,npc.id)||a.position.y-b.position.y||a.position.x-b.position.x);
+ .sort((a,b)=>routeCost(world,a.route,npc.id)-routeCost(world,b.route,npc.id)+(soilAt(world,b.position.x,b.position.y).rate-soilAt(world,a.position.x,a.position.y).rate)*.06||a.position.y-b.position.y||a.position.x-b.position.x);
 }
 // Commit only to a concrete planting cell; survival and urgent deliveries retain priority.
 const PLANTING_STALL_TICKS=24;

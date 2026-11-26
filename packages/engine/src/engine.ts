@@ -1,3 +1,4 @@
+import {canCultivateCell} from "../../content/src/soil.js";
 import {removalSafe,removalWorkUnits,nearRemoval,salvageMaterials} from "../../systems/construction/src/removal.ts";
 import {canUseWorkSlot,recordWorkSlot} from "../../systems/construction/src/work-cycle.ts";
 import {expireEffects} from "../../systems/effects/src/manager.ts";
@@ -93,6 +94,7 @@ export function applyCommand(world: World, command: Command,
     const age=command.parameters?.ageTicks??0;
     const def=typeof sourceId==="string"?naturalSource(sourceId):undefined;
     if(!def||def.resourceType!==type||!Number.isSafeInteger(age)||typeof age!=="number"||age<0||age>def.stages.dead||quantity>def.production.capacity)return reject(command,"INVALID_PAYLOAD");
+    if(!canCultivateCell(world,command.position.x,command.position.y))return reject(command,"BLOCKED");
     world.entities.push(makeNaturalSource(id,command.position,sourceId as string,age as number,quantity));
    } else {
     const resource:Resource={kind:"resource",id,resourceType:type,position:{...command.position},quantity,maximum:quantity};

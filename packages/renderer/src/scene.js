@@ -1,3 +1,4 @@
+import {soilColor,canCultivateCell} from "../../content/src/soil.js";
 import {Camera,hitTest,brushCells} from './camera.js';
 import {SpriteLibrary,resolveWorldSprite} from './sprites.js';
 import {createOcclusionResolver} from './occlusion.js';
@@ -59,13 +60,13 @@ export class Scene {
   const x1=Math.min(this.world.width,Math.ceil(bottomRight.x/t)+1),y1=Math.min(this.world.height,Math.ceil(bottomRight.y/t)+1);
   if(!this.terrainPainter?.(c,k,this.world,{x0,y0,x1,y1}))for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){
    const p=k.worldToScreen(x*t,y*t),s=t*k.zoom;
-   c.fillStyle=(x+y)%2?'#30523d':'#335640';c.fillRect(p.x,p.y,s+.5,s+.5);
+   c.fillStyle=soilColor(this.world,x,y,!!this.soilOverlay);c.fillRect(p.x,p.y,s+.5,s+.5);
    if((x*17+y*23)%29===0&&s>16){c.fillStyle='rgba(191,214,168,.13)';c.fillRect(p.x+s*.6,p.y+s*.29,2,3);}
   }
   // Cultivation zones are passable terrain overlays, drawn before actors and crops.
   for(const zone of this.world.entities.filter(e=>e.kind==='planting_zone')){
    const start=k.worldToScreen(zone.position.x*t,zone.position.y*t),size=t*k.zoom;
-   c.fillStyle='rgba(98,66,36,.39)';
+   c.fillStyle=this.soilOverlay?'rgba(98,66,36,.12)':'rgba(98,66,36,.39)';
    c.fillRect(start.x,start.y,zone.footprint.width*size,zone.footprint.height*size);
    c.strokeStyle=zone.id===this.selected?'#f6d789':'rgba(200,172,112,.68)';
    c.lineWidth=zone.id===this.selected?3:1.3;
@@ -285,6 +286,7 @@ export class Scene {
     let blocked=false;
     for(let y=anchor.y;y<anchor.y+height;y++)for(let x=anchor.x;x<anchor.x+width;x++){
      if(x<0||y<0||x>=this.world.width||y>=this.world.height||
+      (['farm','food'].includes(this.brush.kind)&&!canCultivateCell(this.world,x,y))||
       this.world.entities.some(e=>e.kind==='planting_zone'?
        (this.brush.kind==='farm'&&x>=e.position.x&&x<e.position.x+e.footprint.width&&y>=e.position.y&&y<e.position.y+e.footprint.height):
        (this.brush.kind==='farm'&&e.kind==='character')?false:e.kind==='construction'?

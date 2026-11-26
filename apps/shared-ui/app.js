@@ -1,3 +1,4 @@
+import {SOIL_TYPES,soilAt,canCultivateCell} from "../../packages/content/src/soil.js";
 import {PerformanceWindow} from '../../packages/renderer/src/performance-window.js';
 import {createMotionRenderAdapter} from '../../packages/renderer/src/motion-render-adapter.js';
 import {createLayeredRenderAdapter} from '../../packages/renderer/src/layered-render-adapter.js';
@@ -39,6 +40,21 @@ for(const [id,label] of Object.entries({simple:'Simples',classic:'Clássico',rus
 }
 packSelect.value=activePack;
 (document.getElementById('worldManager')??document.querySelector('.top-right'))?.append(packSelect);
+const soilToggle=document.createElement('button');
+soilToggle.type='button';soilToggle.className='glass world-mgr-trigger';soilToggle.textContent='Fertilidade';soilToggle.setAttribute('aria-pressed','false');
+const soilLegend=document.createElement('div');soilLegend.hidden=true;soilLegend.className='glass soil-legend';
+soilLegend.style.cssText='position:fixed;left:12px;bottom:110px;z-index:20;padding:8px;pointer-events:none;font-size:11px;display:none;';
+for(const soil of SOIL_TYPES){
+ const line=document.createElement('div');line.style.cssText='display:flex;align-items:center;gap:6px';
+ const swatch=document.createElement('span');swatch.style.cssText='display:inline-block;width:12px;height:12px;border:1px solid #ddd;background:'+soil.overlay;
+ line.append(swatch,document.createTextNode(soil.label+' · '+(soil.plantable?soil.rate+'%':'Plantio proibido')));soilLegend.append(line);
+}
+const soilReadout=document.createElement('div');soilLegend.append(soilReadout);document.body.append(soilLegend);
+(document.getElementById('worldManager')??document.querySelector('.top-right'))?.append(soilToggle);
+soilToggle.addEventListener('click',()=>{
+ surface.soilOverlay=!surface.soilOverlay;soilToggle.setAttribute('aria-pressed',String(!!surface.soilOverlay));
+ soilLegend.hidden=!surface.soilOverlay;soilLegend.style.display=surface.soilOverlay?'block':'none';
+});
 packSelect.addEventListener('change',()=>{
  const id=packSelect.value;if(!validPack(id)||id===activePack)return;
  activePack=id;surface.sprites.setPack(getWorldVisualPack(id));applyPackTheme(id);
@@ -164,6 +180,7 @@ async function executeConstruction(siteId,action,parameters){
  }catch(error){status('Construção: '+error.message);}
 }
 function updateHover(point){
+ if(surface.soilOverlay&&snapshot){const cell=scene.camera.tileAt(point.x,point.y);const soil=soilAt(snapshot.world,cell.x,cell.y);soilReadout.textContent=cell.x>=0&&cell.y>=0&&cell.x<snapshot.world.width&&cell.y<snapshot.world.height?soil.label+' · '+(soil.plantable?soil.rate+'%':'Plantio proibido'):'';}
  if(tool!=='inspect'||pan||!snapshot){el('tooltip').hidden=true;scene.setHover(null);scene.setRoute(null);return;}
  const target=scene.pick(point.x,point.y);
  const npc=target?.kind==='character'?target:null;
@@ -194,6 +211,7 @@ function addBrushAt(point){
   let occupied=false;
   for(let y=cell.y;y<cell.y+height;y++)for(let x=cell.x;x<cell.x+width;x++){
    if(x<0||y<0||x>=snapshot.world.width||y>=snapshot.world.height||
+    (['farm','food'].includes(tool)&&!canCultivateCell(snapshot.world,x,y))||
     snapshot.world.entities.some(e=>e.kind==='item'?false:e.kind==='planting_zone'?
      (tool==='farm'&&x>=e.position.x&&x<e.position.x+e.footprint.width&&y>=e.position.y&&y<e.position.y+e.footprint.height):
      (tool==='farm'&&e.kind==='character')?false:e.kind==='construction'?
@@ -204,7 +222,7 @@ function addBrushAt(point){
  }
 }
 async function submitBrush(){
- if(!painting.size){status('Nenhuma célula livre para posicionar.');return;}
+ if(!painting.size){status(['farm','food'].includes(tool)?'Nenhuma área livre e cultivável. O solo estéril impede o plantio.':'Nenhuma célula livre para posicionar.');return;}
  const cells=[...painting.values()],kind=tool,action=kind==='npc'?'npc.spawn':kind==='scenery'?'obstacle.spawn':
   kind==='house'?'construction.place':kind==='farm'?'farming.zone.create':'resource.spawn';
  const commands=cells.map((position,i)=>({

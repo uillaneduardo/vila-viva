@@ -1,4 +1,5 @@
 /** Deterministic world bootstrap. All random choices derive exclusively from the supplied seed and dimensions. */
+import {SOIL_VERSION,canCultivateArea,canCultivateCell} from "./soil.js";
 import type {Command,World,Result,Position} from "../../domain/src/contracts.ts";
 export interface StarterCommand {
  action:Command["action"];commandId:string;position:Position;parameters:Record<string,unknown>;
@@ -17,6 +18,7 @@ function seededRandom(seed:string):()=>number {
 export function starterCommands(seed:string,world:World):StarterCommand[]{
  if(!seed.trim()||seed.length>80)throw Error("INVALID_SEED");
  if(world.width<24||world.height<16)throw Error("WORLD_TOO_SMALL_FOR_SEED");
+ const terrain={...world,seed,soilVersion:SOIL_VERSION};
  const random=seededRandom(seed);
  const integer=(n:number)=>Math.floor(random()*n);
  const occupied=new Set<string>();
@@ -29,14 +31,14 @@ export function starterCommands(seed:string,world:World):StarterCommand[]{
   for(let dy=0;dy<h;dy++)for(let dx=0;dx<w;dx++)if(occupied.has(key(x+dx,y+dy)))return false;
   return true;
  };
- const pick=(w=1,h=1,within?:{x:number;y:number;radius:number}):Position=>{
+ const pick=(w=1,h=1,within?:{x:number;y:number;radius:number},cultivable=false):Position=>{
   const candidates:Position[]=[];
   for(let y=0;y<=world.height-h;y++)for(let x=0;x<=world.width-w;x++){
-   if(!free(x,y,w,h))continue;
+   if(!free(x,y,w,h)||cultivable&&!canCultivateArea(terrain,{x,y},w,h))continue;
    if(within&&Math.abs(x-within.x)+Math.abs(y-within.y)>within.radius)continue;
    candidates.push({x,y});
   }
-  if(!candidates.length)throw Error("SEED_NO_FREE_POSITION");
+  if(!candidates.length){if(within&&cultivable&&w>1)return pick(w,h,undefined,true);throw Error("SEED_NO_FREE_POSITION");}
   const chosen=candidates[integer(candidates.length)];
   reserve(chosen.x,chosen.y,w,h);
   return chosen;
@@ -49,13 +51,24 @@ export function starterCommands(seed:string,world:World):StarterCommand[]{
  const anchors:Position[]=[];
  for(let y=Math.max(2,center.y-3);y<=Math.min(world.height-3,center.y+3);y++)
   for(let x=Math.max(2,center.x-4);x<=Math.min(world.width-3,center.x+4);x++)anchors.push({x,y});
- const anchor=anchors[integer(anchors.length)];
+ // At least 16 cultivable cells within 8 tiles: orchard (9), starter
+ // residents (4), first tree (1) and spare cells. Center is guaranteed by soil generation.
+ const viable=anchors.filter(a=>{
+  let n=0;
+  for(let y=Math.max(0,a.y-8);y<=Math.min(world.height-1,a.y+8);y++)
+   for(let x=Math.max(0,a.x-8);x<=Math.min(world.width-1,a.x+8);x++)
+    if(Math.abs(x-a.x)+Math.abs(y-a.y)<=8&&canCultivateCell(terrain,x,y))n++;
+  return n>=16;
+ });
+ const anchor=viable[integer(viable.length)]??center;
  const residents:[string,Record<string,unknown>][]=[
   ["leader",{communityRole:"leader"}],["settler-a",{}],["settler-b",{}],["settler-c",{}]
  ];
+ // Reserve a cultivable orchard, then residents and one nearby tree before
+ // non-agricultural resources can occupy all the suitable soil.
+ const orchard=pick(3,3,{...anchor,radius:Math.max(8,Math.floor((world.width+world.height)/5))},true);
  for(const [id,parameters] of residents)add("npc.spawn",id,pick(1,1,{...anchor,radius:3}),parameters);
- // Reserve a clear 3x3 farming plot before distributing natural resources.
- const orchard=pick(3,3,{...anchor,radius:Math.max(8,Math.floor((world.width+world.height)/5))});
+ const starterApple=pick(1,1,{...anchor,radius:8},true);
  // Independent abundance rolls per type; larger maps allow more sources but
  // the minimum stays one. Cap density/work rather than filling every free tile.
  const bonus=Math.min(3,Math.floor(Math.log2(world.width*world.height/(24*16))));
@@ -70,6 +83,9 @@ export function starterCommands(seed:string,world:World):StarterCommand[]{
  // Roll the count of each category before consuming random values for placement.
  const counts=resources.map(r=>range(1,r.max+bonus));
  const apples=range(1,7+bonus);
+ // Reserve every apple position before minerals; all food uses cultivable cells.
+ const applePositions=[starterApple];
+ for(let i=1;i<apples;i++)applePositions.push(pick(1,1,undefined,true));
  for(const [index,r] of resources.entries()){
   for(let i=0;i<counts[index];i++){
    const id=r.prefix+(r.type.endsWith("_ore")?(i===0?"-deposit":"-deposit-"+(i+1)):"-"+String.fromCharCode(97+i));
@@ -80,15 +96,16 @@ export function starterCommands(seed:string,world:World):StarterCommand[]{
   }
  }
  for(let i=0;i<apples;i++)
-  add("resource.spawn","apple-"+String.fromCharCode(97+i),pick(1,1,i===0?nearby:undefined),
+  add("resource.spawn","apple-"+String.fromCharCode(97+i),applePositions[i],
    {resourceType:"food",sourceId:"apple_tree",ageTicks:120,quantity:range(8,30)});
  add("farming.zone.create","starter-orchard",orchard,{sourceId:"apple_tree",width:3,height:3});
  return entries;
 }
 /** Uses the authoritative command executor, so bootstrap follows the same validations as gameplay. */
 export function bootstrapSeededWorld(world:World,seed:string,execute:(c:StarterCommand)=>Result):void {
- world.seed=seed;
- for(const command of starterCommands(seed,world)){
+ const commands=starterCommands(seed,world);
+ world.seed=seed;world.soilVersion=SOIL_VERSION;
+ for(const command of commands){
   const result=execute(command);
   if(!result.ok)throw Error("SEED_FAILED:"+command.commandId+":"+result.error);
  }

@@ -30,7 +30,7 @@ export interface NpcDecisionState {
  extractionCommitment?:ExtractionCommitment;
  haulingClaim?:HaulingClaim;
 }
-export interface NaturalLife { ageTicks:number; stage:NaturalStage; health:number; productionProgress:number }
+export interface NaturalLife { ageTicks:number; stage:NaturalStage; health:number; productionProgress:number; growthRemainder?:number; productionRemainder?:number }
 export interface Resource { id: string; kind: "resource"; resourceType: string; position: Position; quantity: number; maximum: number; sourceId?:string; productId?:string; life?:NaturalLife; plantedInZoneId?:string }
 export type RemovalMode = "deconstruct" | "demolish" | "clear";
 export interface RemovalOrder {mode:RemovalMode; workDone:number}
@@ -51,7 +51,7 @@ export interface Construction {
 }
 export interface GroundItem {id:string;kind:"item";position:Position;itemId:string;quantity:number;createdTick:number}
 export type Entity = GroundItem | Character | Resource | Obstacle | Construction | FarmingZone;
-export interface World { id: string; tick: number; width: number; height: number; entities: Entity[]; appliedCommands: string[]; seed?:string }
+export interface World { id: string; tick: number; width: number; height: number; entities: Entity[]; appliedCommands: string[]; seed?:string; soilVersion?:1 }
 export interface Command { commandId: string; worldId: string; actorRole: Role; actorId?: string; action: ActionId; targetId?: string; position?: Position; parameters?: Record<string, unknown> }
 export type Result =
  | { ok: true; status: "completed"; commandId: string; tick: number; events: ReadonlyArray<{type: string; entityId?: string}> }
