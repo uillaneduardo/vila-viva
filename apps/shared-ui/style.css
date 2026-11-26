@@ -425,3 +425,16 @@ button:focus-visible,input:focus-visible,canvas:focus-visible{outline:2px solid 
  .dock{bottom:calc(8px + env(safe-area-inset-bottom,0px))}
  .god-action-stack,.status{bottom:calc(68px + env(safe-area-inset-bottom,0px))}
 }
+
+/* #28: community workspace; same overlay, no second world stream. */
+.community-tabs{display:flex;flex-wrap:wrap;gap:4px;padding:6px;border-bottom:1px solid var(--line)}
+.community-tabs button,.community-content button,.community-content input,.community-content select{font:inherit;color:var(--text);background:var(--glass);border:1px solid var(--line);border-radius:7px;padding:7px;min-height:30px}
+.community-tabs button[aria-pressed="true"]{background:#45664d}
+.community-content{min-height:0;overflow:auto;padding:8px;overscroll-behavior:contain;font-size:11px}
+.community-content[hidden],.npc-monitor-list[hidden],.npc-monitor-collapsed .community-tabs,.npc-monitor-collapsed .community-content{display:none}
+.community-filter{display:flex;gap:5px;margin-bottom:8px}.community-filter input{min-width:0;flex:1;width:100%}.community-filter select{max-width:45%}
+.community-worker{display:block;width:100%;text-align:left;margin:4px 0}.community-worker strong,.community-worker small{display:block;overflow-wrap:anywhere}.community-worker small{color:var(--muted);margin-top:3px}
+.community-line{padding:6px 2px;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+.community-affinity{display:flex;justify-content:space-between;gap:6px;margin:3px 0}
+body[data-role="admin"] .context-nav{overflow-y:auto}
+@media(max-width:740px),(max-height:650px){.community-tabs button,.community-content button,.community-content input,.community-content select{min-height:44px}.community-content input,.community-content select{font-size:16px}}
