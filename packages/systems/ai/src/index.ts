@@ -16,6 +16,7 @@ import {activeOrder,productionDefinition,stockMissing,canWorkProduction} from ".
 import {RECIPES} from "../../../content/src/recipes.ts";
 import {TEMPORARY_STORAGE,canCreateTemporaryStorage,isTemporaryStorage} from "../../storage/src/temporary.ts";
 import {ITEMS} from "../../../content/src/items.ts";
+import {activeHaulingClaim,haulingAvailable,isHaulingAction} from "./hauling-claims.ts";
 
 export const NPC_ACTION_INTERVAL=3;
 export const NPC_REST_THRESHOLD=20;
@@ -40,12 +41,19 @@ const sites=(world:World):Construction[]=>
 function selectTask(world:World,npc:Character,targets:Entity[],activity:string,reason:string,
  action:Command["action"],parameters?:(e:Entity)=>Record<string,unknown>|undefined):Task|null {
  const reachable=targets.map(target=>{
+  let params=parameters?.(target);
+  if(isHaulingAction(action)&&target.kind==="construction"&&typeof params?.materialId==="string"&&typeof params.quantity==="number"){
+   const urgent=npc.health<=35||npc.energy<=NPC_REST_THRESHOLD||(npc.satiety??100)<=EAT_THRESHOLD;
+   const quantity=urgent?params.quantity:Math.min(params.quantity,haulingAvailable(world,npc,target,action,params.materialId));
+   if(quantity<=0)return null;
+   params={...params,quantity};
+  }
   const route=routeToEntity(world,npc.position,target,npc.id,action==="nature.cut");
-  return route?{target,route}:null;
- }).filter((item):item is {target:Entity;route:Position[]}=>!!item);
+  return route?{target,route,parameters:params}:null;
+ }).filter((item):item is NonNullable<typeof item>=>!!item);
  reachable.sort((a,b)=>routeCost(world,a.route,npc.id)-routeCost(world,b.route,npc.id)||a.target.id.localeCompare(b.target.id));
  const chosen=reachable[0];
- return chosen?{...chosen,activity,reason,action,parameters:parameters?.(chosen.target)}:null;
+ return chosen?{...chosen,activity,reason,action}:null;
 }
 const acceptedBy=(depot:Construction,item:string):boolean=>!!storageDefinition(depot)?.accepted.includes(item);
 const stocked=(depot:Construction,item:string):number=>depot.stock?.[item]??0;
@@ -550,6 +558,12 @@ export function travelActivity(action:Command["action"],activity:string,resource
  return labels[activity]??activity;
 }
 function executeTask(world:World,npc:Character,task:Task,execute:ActionHandler):void {
+ const claim=activeHaulingClaim(world,npc);
+ if(isHaulingAction(task.action)&&task.target.kind==="construction"&&typeof task.parameters?.materialId==="string"&&typeof task.parameters.quantity==="number"&&task.parameters.quantity>0&&npc.health>35&&npc.energy>NPC_REST_THRESHOLD&&(npc.satiety??100)>EAT_THRESHOLD){
+  npc.ai??={activity:null,reason:"",route:[],lastDecisionTick:world.tick,history:[]};
+  const same=claim?.targetId===task.target.id&&claim.action===task.action&&claim.itemId===task.parameters.materialId;
+  npc.ai.haulingClaim={targetId:task.target.id,action:task.action,itemId:task.parameters.materialId,quantity:task.parameters.quantity,lastProgressTick:same?claim.lastProgressTick:world.tick};
+ }else if(npc.ai)delete npc.ai.haulingClaim;
  const extracting=task.action==="resource.gather"||task.action==="mine.extract";
  if(extracting){
   const itemId=task.action==="resource.gather"&&task.target.kind==="resource"?task.target.resourceType:task.parameters?.materialId;
@@ -584,14 +598,15 @@ function executeTask(world:World,npc:Character,task:Task,execute:ActionHandler):
   const next=task.route[1];
   const result=execute({commandId:"ai-"+world.tick+"-"+npc.id,worldId:world.id,actorRole:"npc",
    actorId:npc.id,action:"movement.move",targetId:npc.id,position:next});
-  if(result.ok){if(npc.ai?.extractionCommitment)npc.ai.extractionCommitment.lastProgressTick=world.tick;if(npc.ai?.plantingCommitment)npc.ai.plantingCommitment.lastProgressTick=world.tick;record(npc,world,travel,task.reason,task.targetId??task.target.id,task.route.slice(1));}
-  else record(npc,world,"Bloqueado","Caminho mudou ("+result.error+"); recalculará no próximo ciclo",task.targetId??task.target.id);
+  if(result.ok){if(npc.ai?.haulingClaim)npc.ai.haulingClaim.lastProgressTick=world.tick;if(npc.ai?.extractionCommitment)npc.ai.extractionCommitment.lastProgressTick=world.tick;if(npc.ai?.plantingCommitment)npc.ai.plantingCommitment.lastProgressTick=world.tick;record(npc,world,travel,task.reason,task.targetId??task.target.id,task.route.slice(1));}
+  else {if(npc.ai)delete npc.ai.haulingClaim;record(npc,world,"Bloqueado","Caminho mudou ("+result.error+"); recalculará no próximo ciclo",task.targetId??task.target.id);}
   return;
  }
  const result=execute({commandId:"ai-"+world.tick+"-"+npc.id,worldId:world.id,
   actorRole:"npc",actorId:npc.id,action:task.action,targetId:task.targetId??task.target.id,
   position:task.position,parameters:task.parameters});
  if(npc.ai){
+  delete npc.ai.haulingClaim;
   delete npc.ai.plantingCommitment;
   if(npc.ai.extractionCommitment){
    if(result.ok)npc.ai.extractionCommitment.lastProgressTick=world.tick;
@@ -605,7 +620,8 @@ export function advanceNpcDecisions(world:World,execute:ActionHandler):void {
  if(world.tick%NPC_ACTION_INTERVAL!==0)return;
  const characters=world.entities.filter((e):e is Character=>e.kind==="character"&&!e.ownerId);
  for(const npc of characters){
-  if(npc.ai&&(npc.health<=35||npc.energy<=NPC_REST_THRESHOLD||npc.ai.resting||npc.sleepingInId||(npc.satiety??100)<=EAT_THRESHOLD)){delete npc.ai.plantingCommitment;delete npc.ai.extractionCommitment;}
+  if(npc.ai?.haulingClaim&&!activeHaulingClaim(world,npc))delete npc.ai.haulingClaim;
+  if(npc.ai&&(npc.health<=35||npc.energy<=NPC_REST_THRESHOLD||npc.ai.resting||npc.sleepingInId||(npc.satiety??100)<=EAT_THRESHOLD)){delete npc.ai.plantingCommitment;delete npc.ai.extractionCommitment;delete npc.ai.haulingClaim;}
   if(npc.health<=0){
    releaseBed(world,npc);
    record(npc,world,null,"Sem condições de agir: saúde zero");continue;
@@ -657,7 +673,7 @@ export function advanceNpcDecisions(world:World,execute:ActionHandler):void {
   }
   const task=choose(world,npc);
   if(!task){
-   if(npc.ai){delete npc.ai.plantingCommitment;delete npc.ai.extractionCommitment;}
+   if(npc.ai){delete npc.ai.plantingCommitment;delete npc.ai.extractionCommitment;delete npc.ai.haulingClaim;}
    if(idleStep(world,npc,execute))continue;
    record(npc,world,null,(npc.satiety??100)<=EAT_THRESHOLD?
     "Com fome e sem alimento acessível; aguardando fonte ou estoque":

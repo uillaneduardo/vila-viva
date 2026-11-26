@@ -20,12 +20,15 @@ export interface Character { id: string; kind: "character"; name: string; positi
 export interface PlantingCommitment {zoneId:string;position:Position;startedTick:number;lastProgressTick:number}
 /** Extraction intent, not a reservation of source, inventory or destination. */
 export interface ExtractionCommitment {targetId:string;action:"resource.gather"|"mine.extract";itemId:string;startedTick:number;lastProgressTick:number}
+/** Advisory physical hauling claim, scoped to one action; no stock is moved until the command succeeds. */
+export interface HaulingClaim {targetId:string;action:"storage.withdraw"|"storage.deposit"|"construction.deliver";itemId:string;quantity:number;lastProgressTick:number}
 export interface NpcDecisionState {
  activity:string|null; reason:string; targetId?:string; route:Position[];
  lastDecisionTick:number; history:Array<{tick:number;activity:string;reason:string;targetId?:string}>;
  resting?:boolean;
  plantingCommitment?:PlantingCommitment;
  extractionCommitment?:ExtractionCommitment;
+ haulingClaim?:HaulingClaim;
 }
 export interface NaturalLife { ageTicks:number; stage:NaturalStage; health:number; productionProgress:number }
 export interface Resource { id: string; kind: "resource"; resourceType: string; position: Position; quantity: number; maximum: number; sourceId?:string; productId?:string; life?:NaturalLife; plantedInZoneId?:string }
