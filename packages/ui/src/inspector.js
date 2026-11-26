@@ -165,6 +165,7 @@ export function createInspector({onHarvest=()=>{},onConstruction=()=>{}}={}){
       '<div class="data-row"><span>'+safe(record.name)+'</span><strong>Tick '+safe(record.burialTick)+'</strong></div>').join(''):
       '<p class="empty">Nenhum habitante sepultado.</p>';
     }
+    if(details?.construction?.workerCapacity>0){html+='<h3>Capacidade de trabalho</h3>'+row('Operadores por tick',details.construction.workerCapacity);}
     if(details?.construction?.mining){html+='<h3>Reservas subterrâneas</h3>'+Object.entries(details.construction.mining.remaining).map(([id,n])=>row(catalog?.items?.[id]?.label??id,n)).join('');}
     if(details?.construction?.production){
      const prod=details.construction.production;
