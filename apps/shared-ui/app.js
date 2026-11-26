@@ -14,6 +14,9 @@ import {createHud} from '../../packages/ui/src/hud.js';
 import {createInspector} from '../../packages/ui/src/inspector.js';
 import {createNpcActivityMonitor} from '../../packages/ui/src/npc-activity-monitor.js';
 import {createCommunityPanel} from '../../packages/ui/src/community-panel.js';
+import {createBrowserConnection} from '../../packages/client-sdk/src/browser-connection.js';
+const browserMode=location.pathname.replace(/\/$/,'')==='/browser';
+const local=browserMode?createBrowserConnection():null;
 const el=id=>document.getElementById(id),role=document.body.dataset.role;
 applyUiTheme(document.documentElement);
 const surface=new Scene(el('game'),{spriteLibrary:new SpriteLibrary({pack:getWorldVisualPack(new URLSearchParams(location.search).get('visualPack')??undefined)})});
@@ -34,6 +37,7 @@ const keys=new Set();
 const frameIntervals=new PerformanceWindow(),paintCosts=new PerformanceWindow(),sampleGaps=new PerformanceWindow();
 let lastVisualSample=null,lastFrameTime=null;
 const request=async(path,options)=>{
+ if(local)return local.request(path,options);
  const response=await fetch(path,options),data=await response.json();
  if(!response.ok)throw Error(data.error||data.result?.error||'Falha na comunicação');
  return data;
@@ -226,7 +230,7 @@ async function refresh(){
   const epoch=visualEpoch,data=await request('/api/world');
   if(stream?.live||epoch!==visualEpoch)return;
   applyWorld(data);
-  el('connection').textContent='Sincronização HTTP';
+  el('connection').textContent=browserMode?'Local · navegador':'Sincronização HTTP';
   el('connection').classList.remove('offline');
  }catch(error){if(stream?.live)return;el('connection').textContent='Sem conexão';el('connection').classList.add('offline');status('Servidor indisponível: '+error.message);}
  finally{loading=false;}
@@ -240,7 +244,9 @@ if(role==='admin'&&el('worldManagerToggle')){
    body:JSON.stringify({role:'admin',...body})});
   return result;
  };
- const download=url=>{
+ const download=async url=>{
+  if(local){try{const data=await local.request(url);const blob=new Blob([typeof data==='string'?data:JSON.stringify(data,null,2)],{type:'application/octet-stream'});const link=URL.createObjectURL(blob);const a=document.createElement('a');a.href=link;a.download=url.includes('activity')?'oturo-browser-activity.jsonl':'oturo-browser-world.json';a.click();setTimeout(()=>URL.revokeObjectURL(link),1000);}catch(e){status(e.message);}return;}
+
   const a=document.createElement('a');a.href=url;a.download='';document.body.append(a);
   a.click();a.remove();
  };
@@ -393,7 +399,7 @@ stockToggle.addEventListener('click',()=>{
 const connectionNode=el('connection');
 const syncConnectionLabel=()=>{
  const value=connectionNode.textContent;
- connectionNode.dataset.state=value==='Sem conexão'?'disconnected':value==='Ao vivo'?'live':'pending';
+ connectionNode.dataset.state=value==='Sem conexão'?'disconnected':(value==='Ao vivo'||value==='Local · navegador')?'live':'pending';
  connectionNode.parentElement.title=value;
  connectionNode.parentElement.setAttribute('aria-label',value);
 };
@@ -473,9 +479,10 @@ function animate(now){
 requestAnimationFrame(animate);
 el('worldTick').textContent='Carregando mundo…';
 el('introHint').replaceChildren(createUiVisual('action.inspect',{size:15}),document.createTextNode(' Sobrevivência ativa: NPCs comem, reservam camas e podem se ferir. Use o inspetor para acompanhar decisões.'));
+if(browserMode){document.title='Oturo · Simulação local';el('introHint').textContent='Simulação local: motor no navegador, mundo independente do servidor.';}
 refresh();
-stream=connectWorld({onState:(data,meta)=>applyWorld(data,meta),
- onStatus:state=>{const node=el('connection');node.textContent=state==='live'?'Ao vivo':state==='connecting'?'Conectando…':'Reconectando…';node.classList.toggle('offline',state!=='live');},
+stream=(local?local.connect:connectWorld)({onState:(data,meta)=>applyWorld(data,meta),
+ onStatus:state=>{const node=el('connection');node.textContent=state==='live'?(browserMode?'Local · navegador':'Ao vivo'):state==='connecting'?'Conectando…':'Reconectando…';node.classList.toggle('offline',state!=='live');},
  onMetrics:({updates,bytes,rtt})=>{fps=frames;frames=0;community?.metrics({fps,updates,bytes,rtt,frame:frameIntervals.summary().p95,paint:paintCosts.summary().p95});const node=el('connection');const ms=v=>v===null?'—':v.toFixed(1)+' ms';node.title=fps+' FPS · '+updates+' atualizações/s · '+Math.round(bytes/1024)+' KiB/s · RTT '+(rtt===null?'—':Math.round(rtt)+' ms')+' · frame p95 '+ms(frameIntervals.summary().p95)+' · desenho p95 '+ms(paintCosts.summary().p95)+' · intervalo de estados p95 '+ms(sampleGaps.summary().p95);}
 });
 setInterval(()=>{if(!stream.live)void refresh();},650);
