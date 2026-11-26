@@ -35,6 +35,14 @@ export function validateWorld(value:unknown):asserts value is World {
     !position(p.position,value.width,value.height)||!safeInt(p.startedTick,value.tick)||
     !safeInt(p.lastProgressTick,value.tick)||p.lastProgressTick<p.startedTick)throw Error("INVALID_WORLD");
   }
+  if(entity.kind==="character"&&object(entity.ai)&&entity.ai.extractionCommitment!==undefined){
+   const p=entity.ai.extractionCommitment;
+   if(!object(p)||typeof p.targetId!=="string"||!/^[\w:-]{1,120}$/.test(p.targetId)||
+    (p.action!=="resource.gather"&&p.action!=="mine.extract")||
+    typeof p.itemId!=="string"||!["wood","stone","iron_ore","copper_ore"].includes(p.itemId)||
+    p.action==="mine.extract"&&p.itemId==="wood"||
+    !safeInt(p.startedTick,value.tick)||!safeInt(p.lastProgressTick,value.tick)||p.lastProgressTick<p.startedTick)throw Error("INVALID_WORLD");
+  }
   if(entity.kind==="character"&&entity.sleepingInId!==undefined&&(typeof entity.sleepingInId!=="string"||!/^[\w:-]{1,120}$/.test(entity.sleepingInId)))throw Error("INVALID_WORLD");
   if(entity.kind==="character"&&entity.movementSegment!==undefined){
    const m=entity.movementSegment;
