@@ -1,4 +1,5 @@
 /** Deterministic world bootstrap. All random choices derive exclusively from the supplied seed and dimensions. */
+import {SOIL_VERSION} from "./soil.js";
 import type {Command,World,Result,Position} from "../../domain/src/contracts.ts";
 export interface StarterCommand {
  action:Command["action"];commandId:string;position:Position;parameters:Record<string,unknown>;
@@ -70,8 +71,9 @@ export function starterCommands(seed:string,world:World):StarterCommand[]{
 }
 /** Uses the authoritative command executor, so bootstrap follows the same validations as gameplay. */
 export function bootstrapSeededWorld(world:World,seed:string,execute:(c:StarterCommand)=>Result):void {
- world.seed=seed;
- for(const command of starterCommands(seed,world)){
+ const commands=starterCommands(seed,world);
+ world.seed=seed;world.soilVersion=SOIL_VERSION;
+ for(const command of commands){
   const result=execute(command);
   if(!result.ok)throw Error("SEED_FAILED:"+command.commandId+":"+result.error);
  }

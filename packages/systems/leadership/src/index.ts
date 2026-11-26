@@ -1,3 +1,4 @@
+import {averageFertility} from "../../../content/src/soil.js";
 import type {World,Character,Construction,Position,Command,Result} from "../../../domain/src/contracts.ts";
 import {buildingBlueprint} from "../../../content/src/buildings/registry.ts";
 import {LEADERSHIP_PROJECTS,LEADER_DECISION_INTERVAL,MAX_SIMULTANEOUS_PROJECTS} from "../../../content/src/leadership.ts";
@@ -171,7 +172,7 @@ export function planAgriculture(world:World,leader:Character){
    const candidate={kind:"resource" as const,id:"agriculture-candidate",position,resourceType:"food" as const,quantity:0,maximum:0};
    const route=routeToEntity(world,leader.position,candidate,leader.id);
    if(!route)continue;
-   const score=route.length+citizens.reduce((n,a)=>n+manhattan(position,a.position),0)/citizens.length;
+   const score=route.length+citizens.reduce((n,a)=>n+manhattan(position,a.position),0)/citizens.length+(150-averageFertility(world,position,size,size))*.08;
    if(!best||score<best.score)best={position,score};
   }
   if(best)return {position:best.position,sourceId:p.species.id,width:size,height:size,
