@@ -56,15 +56,32 @@ export function starterCommands(seed:string,world:World):StarterCommand[]{
  for(const [id,parameters] of residents)add("npc.spawn",id,pick(1,1,{...anchor,radius:3}),parameters);
  // Reserve a clear 3x3 farming plot before distributing natural resources.
  const orchard=pick(3,3,{...anchor,radius:Math.max(8,Math.floor((world.width+world.height)/5))});
- const resources:[string,string,number][]=[
-  ["wood-a","wood",160],["wood-b","wood",160],["wood-c","wood",160],
-  ["stone-a","stone",160],["stone-b","stone",160],
-  ["iron-deposit","iron_ore",160],["copper-deposit","copper_ore",160]
- ];
- for(const [id,resourceType,quantity] of resources)
-  add("resource.spawn",id,pick(),{resourceType,quantity});
- for(const id of ["apple-a","apple-b","apple-c","apple-d"])
-  add("resource.spawn",id,pick(),{resourceType:"food",sourceId:"apple_tree",ageTicks:120,quantity:12});
+ // Independent abundance rolls per type; larger maps allow more sources but
+ // the minimum stays one. Cap density/work rather than filling every free tile.
+ const bonus=Math.min(3,Math.floor(Math.log2(world.width*world.height/(24*16))));
+ const range=(min:number,max:number)=>min+integer(max-min+1);
+ const nearby={...anchor,radius:8};
+ const resources=[
+  {prefix:"wood",type:"wood",max:5,minQuantity:80,maxQuantity:240},
+  {prefix:"stone",type:"stone",max:4,minQuantity:80,maxQuantity:240},
+  {prefix:"iron",type:"iron_ore",max:3,minQuantity:60,maxQuantity:220},
+  {prefix:"copper",type:"copper_ore",max:3,minQuantity:60,maxQuantity:220}
+ ] as const;
+ // Roll the count of each category before consuming random values for placement.
+ const counts=resources.map(r=>range(1,r.max+bonus));
+ const apples=range(1,7+bonus);
+ for(const [index,r] of resources.entries()){
+  for(let i=0;i<counts[index];i++){
+   const id=r.prefix+(r.type.endsWith("_ore")?(i===0?"-deposit":"-deposit-"+(i+1)):"-"+String.fromCharCode(97+i));
+   // Keep a reachable-distance starter opportunity for basic gathering;
+   // additional deposits are distributed over the entire map.
+   const local=i===0&&(r.type==="wood"||r.type==="stone");
+   add("resource.spawn",id,pick(1,1,local?nearby:undefined),{resourceType:r.type,quantity:range(r.minQuantity,r.maxQuantity)});
+  }
+ }
+ for(let i=0;i<apples;i++)
+  add("resource.spawn","apple-"+String.fromCharCode(97+i),pick(1,1,i===0?nearby:undefined),
+   {resourceType:"food",sourceId:"apple_tree",ageTicks:120,quantity:range(8,30)});
  add("farming.zone.create","starter-orchard",orchard,{sourceId:"apple_tree",width:3,height:3});
  return entries;
 }
