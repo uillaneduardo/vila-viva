@@ -18,11 +18,14 @@ export interface Character { id: string; kind: "character"; name: string; positi
  lastProductionTick?:number;lastRecipeId?:string;productionReason?:string}; }
 /** A bounded planting intent; no inventory or physical occupancy is reserved. */
 export interface PlantingCommitment {zoneId:string;position:Position;startedTick:number;lastProgressTick:number}
+/** Extraction intent, not a reservation of source, inventory or destination. */
+export interface ExtractionCommitment {targetId:string;action:"resource.gather"|"mine.extract";itemId:string;startedTick:number;lastProgressTick:number}
 export interface NpcDecisionState {
  activity:string|null; reason:string; targetId?:string; route:Position[];
  lastDecisionTick:number; history:Array<{tick:number;activity:string;reason:string;targetId?:string}>;
  resting?:boolean;
  plantingCommitment?:PlantingCommitment;
+ extractionCommitment?:ExtractionCommitment;
 }
 export interface NaturalLife { ageTicks:number; stage:NaturalStage; health:number; productionProgress:number }
 export interface Resource { id: string; kind: "resource"; resourceType: string; position: Position; quantity: number; maximum: number; sourceId?:string; productId?:string; life?:NaturalLife; plantedInZoneId?:string }
