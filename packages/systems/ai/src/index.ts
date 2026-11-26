@@ -49,14 +49,36 @@ function selectTask(world:World,npc:Character,targets:Entity[],activity:string,r
 }
 const acceptedBy=(depot:Construction,item:string):boolean=>!!storageDefinition(depot)?.accepted.includes(item);
 const stocked=(depot:Construction,item:string):number=>depot.stock?.[item]??0;
-function reachablePlots(world:World,npc:Character,zone:FarmingZone){
- return availablePlots(world,zone).map(position=>{
+function reachablePlots(world:World,npc:Character,zone:FarmingZone,respectClaims=true){
+ return availablePlots(world,zone).filter(position=>!respectClaims||!reservedPlot(world,npc,zone,position)).map(position=>{
   const target:Resource={id:zone.id+":plot:"+position.x+":"+position.y,kind:"resource",
    resourceType:"food",position,quantity:0,maximum:0};
   const route=routeToEntity(world,npc.position,target,npc.id);
   return route?{position,route,target}:null;
  }).filter((x):x is {position:Position;route:Position[];target:Resource}=>!!x)
  .sort((a,b)=>routeCost(world,a.route,npc.id)-routeCost(world,b.route,npc.id)||a.position.y-b.position.y||a.position.x-b.position.x);
+}
+// Commit only to a concrete planting cell; survival and urgent deliveries retain priority.
+const PLANTING_STALL_TICKS=24;
+function reservedPlot(world:World,npc:Character,zone:FarmingZone,position:Position):boolean{
+ return world.entities.some(e=>e.kind==="character"&&e.id!==npc.id&&e.health>0&&
+  e.ai?.plantingCommitment?.zoneId===zone.id&&
+  e.ai.plantingCommitment.position.x===position.x&&e.ai.plantingCommitment.position.y===position.y&&
+  world.tick-e.ai.plantingCommitment.lastProgressTick<PLANTING_STALL_TICKS);
+}
+function committedPlanting(world:World,npc:Character):Task|null{
+ const intent=npc.ai?.plantingCommitment;
+ if(!intent)return null;
+ const zone=world.entities.find((e):e is FarmingZone=>e.kind==="planting_zone"&&e.id===intent.zoneId);
+ const species=zone&&naturalSource(zone.sourceId);
+ if(zone&&species&&(npc.inventory?.[species.seedItem]??0)>0&&
+   world.tick-intent.lastProgressTick<PLANTING_STALL_TICKS){
+  const choice=reachablePlots(world,npc,zone).find(p=>p.position.x===intent.position.x&&p.position.y===intent.position.y);
+  if(choice)return {...choice,targetId:zone.id,activity:"Plantando",
+   reason:"Concluir plantio de "+species.label+" no lote escolhido",action:"farming.plant",domain:"farming"};
+ }
+ delete npc.ai!.plantingCommitment;
+ return null;
 }
 /** Farming tasks require a reachable plot before procuring seeds. */
 function plantingTask(world:World,npc:Character):Task|null {
@@ -155,7 +177,7 @@ function storedCargo(world:World,npc:Character):Task|null {
   if(quantity<=reserve)continue;
   // Keep seeds needed by an existing plot in hand until planting has been attempted.
   if(ITEMS[item].category==="seed"&&world.entities.some(e=>e.kind==="planting_zone"&&
-    naturalSource(e.sourceId)?.seedItem===item&&reachablePlots(world,npc,e).length>0))continue;
+    naturalSource(e.sourceId)?.seedItem===item&&reachablePlots(world,npc,e,false).length>0)&&load(npc)<CARRY_LIMIT)continue;
   const task=selectTask(world,npc,warehouses.filter(d=>acceptedBy(d,item)&&storageFree(d)>0),
    "Armazenando recursos","Armazenar "+quantity+" "+ITEMS[item].label+
    " com transporte físico","storage.deposit",
@@ -315,6 +337,7 @@ function choose(world:World,npc:Character):Task|null{
  const underfoot=world.entities.filter(e=>e.kind==="resource"&&e.sourceId==="apple_tree"&&e.life?.stage==="dead"&&e.position.x===npc.position.x&&e.position.y===npc.position.y);
  const clearing=selectTask(world,npc,underfoot,"Cortando madeira seca","Liberar a célula ocupada por macieira morta","nature.cut");
  if(clearing)return {...clearing,domain:"woodcutting"};
+ const committed=committedPlanting(world,npc);if(committed)return committed;
  const cargo=storedCargo(world,npc);
  if(cargo)return cargo;
  const pickup=groundTask(world,npc);if(pickup)return pickup;
@@ -325,7 +348,7 @@ function choose(world:World,npc:Character):Task|null{
    const item=Object.keys(area.stock??{}).find(k=>(area.stock?.[k]??0)>0&&permanent.some(d=>acceptedBy(d,k)&&routeToEntity(world,area.position,d,npc.id)));
    if(item){const task=selectTask(world,npc,[area],"Consolidando estoque","Transferir carga temporária ao depósito convencional","storage.withdraw",()=>({materialId:item,quantity:Math.min(CARRY_LIMIT-load(npc),area.stock![item],Math.max(...permanent.filter(d=>acceptedBy(d,item)).map(storageFree)))}));if(task)return task;}
   }
-  if(permanent.length){const empty=selectTask(world,npc,temporary.filter(d=>Object.values(d.stock??{}).every(n=>n===0)),"Removendo depósito temporário","Área vazia; armazenamento convencional disponível","storage.temporary.remove");if(empty)return empty;}
+
  }
  if(load(npc)<CARRY_LIMIT&&depots(world).some(d=>d.blueprintId==="building.depot"&&storageFree(d)>0)){
   const mineStock=selectTask(world,npc,depots(world).filter(d=>d.blueprintId==="building.mine"&&Object.values(d.stock??{}).some(n=>n>0)),"Transportando minério","Retirar produção da mina","storage.withdraw",e=>{const d=e as Construction;const item=Object.keys(d.stock??{}).find(k=>(d.stock?.[k]??0)>0)!;return {materialId:item,quantity:Math.min(CARRY_LIMIT-load(npc),d.stock![item])};});if(mineStock)return mineStock;
@@ -342,7 +365,15 @@ function choose(world:World,npc:Character):Task|null{
  const farming=plantingTask(world,npc);
  const mine=selectTask(world,npc,world.entities.filter(e=>e.kind==="construction"&&e.blueprintId==="building.mine"&&storageFree(e)>0&&Object.values(e.mineRemaining??{}).some(n=>n>0)),"Operando mina","Extrair depósito subterrâneo finito","mine.extract",e=>({materialId:Object.keys((e as Construction).mineRemaining??{}).find(k=>((e as Construction).mineRemaining?.[k]??0)>0)}));
  const demanded=choosePreferred(npc,[mine?{...mine,domain:"mining"}:null,farming,construction.work,production,construction.source,equipment]);
- return demanded??stockpileTask(world,npc);
+ if(demanded)return demanded;
+ // Empty areas need no hauling capacity. Keep one nearby spare if all permanent storage is full.
+ const temporary=depots(world).filter(isTemporaryStorage);
+ const empty=temporary.filter(d=>Object.values(d.stock??{}).every(n=>n===0));
+ const permanent=depots(world).filter(d=>d.blueprintId==="building.depot");
+ const spare=permanent.some(d=>storageFree(d)>0)?undefined:empty.slice().sort((a,b)=>a.id.localeCompare(b.id))[0]?.id;
+ const cleanup=selectTask(world,npc,empty.filter(d=>d.id!==spare),"Removendo depósito temporário",
+  "Área vazia sem necessidade imediata de armazenamento","storage.temporary.remove");
+ return cleanup??stockpileTask(world,npc);
 }
 function record(npc:Character,world:World,activity:string|null,reason:string,targetId?:string,route:Position[]=[]){
  npc.ai??={activity:null,reason:"",route:[],lastDecisionTick:world.tick,history:[]};
@@ -483,6 +514,12 @@ export function travelActivity(action:Command["action"],activity:string,resource
  return labels[activity]??activity;
 }
 function executeTask(world:World,npc:Character,task:Task,execute:ActionHandler):void {
+ if(task.action==="farming.plant"&&task.targetId&&task.position){
+  npc.ai??={activity:null,reason:"",route:[],lastDecisionTick:world.tick,history:[]};
+  const old=npc.ai.plantingCommitment;
+  if(!old||old.zoneId!==task.targetId||old.position.x!==task.position.x||old.position.y!==task.position.y)
+   npc.ai.plantingCommitment={zoneId:task.targetId,position:{...task.position},startedTick:world.tick,lastProgressTick:world.tick};
+ }else if(npc.ai)delete npc.ai.plantingCommitment;
  const effective=resolveAttributes({...npc,attributes:{...npc.attributes,energy:npc.energy,health:npc.health}},world.tick).values;
  const cycle=Math.floor(world.tick/NPC_ACTION_INTERVAL);
  const travel=travelActivity(task.action,task.activity,task.target.kind==="resource"?task.target.resourceType:undefined);
@@ -501,13 +538,14 @@ function executeTask(world:World,npc:Character,task:Task,execute:ActionHandler):
   const next=task.route[1];
   const result=execute({commandId:"ai-"+world.tick+"-"+npc.id,worldId:world.id,actorRole:"npc",
    actorId:npc.id,action:"movement.move",targetId:npc.id,position:next});
-  if(result.ok)record(npc,world,travel,task.reason,task.targetId??task.target.id,task.route.slice(1));
+  if(result.ok){if(npc.ai?.plantingCommitment)npc.ai.plantingCommitment.lastProgressTick=world.tick;record(npc,world,travel,task.reason,task.targetId??task.target.id,task.route.slice(1));}
   else record(npc,world,"Bloqueado","Caminho mudou ("+result.error+"); recalculará no próximo ciclo",task.targetId??task.target.id);
   return;
  }
  const result=execute({commandId:"ai-"+world.tick+"-"+npc.id,worldId:world.id,
   actorRole:"npc",actorId:npc.id,action:task.action,targetId:task.targetId??task.target.id,
   position:task.position,parameters:task.parameters});
+ if(npc.ai)delete npc.ai.plantingCommitment;
  record(npc,world,result.ok?task.activity:"Bloqueado",
   result.ok?task.reason:"Ação rejeitada ("+result.error+"); nova decisão no próximo ciclo",task.targetId??task.target.id);
 }
@@ -515,6 +553,7 @@ export function advanceNpcDecisions(world:World,execute:ActionHandler):void {
  if(world.tick%NPC_ACTION_INTERVAL!==0)return;
  const characters=world.entities.filter((e):e is Character=>e.kind==="character"&&!e.ownerId);
  for(const npc of characters){
+  if(npc.ai&&(npc.health<=35||npc.energy<=NPC_REST_THRESHOLD||npc.ai.resting||npc.sleepingInId||(npc.satiety??100)<=EAT_THRESHOLD))delete npc.ai.plantingCommitment;
   if(npc.health<=0){
    releaseBed(world,npc);
    record(npc,world,null,"Sem condições de agir: saúde zero");continue;
@@ -566,6 +605,7 @@ export function advanceNpcDecisions(world:World,execute:ActionHandler):void {
   }
   const task=choose(world,npc);
   if(!task){
+   if(npc.ai)delete npc.ai.plantingCommitment;
    if(idleStep(world,npc,execute))continue;
    record(npc,world,null,(npc.satiety??100)<=EAT_THRESHOLD?
     "Com fome e sem alimento acessível; aguardando fonte ou estoque":
