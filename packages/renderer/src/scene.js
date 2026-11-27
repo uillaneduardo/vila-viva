@@ -1,12 +1,13 @@
 import {soilColor,canCultivateCell} from "../../content/src/soil.js";
 import {Camera,hitTest,brushCells} from './camera.js';
-import {SpriteLibrary,resolveWorldSprite,directionFromDelta} from './sprites.js';
+import {SpriteLibrary,resolveWorldSprite} from './sprites.js';
+import {resolveFacing} from './character-visual-state.js';
 import {createOcclusionResolver} from './occlusion.js';
 import {drawCharacterAccessories} from './character-accessories.js';
 export class Scene {
  constructor(canvas,{spriteLibrary=new SpriteLibrary()}={}){
   this.canvas=canvas;this.ctx=canvas.getContext('2d');this.camera=new Camera();
-  this.sprites=spriteLibrary;this.sprites.preload();this.world=null;this.motion=new Map();this.facings=new Map();this.animationTime=0;this.animationPaused=false;this.selected=null;this.hover=null;this.hoverRoute=null;this.pointer=null;this.brush=null;
+  this.sprites=spriteLibrary;this.sprites.preload();this.world=null;this.motion=new Map();this.visualMotion=new Map();this.animationTime=0;this.selected=null;this.hover=null;this.hoverRoute=null;this.pointer=null;this.brush=null;
   this.resize();this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(canvas);
  }
  resize(){
@@ -15,17 +16,17 @@ export class Scene {
   this.ctx.setTransform(dpr,0,0,dpr,0,0);this.dpr=dpr;
  }
  setWorld(world,{reset=false,paused=false}={}){
+  this.paused=paused;
   if(!this.world)this.camera.centerOnWorld(world);
-  this.animationPaused=paused;
   if(reset||paused)this.motion.clear();
-  if(this.world?.id!==world.id)this.facings.clear();
+  if(!this.world||this.world.id!==world.id)this.visualMotion.clear();
   const oldById=new Map(this.world?.entities.map(e=>[e.id,e])??[]);
   const now=performance.now();
   const duration=Math.max(100,Math.min(750,now-(this.lastSample??now-250)));
   this.lastSample=now;
   const ids=new Set(world.entities.map(e=>e.id));
   for(const id of this.motion.keys())if(!ids.has(id))this.motion.delete(id);
-  for(const id of this.facings.keys())if(!ids.has(id))this.facings.delete(id);
+  for(const id of this.visualMotion.keys())if(!ids.has(id))this.visualMotion.delete(id);
   for(const entity of world.entities){
    if(entity.kind!=='character'||reset||paused)continue;
    const previous=oldById.get(entity.id);
@@ -56,7 +57,7 @@ export class Scene {
   return picked?entities.find(e=>e.id===picked.id):null;
  }
  paint(now=0){
-  if(!this.animationPaused&&Number.isFinite(this.lastPaint))this.animationTime+=Math.max(0,Math.min(100,now-this.lastPaint));
+  if(!this.paused&&Number.isFinite(this.lastPaint))this.animationTime+=Math.max(0,Math.min(100,now-this.lastPaint));
   this.lastPaint=now;
   const c=this.ctx,k=this.camera,w=k.width,h=k.height,t=k.tile;
   c.clearRect(0,0,w,h);c.fillStyle='#2c4b38';c.fillRect(0,0,w,h);
@@ -92,16 +93,19 @@ export class Scene {
    c.fillStyle='rgba(104,103,75,.5)';c.fillRect(start.x,start.y,width,height);
    c.strokeStyle='#b2aa83';c.lineWidth=2;c.strokeRect(start.x+2,start.y+2,width-4,height-4);
    }
-   // Each marker represents a real burial. Keep markers proportional at every level.
-   const capacity=[12,24,48][Math.min(2,Math.max(0,(graveyard.level??1)-1))];
-   const cols=capacity===48?8:capacity===24?6:4,rows=Math.ceil(capacity/cols);
-   const cellW=width*.8/cols,cellH=height*.8/rows,unit=Math.min(cellW,cellH);
-   for(let i=0;i<Math.min(graveyard.burials?.length??0,capacity);i++){
-    const x=start.x+width*.1+(i%cols+.5)*cellW,y=start.y+height*.1+(Math.floor(i/cols)+.5)*cellH;
-    c.fillStyle='#454b42';c.fillRect(x-unit*.27,y-unit*.33,unit*.54,unit*.66);
-    c.fillStyle='#a9aaa0';c.fillRect(x-unit*.2,y-unit*.28,unit*.4,unit*.48);
-    c.fillStyle='#d6d2b6';c.fillRect(x-unit*.04,y-unit*.22,unit*.08,unit*.28);
-    c.fillRect(x-unit*.12,y-unit*.13,unit*.24,unit*.08);
+   // Draw only registered burials. Capacity and positions are visual projections of the level.
+   const rustic=!!this.sprites.pack?.['entities/human/north'];
+   if(rustic||!drawn){
+    const level=graveyard.level??1,columns=level>=3?8:level>=2?6:4,rows=level>=3?6:level>=2?4:3;
+    const burials=graveyard.burials??[];
+    for(let i=0;i<Math.min(burials.length,columns*rows);i++){
+     const col=i%columns,row=Math.floor(i/columns),dx=width*.78/columns,dy=height*.78/rows;
+     const gx=start.x+width*.11+(col+.5)*dx,gy=start.y+height*.11+(row+.5)*dy;
+     const unit=Math.min(dx,dy);
+     c.fillStyle='#5e4936';c.fillRect(gx-unit*.31,gy-unit*.24,unit*.62,unit*.54);
+     c.fillStyle='#aeb0a0';c.fillRect(gx-unit*.25,gy-unit*.31,unit*.5,unit*.24);
+     c.fillStyle='#d5cdb5';c.fillRect(gx-unit*.19,gy-unit*.27,unit*.38,Math.max(1,unit*.045));
+    }
    }
    if(graveyard.id===this.selected){
     c.strokeStyle='#f2e3a7';c.lineWidth=3;c.strokeRect(start.x+2,start.y+2,width-4,height-4);
@@ -131,23 +135,19 @@ export class Scene {
    const p=k.worldToScreen((pos.x+(e.kind==='construction'?e.footprint.width/2:.5))*t,
      (pos.y+(e.kind==='construction'?e.footprint.height/2:.5))*t),s=t*k.zoom;
    if(!this.entityPlanner&&(p.x<-s||p.y<-s||p.x>w+s||p.y>h+s))continue;
-   let direction,movingVisually=false;
+   let movingVisually=false,direction;
    if(e.kind==='character'){
-    const prior=this.positionProvider?this.positionProvider(e,now-16):this.motion.get(e.id)?.from??pos;
-    const later=this.positionProvider?this.positionProvider(e,now+16):this.motion.get(e.id)?.to??pos;
-    const observed=directionFromDelta(later.x-prior.x,later.y-prior.y);
-    movingVisually=!!observed;
-    const m=e.movementSegment;
-    direction=observed??this.facings.get(e.id)??(m&&directionFromDelta(m.to.x-m.from.x,m.to.y-m.from.y))??'south';
-    this.facings.set(e.id,direction);
+    const prior=this.visualMotion.get(e.id),seg=e.movementSegment;
+    const fallback=prior?.direction??(seg?resolveFacing(seg.to.x-seg.from.x,seg.to.y-seg.from.y):'south');
+    const dx=prior?pos.x-prior.x:0,dy=prior?pos.y-prior.y:0;
+    const adjacent=Math.abs(dx)+Math.abs(dy)<=1.001;
+    movingVisually=!this.paused&&adjacent&&Math.abs(dx)+Math.abs(dy)>.001;
+    direction=movingVisually?resolveFacing(dx,dy,fallback):fallback;
+    this.visualMotion.set(e.id,{x:pos.x,y:pos.y,direction});
    }
    const visual=resolveWorldSprite(e,{movingVisually,direction});
    c.save();c.globalAlpha*=opacityFor(e);
-   if(e.kind==='construction'&&e.status==='site'){
-    c.strokeStyle='rgba(214,187,130,.65)';c.lineWidth=1;c.setLineDash([4,3]);
-    c.strokeRect(p.x-s*e.footprint.width/2,p.y-s*e.footprint.height/2,s*e.footprint.width,s*e.footprint.height);c.setLineDash([]);
-   }
-   const drawn=visual&&this.sprites.draw(c,visual.id,p.x,p.y,e.kind==='construction'?s*e.footprint.width:s*visual.scale,visual.state,e.kind==='construction'?{height:s*e.footprint.height,level:visual.level,fit:'contain'}:{direction:visual.direction,now:this.animationTime});
+   const drawn=visual&&this.sprites.draw(c,visual.id,p.x,p.y,e.kind==='construction'?s*e.footprint.width:s*visual.scale,visual.state,e.kind==='construction'?{height:s*e.footprint.height,level:visual.level}:{direction:visual.direction,now:this.animationTime,animate:!this.paused&&(movingVisually||visual.state==='working')});
    if(drawn&&e.kind==='character'&&this.sprites.pack?.['entities/human/north'])drawCharacterAccessories(c,e,visual,p.x,p.y,s*visual.scale,this.animationTime,entityById.get(e.ai?.targetId));
    if(!drawn){
     c.save();c.translate(p.x,p.y);
@@ -267,6 +267,10 @@ export class Scene {
     }
     if(e.kind==='resource'&&e.quantity===0){c.fillStyle='rgba(30,45,33,.58)';c.fillRect(-s*.3,-s*.3,s*.6,s*.6);}
     c.restore();
+   }
+   if(drawn&&e.kind==='character'&&visual.role&&this.sprites.pack?.['accessories/'+visual.role]&&s>=20){
+    // Small secondary icon, always inside the tile and independent of hit testing.
+    this.sprites.draw(c,'accessories/'+visual.role,p.x+s*.28,p.y-s*.36,s*.32,'idle');
    }
    c.restore();
    if(e.id===this.hover||e.id===this.selected){

@@ -1,4 +1,3 @@
-import {assignProfessions} from "./professions.ts";
 import {averageFertility} from "../../../content/src/soil.js";
 import type {World,Character,Construction,Position,Command,Result} from "../../../domain/src/contracts.ts";
 import {buildingBlueprint} from "../../../content/src/buildings/registry.ts";
@@ -181,6 +180,7 @@ export function planAgriculture(world:World,leader:Character){
  }
  return undefined;
 }
+import {assignProfessions} from "./professions.ts";
 import {removalSafe} from "../../construction/src/removal.ts";
 export function advanceLeaderDecisions(world:World,execute:(cmd:Command)=>Result):void {
  if(world.tick%LEADER_DECISION_INTERVAL!==0)return;

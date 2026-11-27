@@ -1,0 +1,8 @@
+# Rustic — proporções e animação (#122)
+- Atlas de 96×96 por quadro. Construções Rustic concluídas (incluindo níveis) são desenhadas com escala uniforme `min(footprintWidth/frameWidth, footprintHeight/frameHeight)`; a arte é centrada no pivô. Diagramas de obra e ruína continuam cobrindo toda a área de implantação. Não altera seleção, colisão, pathfinding ou dados do mundo. Classic/Simple mantêm seus atlas e desenho histórico.
+- Personagens: quatro direções, ciclo de quatro quadros de caminhada a 125 ms/quadro, dois quadros de trabalho a 300 ms/quadro. Reaproveitamento dos recortes existentes com recorte e deslocamento de pernas/braços; não é uma nova animação desenhada manualmente. Mantém corpo e pivô. Animação apenas durante deslocamento interpolado confirmado ou trabalho, congelada em pausa. Não inventa movimento nem profissão.
+- Marcadores pequenos por atividade conhecida e líder; ocultos em zoom baixo. Não representam cargo permanente nem ferramenta realmente equipada. Usam atlas SVG locais.
+- Ícones semânticos restantes cobertos (exceto indisponível), CSS decorativo exclusivo de Rustic, preservando tamanhos e áreas de toque. `object-fit:contain` e pixelated.
+- Testes de dimensão, pivô, fit de 3×2/2×3, frames, fase/pausa, atividade e cobertura da UI. Homologar no navegador em múltiplos zooms e tamanhos, especialmente oficina/refeitório e personagens em movimento. Não afirmar que a arte original foi refeita quadro a quadro. Obras/ruínas e refinamento artístico permanecem possíveis.
+
+Auditoria adicional: checar CRC e dimensões dos PNGs incorporados, garantir que a caixa de cada imagem preserve a razão largura/altura original; ícones de pausa, play e líder receberam caixas proporcionais explícitas.

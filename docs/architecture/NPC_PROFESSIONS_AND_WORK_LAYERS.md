@@ -5,3 +5,6 @@
 - O renderer rústico preserva o corpo e sobrepõe vestimenta indicativa da profissão (camada pixel provisória) e ferramentas animadas pela ação aceita. O ID da ação é registrado no estado de decisão, sem substituir o texto de atividade. A fase congela quando pausado.
 - Implementação inicial das ações: machado, picareta, pá, martelo, fabricação, cozinha, colheita, transporte, equipamento e alimentação. A animação é compartilhada entre profissões e combina com a camada persistente. Não são ainda sprites artísticos quadro a quadro por profissão; não representam uma nova ferramenta no inventário.
 - Futuro: atlas modular de corpo, cabelo, roupa, ferramenta e objeto transportado com ciclos completos de 4 direções, ID estável, frames 96×96 e pivô (48,66); variantes de cada profissão e estados idle/walk/work/rest/sleep/dead. Teste visual obrigatório nas rotas /browser e /admin.
+
+## Compatibilidade com a main
+Preservados os IDs farm, builder, miner, woodcutter, cook, carrier, artisan e healer e os atlases direcionais de oito quadros. Collector e gravedigger são extensões aditivas. Não reatribuir profissões existentes; mundos anteriores continuam válidos. Mantidos marcadores de papel Rustic e animações de corpo, acrescentando apenas vestimenta e ferramentas.

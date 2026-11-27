@@ -438,3 +438,22 @@ button:focus-visible,input:focus-visible,canvas:focus-visible{outline:2px solid 
 .community-affinity{display:flex;justify-content:space-between;gap:6px;margin:3px 0}
 body[data-role="admin"] .context-nav{overflow-y:auto}
 @media(max-width:740px),(max-height:650px){.community-tabs button,.community-content button,.community-content input,.community-content select{min-height:44px}.community-content input,.community-content select{font-size:16px}}
+
+/* Rustic-only decorative skin; no changes to responsive layout or control hit areas. */
+[data-ui-theme="rustic-dark"] .glass,
+[data-ui-theme="rustic-dark"] .context {
+ border-color:#8c6b43;
+ box-shadow:inset 0 0 0 1px #281d16,inset 0 0 0 3px #b18a542a,0 4px 12px #0004;
+}
+[data-ui-theme="rustic-dark"] .context-head,
+[data-ui-theme="rustic-dark"] .context-nav {
+ background:linear-gradient(180deg,#76553636,#33251b30);
+ border-color:#8c6b4350;
+}
+[data-ui-theme="rustic-dark"] .context-body h3,
+[data-ui-theme="rustic-dark"] .nav-item svg {color:#e5cba4}
+[data-ui-theme="rustic-dark"] .context-action {
+ background:#64492e;border-color:#b18b59;color:#f6e8cf;
+}
+[data-ui-theme="rustic-dark"] .context-action:not(:disabled):hover {background:#805d37}
+[data-ui-theme="rustic-dark"] .ui-visual-sprite {object-fit:contain;image-rendering:pixelated}

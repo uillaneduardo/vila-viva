@@ -13,3 +13,15 @@ export function resolveCharacterState(entity,{movingVisually=false}={}){
  if(working.has(activity))return 'working';
  return 'idle';
 }
+
+// A profession is persistent; work is a transient visual action.
+const professions=new Set(['farm','builder','miner','woodcutter','cook','carrier','artisan','healer','collector','gravedigger']);
+export function resolveCharacterRole(entity){
+ if(!entity||entity.health<=0)return null;
+ if(entity.communityRole==='leader')return 'leader';
+ return professions.has(entity.profession)?entity.profession:null;
+}
+export function resolveFacing(dx,dy,fallback='south'){
+ if(!Number.isFinite(dx)||!Number.isFinite(dy)||Math.abs(dx)+Math.abs(dy)<.001)return fallback;
+ return Math.abs(dx)>=Math.abs(dy)?(dx>0?'east':'west'):(dy>0?'south':'north');
+}

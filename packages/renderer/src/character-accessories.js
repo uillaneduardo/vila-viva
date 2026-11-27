@@ -1,5 +1,5 @@
 /** Render-only provisional pixel layers. Never infer a profession from a current task. */
-const colors=Object.freeze({leader:'#d6b65f',farmer:'#7caa62',collector:'#a1b87b',lumberjack:'#a46038',miner:'#788da2',builder:'#d2a453',artisan:'#b26b5a',cook:'#e0d7ac',hauler:'#9d805b',gravedigger:'#777080'});
+const colors=Object.freeze({leader:'#d6b65f',farm:'#7caa62',collector:'#a1b87b',woodcutter:'#a46038',miner:'#788da2',builder:'#d2a453',artisan:'#b26b5a',cook:'#e0d7ac',carrier:'#9d805b',healer:'#a5bcb0',gravedigger:'#777080'});
 export function characterProfession(entity){return entity.communityRole==='leader'?'leader':entity.profession??'generalist';}
 export function resolveWorkAnimation(entity,target){
  const a=entity.ai?.action,label=entity.ai?.activity;
