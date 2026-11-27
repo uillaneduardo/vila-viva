@@ -1,7 +1,8 @@
 import {PLANNED_BUILDING_ALIASES} from './planned-building-visuals.js';
 import {resolveBuildingVisual} from './building-visuals.js';
 import {getWorldVisualPack} from './visual-packs.js';
-import {resolveCharacterState} from './character-visual-state.js';
+import {fitSpriteFrame,frameForState} from './sprite-layout.js';
+import {resolveCharacterState,resolveCharacterRole,resolveFacing} from './character-visual-state.js';
 /** World sprite registry. Render-only; no gameplay authority or inventory mutation. */
 export const SPRITES=Object.freeze({
  'character.human':{id:'entities/human',states:['idle','moving','working','resting']},
@@ -21,8 +22,8 @@ export const WORLD_ATLASES=getWorldVisualPack();
 export function resolveWorldSprite(entity,context){
  if(entity?.kind==='character'){
  const segment=entity.movementSegment,dx=segment?segment.to.x-segment.from.x:0,dy=segment?segment.to.y-segment.from.y:0;
- const direction=dx>0?'east':dx<0?'west':dy<0?'north':'south';
- return {id:'entities/human',state:resolveCharacterState(entity,context),direction,scale:1.45};
+ const direction=context?.direction??resolveFacing(dx,dy);
+ return {id:'entities/human',state:resolveCharacterState(entity,context),direction,role:resolveCharacterRole(entity),scale:1.45};
  }
  if(entity?.kind==='construction')return resolveBuildingVisual(entity);
  if(entity?.kind!=='resource')return null;
@@ -58,7 +59,7 @@ export class SpriteLibrary {
    image.onerror=()=>{const entry=this.atlases.get(id);if(entry?.image===image)entry.ready=false;};
    image.src=definition.src;
  }
- draw(ctx,id,x,y,size,state='idle',{height=size,level=1,direction,now=0}={}){
+ draw(ctx,id,x,y,size,state='idle',{height=size,level=1,direction,now=0,animate=false}={}){
   const legacyStates={site:'stage:0',foundation:'stage:1',structure:'stage:2',roof:'stage:3'};
   const key=legacyStates[state]??state;
   const directional=direction&&id+'/'+direction;
@@ -67,16 +68,19 @@ export class SpriteLibrary {
   const variant=this.atlases.get(assetId+'@'+level);
   const atlas=variant?.ready&&(variant.definition.states.includes(key)||variant.definition.states.includes(state))?variant:this.atlases.get(assetId);
   if(atlas?.ready){
-   const frame=atlas.definition.states.includes(key)?atlas.definition.states.indexOf(key):atlas.definition.states.indexOf(state);
-   if(frame===-1)return false;
    const d=atlas.definition;
+   const frame=frameForState(d,d.states.includes(key)?key:state,now,animate);
+   if(frame===-1)return false;
+   // Raster completed buildings are contained; footprint diagrams remain full-area.
+   const fit=d.fit==='contain'&&(state==='completed'||!assetId.startsWith('buildings/'))?'contain':'stretch';
+   const bounds=fitSpriteFrame(d,x,y,size,height,fit);
    ctx.save();ctx.imageSmoothingEnabled=false;
-   ctx.drawImage(atlas.image,frame*d.frameWidth,0,d.frameWidth,d.frameHeight,
-    x-size*d.pivotX/d.frameWidth,y-height*d.pivotY/d.frameHeight-(directional&&assetId===directional&&state==='moving'?Math.round(Math.abs(Math.sin(now/95))*height*.035):0),size,height);
+   ctx.drawImage(atlas.image,frame*d.frameWidth,0,d.frameWidth,d.frameHeight,bounds.x,bounds.y,bounds.width,bounds.height);
    ctx.restore();return true;
   }
   const sprite=this.images.get(id+':'+state)||this.images.get(id);
   if(!sprite||!sprite.complete||!sprite.naturalWidth)return false;
-  ctx.drawImage(sprite,x-size/2,y-height/2,size,height);return true;
+  const bounds=fitSpriteFrame({frameWidth:sprite.naturalWidth,frameHeight:sprite.naturalHeight||sprite.naturalWidth,pivotX:sprite.naturalWidth/2,pivotY:(sprite.naturalHeight||sprite.naturalWidth)/2},x,y,size,height);
+  ctx.drawImage(sprite,bounds.x,bounds.y,bounds.width,bounds.height);return true;
  }
 }
