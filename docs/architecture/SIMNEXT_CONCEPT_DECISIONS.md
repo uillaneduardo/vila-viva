@@ -1,0 +1,13 @@
+# SimNext — Registro de decisões conceituais
+
+Registro incremental de decisões homologadas e pontos a retomar. A aprovação de um conceito não autoriza implementação. Referência de sequência: [guia de concepção](SIMNEXT_OBSERVER_IDENTITY_AND_DESIGN_GUIDE.md).
+
+## D1.1 — Representação do espaço
+**Estado: aprovado pelo usuário.**
+O espaço inicial é um mapa bidimensional dividido em células discretas, reaproveitando o modelo do Oturo. Preservar a possibilidade futura de representar regiões maiores e localidades conectadas por abstrações, sem implementar multiescala agora. Não exigir física espacial contínua: interpolação visual pode usar coordenadas fracionárias sem mudar ocupação lógica. Dimensões físicas de célula, vizinhança, regras de ocupação, regiões e escalas permanecem abertas. Consequências: localização, deslocamento, alcance, ocupação e recursos precisam respeitar contratos espaciais; representação gráfica não é autoridade do mundo.
+
+## D2/D3/D4/D5/D9 — Fauna, domesticação e produtos animais
+**Estado: requisito conceitual registrado a pedido do usuário; regras e escopo de implementação em aberto.**
+O mundo deve poder representar animais, não apenas seres humanos. Considerar fauna selvagem, domesticação e produção de recursos derivados, incluindo lã, couro e leite. Não reduzir animais a depósitos estáticos de recursos. Avaliar o reaproveitamento de identidade, posição, atributos, necessidades, saúde, ciclo de vida, percepção e ações, sem impor aos animais conhecimento técnico humano, profissões ou valores culturais.
+Retomar em D1 (entidades vivas e espécies), D2 (base comum de indivíduos e capacidades específicas por espécie), D3 (alimentação, descanso, reprodução, crescimento e morte), D4 (interações humano-animal), D5/D6 (conhecimentos de manejo/domesticação e transmissão), D8 (comportamento e percepção animal), D9 (criação, produtos e cadeias materiais) e D12 (escala populacional). Em D9 distinguir produtos renováveis com condições/tempo (leite e lã, por exemplo) de produtos obtidos após morte/processamento (couro). Domesticação, amansamento individual, reprodução seletiva, propriedade e manejo são alternativas a conceber; não pressupor regras de pontos, espécies específicas, taxas ou implementação. Avaliar ciclos pastagem -> alimentação -> saúde -> produção -> consumo/trabalho, pressão ecológica e limites de capacidade. Observer deverá representar somente estados e ações efetivamente implementados, usando contrato visual compartilhado.
+Não iniciar essa discussão completa antes da etapa correspondente. Próxima decisão: D1.2 — representação do tempo lógico, independente de render e tempo de parede. Duração de tick/dia, ritmos de atualização e calendários ainda não homologados.
