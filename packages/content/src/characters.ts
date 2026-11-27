@@ -1,5 +1,6 @@
 /** Catalog-driven deterministic character creation. Generated values are replayable per world/command. */
 import {isItem} from "./items.ts";
+import {PROFESSIONS} from "./professions.ts";
 import type {Character} from "../../../domain/src/contracts.ts";
 import type {AttributeId} from "../../../domain/src/effects.ts";
 export const GIVEN_NAMES=Object.freeze([
@@ -36,8 +37,8 @@ export const TRAITS:Readonly<Record<string,Readonly<TraitDefinition>>>=Object.fr
  slow_healer:{label:"Recuperação lenta",description:"Ferimentos demoram a sarar",attributes:{},healing:.5},
  sickly:{label:"Constituição delicada",description:"Maior vulnerabilidade e recuperação pior",attributes:{endurance:-3},healing:.6,risk:1.35}
 });
-export function affinityFor(npc:Pick<Character,"traits">,domain:WorkDomain):number {
- return (npc.traits??[]).reduce((score,id)=>score*(TRAITS[id]?.affinities?.[domain]??1),1);
+export function affinityFor(npc:Pick<Character,"traits"|"profession">,domain:WorkDomain):number {
+ return (npc.traits??[]).reduce((score,id)=>score*(TRAITS[id]?.affinities?.[domain]??1),1)*(npc.profession&&PROFESSIONS[npc.profession]?.domain===domain?1.2:1);
 }
 export function healingFactor(npc:Pick<Character,"traits">):number{
  return (npc.traits??[]).reduce((rate,id)=>rate*(TRAITS[id]?.healing??1),1);

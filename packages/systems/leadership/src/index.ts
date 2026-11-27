@@ -1,3 +1,4 @@
+import {assignProfessions} from "./professions.ts";
 import {averageFertility} from "../../../content/src/soil.js";
 import type {World,Character,Construction,Position,Command,Result} from "../../../domain/src/contracts.ts";
 import {buildingBlueprint} from "../../../content/src/buildings/registry.ts";
@@ -185,6 +186,7 @@ export function advanceLeaderDecisions(world:World,execute:(cmd:Command)=>Result
  if(world.tick%LEADER_DECISION_INTERVAL!==0)return;
  const leader=living(world).find(npc=>npc.communityRole==="leader");
  if(!leader)return;
+ assignProfessions(world,leader);
  leader.leadership??={lastPlanTick:-1,lastReason:"Avaliando comunidade"};
  // Ruins are already unavailable; a leader may order clearance, never dismantle a live building automatically.
  const ruin=world.entities.find(e=>e.kind==="construction"&&e.status==="destroyed"&&!e.removalOrder&&removalSafe(world,e));

@@ -8,7 +8,8 @@ export function resolveCharacterState(entity,{movingVisually=false}={}){
  if(movingVisually)return 'moving';
  const activity=entity.ai?.activity;
  if(resting.has(activity))return 'resting';
- if(moving.has(activity))return 'moving';
+ if(entity.ai?.action&&entity.ai.action!=='movement.move')return 'working';
+ if(moving.has(activity)||activity?.startsWith('Indo ')||activity?.startsWith('Carregando ')||activity?.startsWith('Transportando falecido'))return 'moving';
  if(working.has(activity))return 'working';
  return 'idle';
 }

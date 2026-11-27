@@ -8,12 +8,14 @@ export interface MovementSegment { from:Position; to:Position; startTick:number;
 import type {ActiveEffect,AttributeId} from "./effects.ts";
 export type NaturalStage = "seedling" | "young" | "mature" | "old" | "dead";
 export type Inventory = Record<string,number>;
+export type ProfessionId="farmer"|"collector"|"lumberjack"|"miner"|"builder"|"artisan"|"cook"|"hauler"|"gravedigger";
 export interface Character { id: string; kind: "character"; name: string; position: Position; health: number; energy: number; ownerId?: string; inventory?: Inventory; ai?:NpcDecisionState; attributes?: Partial<Record<AttributeId,number>>; effects?: ActiveEffect[];
  /** Logical indoor occupancy; exterior position is reserved for exit. */
  sleepingInId?:string;
  homeId?:string; satiety?:number; equipment?:{tool?:string}; injuries?:number;
  nextMoveTick?:number; movementSegment?:MovementSegment;
  traits?:string[]; deathTick?:number; causeOfDeath?:string; bodyCarriedBy?:string;
+ profession?:ProfessionId; professionAssignedBy?:string; professionAssignedTick?:number;
  communityRole?:"leader"; leadership?:{lastPlanTick:number;lastBlueprintId?:string;lastReason:string;lastSiteId?:string;
  lastProductionTick?:number;lastRecipeId?:string;productionReason?:string}; }
 /** A bounded planting intent; no inventory or physical occupancy is reserved. */
@@ -23,7 +25,7 @@ export interface ExtractionCommitment {targetId:string;action:"resource.gather"|
 /** Advisory physical hauling claim, scoped to one action; no stock is moved until the command succeeds. */
 export interface HaulingClaim {targetId:string;action:"storage.withdraw"|"storage.deposit"|"construction.deliver";itemId:string;quantity:number;lastProgressTick:number;constructionDestinationId?:string}
 export interface NpcDecisionState {
- activity:string|null; reason:string; targetId?:string; route:Position[];
+ activity:string|null; action?:ActionId; reason:string; targetId?:string; route:Position[];
  lastDecisionTick:number; history:Array<{tick:number;activity:string;reason:string;targetId?:string}>;
  resting?:boolean;
  plantingCommitment?:PlantingCommitment;

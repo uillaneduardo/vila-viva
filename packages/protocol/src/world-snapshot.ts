@@ -1,3 +1,4 @@
+import {isProfession} from "../../content/src/professions.ts";
 import {buildingBlueprint} from "../../content/src/buildings/registry.ts";
 import {isItem} from "../../content/src/items.ts";
 import {WORLD_FORMAT_VERSION} from "../../domain/src/activity.ts";
@@ -30,6 +31,9 @@ export function validateWorld(value:unknown):asserts value is World {
    !safeInt(entity.energy,100)||
    entity.nextMoveTick!==undefined&&(typeof entity.nextMoveTick!=="number"||!Number.isFinite(entity.nextMoveTick)||entity.nextMoveTick<0)||entity.satiety!==undefined&&!safeInt(entity.satiety,100)))
    throw Error("INVALID_WORLD");
+  if(entity.kind==="character"&&entity.profession!==undefined&&(!isProfession(entity.profession)||
+    entity.professionAssignedBy!==undefined&&(typeof entity.professionAssignedBy!=="string"||!/^[\\w:-]{1,120}$/.test(entity.professionAssignedBy))||
+    entity.professionAssignedTick!==undefined&&!safeInt(entity.professionAssignedTick,value.tick)))throw Error("INVALID_WORLD");
   if(entity.kind==="character"&&object(entity.ai)&&entity.ai.plantingCommitment!==undefined){
    const p=entity.ai.plantingCommitment;
    if(!object(p)||typeof p.zoneId!=="string"||!/^[\w:-]{1,120}$/.test(p.zoneId)||

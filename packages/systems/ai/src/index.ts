@@ -461,14 +461,14 @@ function choose(world:World,npc:Character):Task|null{
   "Área vazia sem necessidade imediata de armazenamento","storage.temporary.remove");
  return cleanup??stockpileTask(world,npc);
 }
-function record(npc:Character,world:World,activity:string|null,reason:string,targetId?:string,route:Position[]=[]){
+function record(npc:Character,world:World,activity:string|null,reason:string,targetId?:string,route:Position[]=[],action?:Command["action"]){
  npc.ai??={activity:null,reason:"",route:[],lastDecisionTick:world.tick,history:[]};
  const ai=npc.ai;
  if(ai.activity!==activity||ai.targetId!==targetId||ai.reason!==reason){
   ai.history.push({tick:world.tick,activity:activity??"Aguardando",reason,...(targetId?{targetId}:{})});
   if(ai.history.length>8)ai.history.splice(0,ai.history.length-8);
  }
- ai.activity=activity;ai.reason=reason;ai.targetId=targetId;ai.route=route;ai.lastDecisionTick=world.tick;
+ ai.activity=activity;if(action)ai.action=action;else delete ai.action;ai.reason=reason;ai.targetId=targetId;ai.route=route;ai.lastDecisionTick=world.tick;
 }
 
 /** Survival outranks construction, with real fruit consumption and no created food. */
@@ -662,7 +662,7 @@ function executeTask(world:World,npc:Character,task:Task,execute:ActionHandler):
   }
  }
  record(npc,world,result.ok?task.activity:"Bloqueado",
-  result.ok?task.reason:"Ação rejeitada ("+result.error+"); nova decisão no próximo ciclo",task.targetId??task.target.id);
+  result.ok?task.reason:"Ação rejeitada ("+result.error+"); nova decisão no próximo ciclo",task.targetId??task.target.id,[],result.ok?task.action:undefined);
 }
 export function advanceNpcDecisions(world:World,execute:ActionHandler):void {
  if(world.tick%NPC_ACTION_INTERVAL!==0)return;
