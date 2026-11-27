@@ -34,3 +34,13 @@ test('cache paint uses camera transform and returns false if canvas context unav
  assert.deepEqual(ctx.args.slice(1),[0,0,336,336]);
  assert.equal(new TerrainCache({createCanvas:()=>null}).paint(ctx,camera,world,bounds),false);
 });
+
+test('rustic terrain texture is separately cached and overlay remains legible',()=>{
+ const t=new TerrainCache({createCanvas:fakeCanvas});
+ const w={width:16,height:16,seed:'terrain',soilVersion:1};
+ const plain=t.get(0,0,16,16,42,true,w,false,false);
+ const textured=t.get(0,0,16,16,42,true,w,false,true);
+ assert.notEqual(plain,textured);
+ assert.equal(t.get(0,0,16,16,42,true,w,false,true),textured);
+ assert.notEqual(t.get(0,0,16,16,42,true,w,true,true),textured);
+});

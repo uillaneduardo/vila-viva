@@ -12,3 +12,6 @@ Artes originais geradas para Oturo por ChatGPT/ImageGen, 26/11/2026; recortes co
  
 ## Gate
 CI, revisão de conflitos com PRs concorrentes, QA visual /browser e /admin, benchmark em mapa 64×48, deploy e rollback conforme infraestrutura. Não alterar gameplay, persistência do mundo ou colisões. Não considerar este incremento um pack completo.
+
+## Segundo incremento
+Ver [expansão do pack](RUSTIC_GRAPHICS_EXPANSION.md) (#120) para a cobertura posterior. A lista acima registra o incremento inicial.
