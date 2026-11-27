@@ -1,0 +1,104 @@
+name: Oturo read-only validation
+on:
+  workflow_call:
+    inputs:
+      validation_ref:
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  foundation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.validation_ref || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+      - name: Install runtime dependencies
+        run: npm install --no-package-lock --ignore-scripts
+      - name: Run domain, effects, localization, renderer and API tests
+        run: node --experimental-strip-types --test tests/*.test.mts
+      - name: Measure deterministic community baseline (15000 ticks)
+        run: node --experimental-strip-types scripts/measure-community.mts oturo-starter-v1 15000
+      - name: Measure additional deterministic community seeds
+        run: |
+          for seed in oturo-stability-a oturo-stability-b; do
+            node --experimental-strip-types scripts/measure-community.mts "$seed" 15000
+          done
+      - name: Ensure archived deployment and new deployment contracts coexist
+        run: |
+          test -s .old/Dockerfile
+          test -s .old/compose.yml
+          test -s .old/.github/workflows/deploy.yml
+          test -s Dockerfile
+          test -s compose.yml
+          test -s infra/deploy-vnext.sh
+          bash -n infra/deploy-vnext.sh
+          IMAGE_TAG=vnext-ci SOURCE_SHA=unknown docker compose -f compose.yml config --quiet
+      - name: Verify browser JavaScript syntax
+        run: |
+          node --check apps/shared-ui/app.js
+          node --check packages/i18n/src/index.js
+          for source in packages/protocol/src/*.js packages/client-sdk/src/*.js packages/renderer/src/*.js packages/ui/src/*.js packages/ui/assets/*.js packages/ui/assets/icons/*.js packages/ui/assets/themes/*.js; do
+            node --check "$source"
+          done
+  image_smoke:
+    needs: foundation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.validation_ref || github.sha }}
+          persist-credentials: false
+      - name: Build vNext image and validate HTTP/visual endpoints
+        run: |
+          set -euo pipefail
+          validated_sha="$(git rev-parse HEAD)"
+          docker build --build-arg SOURCE_SHA="$validated_sha" -t oturo-vnext-ci .
+          docker run -d --name oturo-vnext-ci -p 127.0.0.1:18586:8086 oturo-vnext-ci
+          trap 'docker rm -f oturo-vnext-ci >/dev/null 2>&1 || true' EXIT
+          for i in $(seq 1 20); do
+            curl -fsS http://127.0.0.1:18586/healthz >/dev/null && break || sleep 2
+          done
+          test "$(curl -fsS http://127.0.0.1:18586/version.txt | tr -d '\r\n')" = "$validated_sha"
+          curl -fsS http://127.0.0.1:18586/admin | grep -F ADMINISTRADOR >/dev/null
+          curl -fsS http://127.0.0.1:18586/browser | grep -F ADMINISTRADOR >/dev/null
+          curl -fsS http://127.0.0.1:18586/apps/browser-runtime/worker.js -o /tmp/browser-worker.js
+          test -s /tmp/browser-worker.js
+          curl -fsS http://127.0.0.1:18586/apps/player-web/assets-preview.html | grep -F Oturo >/dev/null
+          curl -fsS http://127.0.0.1:18586/api/world | grep -F '"world"' >/dev/null
+          curl -fsS http://127.0.0.1:18586/assets/world/vegetation/apple_tree_atlas_96.png -o /tmp/oturo-apple-atlas.png
+          python3 - <<'PY'
+          from pathlib import Path
+          assert Path('/tmp/oturo-apple-atlas.png').read_bytes().startswith(b'\x89PNG\r\n\x1a\n')
+          PY
+          # Exercise Docker named-volume ownership and paused restore across process restart.
+          docker volume create oturo-ci-persist >/dev/null
+          docker run -d --name oturo-ci-persist -p 127.0.0.1:18587:8086 \
+            -e OTURO_DATA_DIR=/opt/oturo/data -e OTURO_WORLD_SEED=oturo-starter-v1 \
+            -v oturo-ci-persist:/opt/oturo/data oturo-vnext-ci
+          for i in $(seq 1 20); do
+            curl -fsS http://127.0.0.1:18587/healthz >/dev/null && break || sleep 2
+          done
+          curl -fsS http://127.0.0.1:18587/api/world | python3 -c \
+            'import sys,json; d=json.load(sys.stdin); assert d["persistent"] and d["clock"]["paused"]; assert d["world"]["seed"]=="oturo-starter-v1"; assert any(e.get("communityRole")=="leader" for e in d["world"]["entities"])'
+          curl -fsS -H 'Content-Type: application/json' \
+            -X POST -d '{"role":"admin","name":"before-restart"}' \
+            http://127.0.0.1:18587/api/world/save | python3 -c \
+            'import sys,json; assert json.load(sys.stdin)["name"]=="before-restart"'
+          docker restart oturo-ci-persist >/dev/null
+          for i in $(seq 1 20); do
+            curl -fsS http://127.0.0.1:18587/healthz >/dev/null && break || sleep 2
+          done
+          curl -fsS http://127.0.0.1:18587/api/world | python3 -c \
+            'import sys,json; d=json.load(sys.stdin); assert d["persistent"] and d["clock"]["paused"]; assert d["world"]["seed"]=="oturo-starter-v1"'
+          curl -fsS http://127.0.0.1:18587/api/world/saves | python3 -c \
+            'import sys,json; assert any(s["name"]=="before-restart" for s in json.load(sys.stdin)["saves"])'
+          docker rm -f oturo-ci-persist >/dev/null
+          docker volume rm oturo-ci-persist >/dev/null

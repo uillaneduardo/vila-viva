@@ -10,7 +10,7 @@ fail(){ echo "::error::$*" >&2; exit 1; }
 [[ "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]] || fail "Invalid release SHA"
 [[ "$DEPLOY_IMAGE_TAG" == "vnext-sha-$DEPLOY_SHA" ]] || fail "Tag/commit mismatch"
 [[ "$(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)" == "$DEPLOY_SHA" ]] || fail "Checkout differs from validated commit"
-app_dir="/home/uillan/homelab2/apps/vila-viva"
+app_dir="${OTURO_APP_DIR:-/home/uillan/homelab2/apps/vila-viva}"
 [[ -d "$app_dir" ]] || fail "Host application directory missing: $app_dir"
 compose_file="$app_dir/.deploy/compose.yml"
 mkdir -p "$app_dir/.deploy"
@@ -60,13 +60,36 @@ docker_config="$(mktemp -d)"
 chmod 700 "$docker_config"
 export DOCKER_CONFIG="$docker_config"
 cleanup(){ rm -rf "$docker_config"; }
-trap cleanup EXIT
+rollback_armed=0
+rollback_on_exit(){
+ local rc=$?
+ trap - EXIT
+ if [[ "$rc" != 0 && "$rollback_armed" == 1 ]]; then
+  echo '::error::Deployment failed after staging; attempting rollback.' >&2
+  if [[ "$had_previous" == 1 && -n "$previous_tag" ]]; then
+   cp "$backup" "$compose_file"
+   export IMAGE_TAG="$previous_tag" SOURCE_SHA="${previous_sha:-unknown}"
+   if docker compose -f "$compose_file" up -d --no-deps --no-build web; then
+    local restored=0
+    for attempt in {1..20}; do
+     if [[ "$(curl -fsS --max-time 3 http://127.0.0.1:8481/version.txt 2>/dev/null | tr -d '\r\n' || true)" == "$previous_sha" ]] && curl -fsS --max-time 3 http://127.0.0.1:8481/healthz >/dev/null 2>&1; then restored=1; break; fi
+     sleep 3
+    done
+    if [[ "$restored" == 1 ]]; then echo 'Rollback verified locally.'; else echo '::error::Rollback revision could not be verified.'; fi
+   else echo '::error::Rollback compose failed.'; fi
+  else echo '::error::No previous release available for rollback.'; fi
+ fi
+ cleanup
+ exit "$rc"
+}
+trap rollback_on_exit EXIT
 printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin >/dev/null
 export IMAGE_TAG="$DEPLOY_IMAGE_TAG" SOURCE_SHA="$DEPLOY_SHA"
 docker pull "ghcr.io/uillaneduardo/vila-viva:$IMAGE_TAG"
 staged="$(mktemp "$compose_file.tmp.XXXXXX")"
 cp "$GITHUB_WORKSPACE/compose.yml" "$staged"
 chmod 600 "$staged"
+rollback_armed=1
 mv -f "$staged" "$compose_file"
 cd "$app_dir"
 compose=(docker compose -f "$compose_file")
@@ -79,24 +102,17 @@ for attempt in {1..30}; do
  if curl -fsS --max-time 3 http://127.0.0.1:8481/healthz >/dev/null 2>&1; then
   actual="$(curl -fsS --max-time 3 http://127.0.0.1:8481/version.txt | tr -d '\r\n')" || actual=""
   if [[ "$actual" == "$DEPLOY_SHA" ]] && \
-   curl -fsS --max-time 3 http://127.0.0.1:8481/admin | grep -q 'ADMINISTRADOR' && \
-   curl -fsS --max-time 3 http://127.0.0.1:8481/apps/player-web/assets-preview.html | grep -q 'Oturo' && \
+   curl -fsS --max-time 3 http://127.0.0.1:8481/admin | grep -F ADMINISTRADOR >/dev/null && \
+   curl -fsS --max-time 3 http://127.0.0.1:8481/apps/player-web/assets-preview.html | grep -F Oturo >/dev/null && \
    curl -fsS --max-time 3 http://127.0.0.1:8481/assets/world/vegetation/apple_tree_atlas_96.png -o /dev/null && \
-   curl -fsS --max-time 3 http://127.0.0.1:8481/api/world | grep -q '"world"'; then
+   curl -fsS --max-time 3 http://127.0.0.1:8481/api/world | grep -F '"world"' >/dev/null; then
    healthy=1;break
   fi
  fi
  sleep 3
 done
 if [[ "$healthy" != 1 ]]; then
- echo "::error::vNext deploy failed local smoke; attempting rollback"
- if [[ "$had_previous" == 1 ]]; then
-  cp "$backup" "$compose_file"
-  export IMAGE_TAG="$previous_tag" SOURCE_SHA="${previous_sha:-unknown}"
-  if [[ -n "$previous_tag" ]]; then "${compose[@]}" up -d --no-deps web || true; fi
- fi
- "${compose[@]}" ps || true
- fail "Failed to serve vNext revision $DEPLOY_SHA; previous compose restored when available"
+ fail "Failed to serve vNext revision $DEPLOY_SHA locally"
 fi
 # Import the captured old vNext world into the new persistent volume once.
 # Once the API reports persistent:true, future deploys skip this migration entirely.
@@ -128,10 +144,22 @@ PY
  rm -f "$import_response"
  echo "Prior world migrated successfully; source backup retained."
 fi
+# Verify the Tunnel before committing the release metadata. Any failure invokes the EXIT rollback.
+public_ok=0
+for attempt in $(seq 1 8); do
+ actual="$(curl -fsS --max-time 12 -H 'Cache-Control: no-cache' "https://vila-viva-svr2.ulln.com.br/version.txt?sha=${DEPLOY_SHA}" 2>/dev/null | tr -d '\r\n' || true)"
+ if [[ "$actual" == "$DEPLOY_SHA" ]] && \
+  curl -fsS --max-time 12 "https://vila-viva-svr2.ulln.com.br/admin" | grep -F ADMINISTRADOR >/dev/null && \
+  curl -fsS --max-time 12 "https://vila-viva-svr2.ulln.com.br/browser" | grep -F ADMINISTRADOR >/dev/null && \
+  curl -fsS --max-time 12 "https://vila-viva-svr2.ulln.com.br/assets/world/vegetation/apple_tree_atlas_96.png" -o /dev/null; then public_ok=1; break; fi
+ sleep 5
+done
+[[ "$public_ok" == 1 ]] || fail "Public Tunnel did not serve validated release"
 umask 077
 release_tmp="$(mktemp "$app_dir/.release.svr2.env.tmp.XXXXXX")"
 printf 'IMAGE_TAG=%s\nSOURCE_SHA=%s\n' "$DEPLOY_IMAGE_TAG" "$DEPLOY_SHA" > "$release_tmp"
 mv -f "$release_tmp" "$app_dir/.release.svr2.env"
+rollback_armed=0
 # Preserve latest backup for manual recovery, without altering legacy volumes.
 mv -f "$backup" "$app_dir/.deploy/compose.previous.yml"
 echo "Oturo vNext deployed: $DEPLOY_SHA on http://127.0.0.1:8481"
