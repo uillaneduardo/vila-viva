@@ -75,3 +75,6 @@ Taxas de estudo/prática/leitura/ensino, necessidade de local ou insumo por téc
 
 ## 12. Referências
 [CORE_LOOPS](../gameplay/CORE_LOOPS.md), [ECONOMY_PRODUCTION_TRAITS](../gameplay/ECONOMY_PRODUCTION_TRAITS.md), [WORLD_PERSISTENCE_AND_LEADERSHIP](../gameplay/WORLD_PERSISTENCE_AND_LEADERSHIP.md), [HOUSING_FAMILY_MVP](../gameplay/HOUSING_FAMILY_MVP.md), [EFFECT_SYSTEM](EFFECT_SYSTEM.md), [BOUNDARIES](BOUNDARIES.md), [BROWSER_RUNTIME](BROWSER_RUNTIME.md), [COMMUNITY_BASELINE](COMMUNITY_BASELINE.md). A documentação histórica não é prova de funcionalidade executada.
+
+## 13. Cenários e experimentação
+O SimNext é uma plataforma de experimentação parametrizável, não um motor restrito a assentamentos. A especificação complementar [SIMNEXT_SCENARIOS.md](SIMNEXT_SCENARIOS.md) define cenário, experimento, execução, observação, comparação de seeds, evolução tecnológica de longo prazo e interação entre sociedades distintas. O objetivo do observador não força o objetivo dos agentes. As regras de cenário devem ser declarativas e compartilhadas pelo mesmo motor.
