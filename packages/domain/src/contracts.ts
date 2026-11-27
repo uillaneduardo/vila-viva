@@ -26,6 +26,7 @@ export interface ExtractionCommitment {targetId:string;action:"resource.gather"|
 export interface HaulingClaim {targetId:string;action:"storage.withdraw"|"storage.deposit"|"construction.deliver";itemId:string;quantity:number;lastProgressTick:number;constructionDestinationId?:string}
 export interface NpcDecisionState {
  activity:string|null; reason:string; targetId?:string; route:Position[];
+ workAction?:ActionId; workMaterial?:string;
  lastDecisionTick:number; history:Array<{tick:number;activity:string;reason:string;targetId?:string}>;
  resting?:boolean;
  plantingCommitment?:PlantingCommitment;
