@@ -12,3 +12,18 @@ export function resolveCharacterState(entity,{movingVisually=false}={}){
  if(working.has(activity))return 'working';
  return 'idle';
 }
+
+// Visual job markers are projections of real activity, not permanent occupations.
+const rolesByActivity=Object.freeze({
+ 'Plantando':'farm','Colhendo safra':'farm','Renovando pomar':'farm','Buscando sementes':'farm','Colhendo alimento':'farm',
+ 'Construindo':'builder','Indo construir':'builder','Desmontando':'builder','Indo desmontar':'builder','Entregando materiais':'builder',
+ 'Operando mina':'miner','Transportando minério':'miner','Cortando madeira seca':'woodcutter',
+ 'Preparando alimento':'cook','Cozinhando':'cook','Fabricando':'artisan','Extraindo para fabricação':'artisan',
+ 'Armazenando recursos':'carrier','Recolhendo itens':'carrier','Distribuindo produção':'carrier','Buscando material':'carrier',
+ 'Tratando ferimentos':'healer','Tratando':'healer'
+});
+export function resolveCharacterRole(entity){
+ if(!entity||entity.health<=0)return null;
+ if(entity.communityRole==='leader')return 'leader';
+ return rolesByActivity[entity.ai?.activity]??null;
+}

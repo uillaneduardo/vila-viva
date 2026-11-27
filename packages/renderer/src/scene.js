@@ -14,6 +14,7 @@ export class Scene {
   this.ctx.setTransform(dpr,0,0,dpr,0,0);this.dpr=dpr;
  }
  setWorld(world,{reset=false,paused=false}={}){
+  this.paused=paused;
   if(!this.world)this.camera.centerOnWorld(world);
   if(reset||paused)this.motion.clear();
   const oldById=new Map(this.world?.entities.map(e=>[e.id,e])??[]);
@@ -121,9 +122,10 @@ export class Scene {
    const p=k.worldToScreen((pos.x+(e.kind==='construction'?e.footprint.width/2:.5))*t,
      (pos.y+(e.kind==='construction'?e.footprint.height/2:.5))*t),s=t*k.zoom;
    if(!this.entityPlanner&&(p.x<-s||p.y<-s||p.x>w+s||p.y>h+s))continue;
-   const visual=resolveWorldSprite(e,{movingVisually:Math.abs(pos.x-e.position.x)+Math.abs(pos.y-e.position.y)>.001});
+   const movingVisually=!this.paused&&Math.abs(pos.x-e.position.x)+Math.abs(pos.y-e.position.y)>.001;
+   const visual=resolveWorldSprite(e,{movingVisually});
    c.save();c.globalAlpha*=opacityFor(e);
-   const drawn=visual&&this.sprites.draw(c,visual.id,p.x,p.y,e.kind==='construction'?s*e.footprint.width:s*visual.scale,visual.state,e.kind==='construction'?{height:s*e.footprint.height,level:visual.level}:{direction:visual.direction,now});
+   const drawn=visual&&this.sprites.draw(c,visual.id,p.x,p.y,e.kind==='construction'?s*e.footprint.width:s*visual.scale,visual.state,e.kind==='construction'?{height:s*e.footprint.height,level:visual.level}:{direction:visual.direction,now,animate:!this.paused&&(movingVisually||visual.state==='working')});
    if(!drawn){
     c.save();c.translate(p.x,p.y);
     if(e.kind==='construction'){
@@ -242,6 +244,10 @@ export class Scene {
     }
     if(e.kind==='resource'&&e.quantity===0){c.fillStyle='rgba(30,45,33,.58)';c.fillRect(-s*.3,-s*.3,s*.6,s*.6);}
     c.restore();
+   }
+   if(drawn&&e.kind==='character'&&visual.role&&this.sprites.pack?.['accessories/'+visual.role]&&s>=20){
+    // Small secondary icon, always inside the tile and independent of hit testing.
+    this.sprites.draw(c,'accessories/'+visual.role,p.x+s*.28,p.y-s*.36,s*.32,'idle');
    }
    c.restore();
    if(e.id===this.hover||e.id===this.selected){
