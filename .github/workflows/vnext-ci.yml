@@ -3,8 +3,18 @@ on:
   push:
     branches: [main, migration/vnext-root-legacy-archive, architecture/gameplay-first]
   pull_request:
-    branches: [main]
+    branches: [main, integration]
   workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: "Opcional: SHA exato da main (vazio usa HEAD ao disparar)"
+        required: false
+        type: string
+  workflow_call:
+    inputs:
+      validation_ref:
+        required: true
+        type: string
 permissions:
   contents: read
 jobs:
@@ -14,6 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.validation_ref || github.sha }}
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
@@ -53,17 +64,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.validation_ref || github.sha }}
           persist-credentials: false
       - name: Build vNext image and validate HTTP/visual endpoints
         run: |
           set -euo pipefail
-          docker build --build-arg SOURCE_SHA="$GITHUB_SHA" -t oturo-vnext-ci .
+          validated_sha="$(git rev-parse HEAD)"
+          docker build --build-arg SOURCE_SHA="$validated_sha" -t oturo-vnext-ci .
           docker run -d --name oturo-vnext-ci -p 127.0.0.1:18586:8086 oturo-vnext-ci
           trap 'docker rm -f oturo-vnext-ci >/dev/null 2>&1 || true' EXIT
           for i in $(seq 1 20); do
             curl -fsS http://127.0.0.1:18586/healthz >/dev/null && break || sleep 2
           done
-          test "$(curl -fsS http://127.0.0.1:18586/version.txt | tr -d '\r\n')" = "$GITHUB_SHA"
+          test "$(curl -fsS http://127.0.0.1:18586/version.txt | tr -d '\r\n')" = "$validated_sha"
           curl -fsS http://127.0.0.1:18586/admin | grep -F ADMINISTRADOR >/dev/null
           curl -fsS http://127.0.0.1:18586/browser | grep -F ADMINISTRADOR >/dev/null
           curl -fsS http://127.0.0.1:18586/apps/browser-runtime/worker.js -o /tmp/browser-worker.js
@@ -99,9 +112,31 @@ jobs:
             'import sys,json; assert any(s["name"]=="before-restart" for s in json.load(sys.stdin)["saves"])'
           docker rm -f oturo-ci-persist >/dev/null
           docker volume rm oturo-ci-persist >/dev/null
-  publish:
+  release_gate:
     needs: [foundation, image_smoke]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: inputs.validation_ref == '' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      current: ${{ steps.latest.outputs.current }}
+    steps:
+      - name: Direct pushes wait for a quiet five-minute window
+        if: github.event_name == 'push'
+        run: sleep 300
+      - name: Verify current main revision
+        id: latest
+        uses: actions/github-script@v7
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        with:
+          script: |
+            const main=await github.rest.repos.getBranch({...context.repo,branch:'main'});
+            const current=main.data.commit.sha===context.sha && (!process.env.EXPECTED_SHA || process.env.EXPECTED_SHA===context.sha);
+            core.setOutput('current',String(current));
+            if(!current)core.notice('Superseded release: no image publication or deployment.');
+  publish:
+    needs: [release_gate]
+    if: needs.release_gate.outputs.current == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -124,8 +159,8 @@ jobs:
             SOURCE_SHA=${{ github.sha }}
           tags: ghcr.io/uillaneduardo/vila-viva:vnext-sha-${{ github.sha }}
   deploy_homelab2:
-    needs: [foundation, image_smoke, publish]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [release_gate, publish]
+    if: needs.release_gate.outputs.current == 'true'
     runs-on: [self-hosted, linux, x64, vila-viva-svr2]
     timeout-minutes: 20
     concurrency:
@@ -155,22 +190,17 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: bash infra/deploy-vnext.sh
-      - name: Check public Cloudflare hostname
-        if: steps.latest.outputs.current == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          expected="${GITHUB_SHA}"
-          for attempt in $(seq 1 8); do
-            actual="$(curl -fsS --max-time 12 -H 'Cache-Control: no-cache' "https://vila-viva-svr2.ulln.com.br/version.txt?sha=${expected}" 2>/dev/null | tr -d '\r\n' || true)"
-            if [[ "$actual" == "$expected" ]]; then
-              curl -fsS --max-time 12 "https://vila-viva-svr2.ulln.com.br/admin" | grep -F ADMINISTRADOR >/dev/null
-              curl -fsS --max-time 12 "https://vila-viva-svr2.ulln.com.br/assets/world/vegetation/apple_tree_atlas_96.png" -o /dev/null
-              echo "Public Oturo vNext revision verified: $expected"
-              exit 0
-            fi
-            echo "Attempt $attempt/8: expected $expected, received ${actual:-<none>}"
-            sleep 5
-          done
-          echo "::error::Local service deployed, but public Tunnel is not serving the expected revision"
-          exit 1
+  notify_release:
+    needs: [foundation, image_smoke, release_gate, publish, deploy_homelab2]
+    if: always() && inputs.validation_ref == '' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (needs.foundation.result == 'failure' || needs.image_smoke.result == 'failure' || needs.release_gate.result == 'failure' || needs.publish.result == 'failure' || needs.deploy_homelab2.result == 'failure' || needs.deploy_homelab2.result == 'success')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Notify Telegram (optional configured secrets)
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MESSAGE: "Oturo | SHA ${{ github.sha }} | testes=${{ needs.foundation.result }} | imagem=${{ needs.image_smoke.result }} | publicação=${{ needs.publish.result }} | deploy=${{ needs.deploy_homelab2.result }} | ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        run: bash infra/notify-telegram.sh

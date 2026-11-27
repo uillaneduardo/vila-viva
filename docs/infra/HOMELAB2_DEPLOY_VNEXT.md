@@ -35,3 +35,6 @@ O pipeline preserva a infraestrutura antiga para rollback. A arte mostra árvore
 - Ao subir, a API sempre reinicia pausada (`speed=0`). Se `active.json` existe, carrega-o; se não, `OTURO_WORLD_SEED=oturo-starter-v1` gera mundo inicial com materiais, macieiras, área de pomar e NPC líder. Nenhuma construção é concluída automaticamente.
 - Primeira atualização a partir da vNext em memória: `deploy-vnext.sh` captura a versão anterior de `/api/world` e guarda um JSON importável em `.deploy/world-backups`; depois de atualizar, importa, valida o tick e preserva o backup. A versão anterior não tinha journal histórico, portanto só ações posteriores podem ser exportadas.
 - `/api/world/save` e `/api/world/load` são o contrato de salvamentos nomeados; `/api/world/activity/export` entrega logs por ticks válidos em JSONL; `/api/world/export` entrega o snapshot. Todos são acessíveis pelo menu **Mundo** no Modo Deus.
+
+## Integração em lote
+Veja [BATCHED_CI_CD.md](BATCHED_CI_CD.md) para fila, janela, publicação manual, Telegram e rollback. A verificação pública ocorre no script antes de registrar a release; falhas acionam restauração do Compose anterior quando disponível.

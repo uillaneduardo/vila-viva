@@ -1,0 +1,101 @@
+name: Oturo integration batch
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      promote_now:
+        description: "Skip only the quiet window (all validation remains mandatory)"
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: oturo-integration-batch
+  cancel-in-progress: false
+jobs:
+  stage:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    permissions:
+      contents: write
+      pull-requests: read
+      actions: read
+    outputs:
+      base: ${{ steps.stage.outputs.base }}
+      candidate: ${{ steps.stage.outputs.candidate }}
+      plan: ${{ steps.stage.outputs.plan }}
+      unchanged: ${{ steps.quiet.outputs.unchanged }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+      - name: Stage approved PRs (do not execute candidate code)
+        id: stage
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node infra/batch-integration.mjs stage
+      - name: Wait for quiet window
+        if: steps.stage.outputs.candidate != '' && !inputs.promote_now
+        run: sleep 300
+      - name: Check batch has not changed
+        id: quiet
+        if: steps.stage.outputs.candidate != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BATCH_BASE: ${{ steps.stage.outputs.base }}
+          BATCH_CANDIDATE: ${{ steps.stage.outputs.candidate }}
+          BATCH_PLAN: ${{ steps.stage.outputs.plan }}
+        run: node infra/batch-integration.mjs check
+  validate:
+    needs: stage
+    if: needs.stage.outputs.unchanged == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/vnext-ci.yml
+    with:
+      validation_ref: ${{ needs.stage.outputs.candidate }}
+  promote:
+    needs: [stage, validate]
+    if: needs.validate.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: write
+      pull-requests: read
+    outputs:
+      promoted: ${{ steps.promote.outputs.promoted }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.stage.outputs.base }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+      - name: Recheck approvals, main and integration; fast-forward main and dispatch release
+        id: promote
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BATCH_BASE: ${{ needs.stage.outputs.base }}
+          BATCH_CANDIDATE: ${{ needs.stage.outputs.candidate }}
+          BATCH_PLAN: ${{ needs.stage.outputs.plan }}
+        run: node infra/batch-integration.mjs promote
+  notify:
+    needs: [stage, validate, promote]
+    if: always() && (needs.stage.result == 'failure' || needs.validate.result == 'failure' || needs.promote.result == 'failure' || needs.promote.outputs.promoted == 'true')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MESSAGE: "Oturo integração | lote=${{ needs.stage.outputs.plan }} | estágio=${{ needs.stage.result }} | validação=${{ needs.validate.result }} | promoção=${{ needs.promote.result }} | ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        run: bash infra/notify-telegram.sh
