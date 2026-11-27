@@ -51,7 +51,7 @@ export function validateWorld(value:unknown):asserts value is World {
     typeof c.itemId!=="string"||!isItem(c.itemId)||!safeInt(c.quantity,12)||c.quantity<1||
     !safeInt(c.lastProgressTick,value.tick)||c.constructionDestinationId!==undefined&&(c.action!=="storage.withdraw"||typeof c.constructionDestinationId!=="string"||!/^[\w:-]{1,120}$/.test(c.constructionDestinationId)||c.constructionDestinationId===c.targetId))throw Error("INVALID_WORLD");
   }
-  if(entity.kind==="character"&&entity.profession!==undefined&&!["farm","builder","miner","woodcutter","cook","carrier","artisan","healer"].includes(String(entity.profession)))throw Error("INVALID_WORLD");
+  if(entity.kind==="character"&&entity.profession!==undefined&&(typeof entity.profession!=="string"||!["farm","builder","miner","woodcutter","cook","carrier","artisan","healer"].includes(entity.profession)))throw Error("INVALID_WORLD");
   if(entity.kind==="character"&&entity.sleepingInId!==undefined&&(typeof entity.sleepingInId!=="string"||!/^[\w:-]{1,120}$/.test(entity.sleepingInId)))throw Error("INVALID_WORLD");
   if(entity.kind==="character"&&entity.movementSegment!==undefined){
    const m=entity.movementSegment;
