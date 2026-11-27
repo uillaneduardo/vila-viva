@@ -32,3 +32,13 @@ test("existing profession identifiers and save data stay compatible",()=>{
  assert.doesNotThrow(()=>validateWorld(w));
  w.entities[0].profession="invalid";assert.throws(()=>validateWorld(w),/INVALID_WORLD/);
 });
+
+test("profession metadata validates actual NPC IDs and rejects malformed or future assignments",()=>{
+ const w=createWorld("profession-metadata",12,12);
+ const citizen={kind:"character",id:"citizen",name:"NPC",position:{x:1,y:1},health:100,energy:100,profession:"farm",professionAssignedBy:"npc-leader:1",professionAssignedTick:0};
+ w.entities.push(citizen);
+ assert.doesNotThrow(()=>validateWorld(w));
+ citizen.professionAssignedBy="invalid leader";assert.throws(()=>validateWorld(w),/INVALID_WORLD/);
+ citizen.professionAssignedBy="npc-leader:1";citizen.professionAssignedTick=w.tick+1;
+ assert.throws(()=>validateWorld(w),/INVALID_WORLD/);
+});
