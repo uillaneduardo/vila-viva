@@ -57,7 +57,7 @@ jobs:
     if: needs.stage.outputs.unchanged == 'true'
     permissions:
       contents: read
-    uses: ./.github/workflows/vnext-ci.yml
+    uses: ./.github/workflows/vnext-validation.yml
     with:
       validation_ref: ${{ needs.stage.outputs.candidate }}
   promote:

@@ -7,5 +7,7 @@ test("CI checks whole HTTP response before grep so curl cannot fail with SIGPIPE
  const deployment=await readFile(new URL("../infra/deploy-vnext.sh",import.meta.url),"utf8");
  assert.doesNotMatch(deployment,/curl[^\n]*\|\s*grep\s+-q\b/);
  assert.match(deployment,/curl -fsS --max-time 12 "https:\/\/vila-viva-svr2\.ulln\.com\.br\/admin" \| grep -F ADMINISTRADOR >\/dev\/null/);
- assert.match(workflow,/curl -fsS http:\/\/127\.0\.0\.1:18586\/admin \| grep -F ADMINISTRADOR >\/dev\/null/);
+ const validation=await readFile(new URL("../.github/workflows/vnext-validation.yml",import.meta.url),"utf8");
+ assert.doesNotMatch(validation,/curl[^\n]*\|\s*grep\s+-q\b/);
+ assert.match(validation,/curl -fsS http:\/\/127\.0\.0\.1:18586\/admin \| grep -F ADMINISTRADOR >\/dev\/null/);
 });

@@ -14,7 +14,7 @@ Reutiliza o diretório `/home/uillan/homelab2/apps/vila-viva`, o arquivo `.deplo
 O `compose.previous.yml` guarda o Compose anterior. O arquivo `.release.svr2.env` contém apenas tag e SHA validados, sem segredos.
 
 ## Verificação
-No GitHub Actions, aguardar `foundation`, `image_smoke`, `publish`, `deploy_homelab2`. O último job confere a URL pública e o atlas PNG. Se o job ficar `queued` muito tempo, verificar se o runner tem a label `vila-viva-svr2` e está online.
+No GitHub Actions, aguardar `validate` (foundation e image_smoke), `release_gate`, `publish`, `deploy_homelab2`. O último job confere a URL pública e o atlas PNG. Se o job ficar `queued` muito tempo, verificar se o runner tem a label `vila-viva-svr2` e está online.
 No homelab2:
 ```bash
 cd /home/uillan/homelab2/apps/vila-viva

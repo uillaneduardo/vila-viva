@@ -72,7 +72,7 @@ rollback_on_exit(){
    if docker compose -f "$compose_file" up -d --no-deps --no-build web; then
     local restored=0
     for attempt in {1..20}; do
-     if [[ "$(curl -fsS --max-time 3 http://127.0.0.1:8481/version.txt 2>/dev/null | tr -d '\\r\\n' || true)" == "$previous_sha" ]] && curl -fsS --max-time 3 http://127.0.0.1:8481/healthz >/dev/null 2>&1; then restored=1; break; fi
+     if [[ "$(curl -fsS --max-time 3 http://127.0.0.1:8481/version.txt 2>/dev/null | tr -d '\r\n' || true)" == "$previous_sha" ]] && curl -fsS --max-time 3 http://127.0.0.1:8481/healthz >/dev/null 2>&1; then restored=1; break; fi
      sleep 3
     done
     if [[ "$restored" == 1 ]]; then echo 'Rollback verified locally.'; else echo '::error::Rollback revision could not be verified.'; fi

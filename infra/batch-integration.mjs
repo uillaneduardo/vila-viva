@@ -71,6 +71,7 @@ function stage(){
  if(previous&&!SHA.test(previous))throw Error('Invalid integration SHA');
  // Only the disposable integration branch is rewritten, and only with an exact lease.
  git('push','--force-with-lease=refs/heads/integration:'+previous,'origin',candidate+':refs/heads/integration');
+ git('checkout','--detach',base); // Restore trusted script before any subsequent privileged step.
  output('candidate',candidate);console.log('Staged '+plan.map(p=>'#'+p.number).join(', ')+' at '+candidate);
 }
 function check(){
