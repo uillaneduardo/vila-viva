@@ -114,3 +114,6 @@ Trabalho técnico: (1) fixtures e cenário mínimo, (2) catálogo + progressão 
 
 ## 10. Decisões abertas
 Aprovar D1–D6 antes da primeira fatia, especialmente unidade de tempo, atributos mínimos, ação concreta B, suporte de registro e requisitos de leitura. Taxas e valores são propostas; esquema de snapshot, migração, modo experimental e API de cenário precisam de revisão técnica. Não ampliar escopo até validar V1. Não houve código, testes executados, merge ou deploy nesta atualização de documentação.
+
+## 11. Revisão da ordem de trabalho
+A direção posterior registrada em [SIMNEXT_OBSERVER_AND_SESSIONS.md](SIMNEXT_OBSERVER_AND_SESSIONS.md) prevalece: definir renderizador e sessões primeiro; completar concepção e arquitetura de código antes de implementar os novos sistemas; validar headless e só então levantar necessidades visuais e integrar. V0 pode validar infraestrutura atual de forma isolada após aprovação; V1–V4 não são autorização de implementação antecipada. D1–D12 permanecem agenda conceitual.
