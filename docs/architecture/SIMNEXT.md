@@ -81,3 +81,6 @@ O SimNext é uma plataforma de experimentação parametrizável, não um motor r
 
 ## 14. Referências de simuladores e critérios de design
 [SIMNEXT_REFERENCES.md](SIMNEXT_REFERENCES.md) consolida as lições de RimWorld, Dwarf Fortress, WorldBox, Oxygen Not Included, Songs of Syx, Factorio e NetLogo, com fontes públicas, limites da comparação e aplicação ao roadmap. A direção é modelagem baseada em agentes, abstração intencional, composição de sistemas simples e experimentação parametrizável. Oturo é a primeira aplicação visual; narrador de eventos é opcional e desligado por padrão em experimentos controlados.
+
+## 15. Abstrações, agenda conceitual e homologação visual
+[SIMNEXT_ABSTRACTIONS_AND_VALIDATION.md](SIMNEXT_ABSTRACTIONS_AND_VALIDATION.md) registra as abstrações propostas, atributos candidatos, conhecimento e transmissão, catálogo inicial e contrato de interação. Define D1–D12 como agenda de discussões antes da implementação, e V0–V4 como fatias de homologação no navegador reaproveitando o Web Worker, Canvas, sprites, inspetor e runtime existentes. D1–D6 e versões mínimas de D7, D8 e D11 são dependências da primeira fatia de conhecimento; não esperar a sociedade completa. Nenhum avanço de código é autorizado automaticamente por esta especificação.
