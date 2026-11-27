@@ -5,9 +5,9 @@ O motor de simulação é autoritativo. O renderer Canvas 2D apenas projeta dado
 ## NPCs
 - Identidade visual estável por NPC; profissão persistente distinta de traços, papel comunitário e tarefa.
 - Direções N/S/L/O no espaço do mapa, a partir da trajetória visual; conservar última direção no repouso.
-- Atlas atual: células 96×96, pivô (48,66), transparência, sem suavização. Estados existentes: idle, moving, working, resting. Não substituir a identidade entre estados.
+- Atlas atual: células 96×96, pivô (48,66), transparência, sem suavização. Estados existentes: idle, moving, working, resting; o pack Rustic direcional possui walk:1–3 e work:1. Não substituir a identidade entre estados.
 - Próxima revisão: camadas de corpo, vestimenta por profissão, ferramentas e objetos; mesmo pivô em todos os frames; sequências por ação e direção com duração explícita, pausa congelando fase; fallback na mesma identidade. IDs de ação estáveis, sem depender de tradução.
-- Profissões a implementar pela liderança: agricultor, coletor, lenhador, minerador, construtor, artesão, cozinheiro, transportador, coveiro; líder e generalista. Emergências de sobrevivência têm precedência e não trocam a profissão.
+- Profissões a implementar pela liderança: agricultor, coletor, lenhador, minerador, construtor, artesão, cozinheiro, transportador, coveiro; líder e generalista. Preservar IDs de profissão já publicados (farm, woodcutter, carrier etc.). Emergências de sobrevivência têm precedência e não trocam a profissão.
 - Animações previstas: caminhada, repouso, sono, morte, comer, transportar, plantar, colher, cortar, minerar, construir, desmontar, fabricar, cozinhar, sepultar; uma sequência por ação e direção, componível com cada profissão.
 
 ## Construções
