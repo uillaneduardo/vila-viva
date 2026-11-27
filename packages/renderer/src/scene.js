@@ -89,14 +89,20 @@ export class Scene {
    if(!drawn){
    c.fillStyle='rgba(104,103,75,.5)';c.fillRect(start.x,start.y,width,height);
    c.strokeStyle='#b2aa83';c.lineWidth=2;c.strokeRect(start.x+2,start.y+2,width-4,height-4);
-   for(let i=0;i<graveyard.footprint.width*graveyard.footprint.height;i++){
-    const x=start.x+(i%graveyard.footprint.width+.5)*size;
-    const y=start.y+(Math.floor(i/graveyard.footprint.width)+.54)*size;
-    c.fillStyle='#899189';c.fillRect(x-size*.13,y-size*.17,size*.26,size*.26);
-    c.strokeStyle='#dbd8be';c.lineWidth=Math.max(1,size*.022);
-    c.beginPath();c.moveTo(x,y-size*.14);c.lineTo(x,y+size*.07);
-    c.moveTo(x-size*.08,y-size*.055);c.lineTo(x+size*.08,y-size*.055);c.stroke();
    }
+   // Draw only registered burials. Capacity and positions are visual projections of the level.
+   const rustic=!!this.sprites.pack?.['entities/human/north'];
+   if(rustic||!drawn){
+    const level=graveyard.level??1,columns=level>=3?8:level>=2?6:4,rows=level>=3?6:level>=2?4:3;
+    const burials=graveyard.burials??[];
+    for(let i=0;i<Math.min(burials.length,columns*rows);i++){
+     const col=i%columns,row=Math.floor(i/columns),dx=width*.78/columns,dy=height*.78/rows;
+     const gx=start.x+width*.11+(col+.5)*dx,gy=start.y+height*.11+(row+.5)*dy;
+     const unit=Math.min(dx,dy);
+     c.fillStyle='#5e4936';c.fillRect(gx-unit*.31,gy-unit*.24,unit*.62,unit*.54);
+     c.fillStyle='#aeb0a0';c.fillRect(gx-unit*.25,gy-unit*.31,unit*.5,unit*.24);
+     c.fillStyle='#d5cdb5';c.fillRect(gx-unit*.19,gy-unit*.27,unit*.38,Math.max(1,unit*.045));
+    }
    }
    if(graveyard.id===this.selected){
     c.strokeStyle='#f2e3a7';c.lineWidth=3;c.strokeRect(start.x+2,start.y+2,width-4,height-4);
