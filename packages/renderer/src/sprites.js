@@ -2,7 +2,7 @@ import {PLANNED_BUILDING_ALIASES} from './planned-building-visuals.js';
 import {resolveBuildingVisual} from './building-visuals.js';
 import {getWorldVisualPack} from './visual-packs.js';
 import {fitSpriteFrame,frameForState} from './sprite-layout.js';
-import {resolveCharacterState,resolveCharacterRole} from './character-visual-state.js';
+import {resolveCharacterState,resolveCharacterRole,resolveFacing} from './character-visual-state.js';
 /** World sprite registry. Render-only; no gameplay authority or inventory mutation. */
 export const SPRITES=Object.freeze({
  'character.human':{id:'entities/human',states:['idle','moving','working','resting']},
@@ -22,7 +22,7 @@ export const WORLD_ATLASES=getWorldVisualPack();
 export function resolveWorldSprite(entity,context){
  if(entity?.kind==='character'){
  const segment=entity.movementSegment,dx=segment?segment.to.x-segment.from.x:0,dy=segment?segment.to.y-segment.from.y:0;
- const direction=dx>0?'east':dx<0?'west':dy<0?'north':'south';
+ const direction=context?.direction??resolveFacing(dx,dy);
  return {id:'entities/human',state:resolveCharacterState(entity,context),direction,role:resolveCharacterRole(entity),scale:1.45};
  }
  if(entity?.kind==='construction')return resolveBuildingVisual(entity);
