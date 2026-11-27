@@ -17,11 +17,16 @@ export const SPRITES=Object.freeze({
 /** Atlas source is local, transparent, and deliberately independent of UI icons. */
 export const WORLD_ATLASES=getWorldVisualPack();
 
+export function directionFromDelta(dx,dy){
+ if(Math.abs(dx)+Math.abs(dy)<.0001)return null;
+ return Math.abs(dx)>=Math.abs(dy)?(dx>0?'east':'west'):(dy>0?'south':'north');
+}
+
 /** Map authoritative entity state to an appearance without changing the entity. */
 export function resolveWorldSprite(entity,context){
  if(entity?.kind==='character'){
  const segment=entity.movementSegment,dx=segment?segment.to.x-segment.from.x:0,dy=segment?segment.to.y-segment.from.y:0;
- const direction=dx>0?'east':dx<0?'west':dy<0?'north':'south';
+ const direction=context?.direction??directionFromDelta(dx,dy)??'south';
  return {id:'entities/human',state:resolveCharacterState(entity,context),direction,scale:1.45};
  }
  if(entity?.kind==='construction')return resolveBuildingVisual(entity);
@@ -58,7 +63,7 @@ export class SpriteLibrary {
    image.onerror=()=>{const entry=this.atlases.get(id);if(entry?.image===image)entry.ready=false;};
    image.src=definition.src;
  }
- draw(ctx,id,x,y,size,state='idle',{height=size,level=1,direction,now=0}={}){
+ draw(ctx,id,x,y,size,state='idle',{height=size,level=1,direction,now=0,fit='stretch'}={}){
   const legacyStates={site:'stage:0',foundation:'stage:1',structure:'stage:2',roof:'stage:3'};
   const key=legacyStates[state]??state;
   const directional=direction&&id+'/'+direction;
@@ -70,6 +75,7 @@ export class SpriteLibrary {
    const frame=atlas.definition.states.includes(key)?atlas.definition.states.indexOf(key):atlas.definition.states.indexOf(state);
    if(frame===-1)return false;
    const d=atlas.definition;
+   if(fit==='contain'){const factor=Math.min(size/d.frameWidth,height/d.frameHeight);size=d.frameWidth*factor;height=d.frameHeight*factor;}
    ctx.save();ctx.imageSmoothingEnabled=false;
    ctx.drawImage(atlas.image,frame*d.frameWidth,0,d.frameWidth,d.frameHeight,
     x-size*d.pivotX/d.frameWidth,y-height*d.pivotY/d.frameHeight-(directional&&assetId===directional&&state==='moving'?Math.round(Math.abs(Math.sin(now/95))*height*.035):0),size,height);
