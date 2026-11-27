@@ -3,10 +3,11 @@ import {Camera,hitTest,brushCells} from './camera.js';
 import {SpriteLibrary,resolveWorldSprite} from './sprites.js';
 import {resolveFacing} from './character-visual-state.js';
 import {createOcclusionResolver} from './occlusion.js';
+import {drawCharacterAccessories} from './character-accessories.js';
 export class Scene {
  constructor(canvas,{spriteLibrary=new SpriteLibrary()}={}){
   this.canvas=canvas;this.ctx=canvas.getContext('2d');this.camera=new Camera();
-  this.sprites=spriteLibrary;this.sprites.preload();this.world=null;this.motion=new Map();this.visualMotion=new Map();this.selected=null;this.hover=null;this.hoverRoute=null;this.pointer=null;this.brush=null;
+  this.sprites=spriteLibrary;this.sprites.preload();this.world=null;this.motion=new Map();this.visualMotion=new Map();this.animationTime=0;this.selected=null;this.hover=null;this.hoverRoute=null;this.pointer=null;this.brush=null;
   this.resize();this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(canvas);
  }
  resize(){
@@ -56,6 +57,8 @@ export class Scene {
   return picked?entities.find(e=>e.id===picked.id):null;
  }
  paint(now=0){
+  if(!this.paused&&Number.isFinite(this.lastPaint))this.animationTime+=Math.max(0,Math.min(100,now-this.lastPaint));
+  this.lastPaint=now;
   const c=this.ctx,k=this.camera,w=k.width,h=k.height,t=k.tile;
   c.clearRect(0,0,w,h);c.fillStyle='#2c4b38';c.fillRect(0,0,w,h);
   if(!this.world)return;
@@ -112,6 +115,7 @@ export class Scene {
   // Only real entities from /api/world are visualized. No fake houses, stocks or paths.
   const positionFor=e=>this.positionProvider?this.positionProvider(e,now):e.position;
   const visible=this.world.entities.filter(e=>!e.sleepingInId);
+  const entityById=new Map(this.world.entities.map(e=>[e.id,e]));
   const drawPlan=this.entityPlanner?this.entityPlanner(visible,positionFor,{x0,y0,x1,y1}):
    visible.filter(e=>e.kind!=='item'&&e.kind!=='planting_zone'&&
    !(e.kind==='character'&&e.bodyCarriedBy)&&
@@ -143,7 +147,8 @@ export class Scene {
    }
    const visual=resolveWorldSprite(e,{movingVisually,direction});
    c.save();c.globalAlpha*=opacityFor(e);
-   const drawn=visual&&this.sprites.draw(c,visual.id,p.x,p.y,e.kind==='construction'?s*e.footprint.width:s*visual.scale,visual.state,e.kind==='construction'?{height:s*e.footprint.height,level:visual.level}:{direction:visual.direction,now,animate:!this.paused&&(movingVisually||visual.state==='working')});
+   const drawn=visual&&this.sprites.draw(c,visual.id,p.x,p.y,e.kind==='construction'?s*e.footprint.width:s*visual.scale,visual.state,e.kind==='construction'?{height:s*e.footprint.height,level:visual.level}:{direction:visual.direction,now:this.animationTime,animate:!this.paused&&(movingVisually||visual.state==='working')});
+   if(drawn&&e.kind==='character'&&this.sprites.pack?.['entities/human/north'])drawCharacterAccessories(c,e,visual,p.x,p.y,s*visual.scale,this.animationTime,entityById.get(e.ai?.targetId));
    if(!drawn){
     c.save();c.translate(p.x,p.y);
     if(e.kind==='construction'){
