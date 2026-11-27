@@ -1,11 +1,12 @@
 import {soilColor,canCultivateCell} from "../../content/src/soil.js";
 import {Camera,hitTest,brushCells} from './camera.js';
 import {SpriteLibrary,resolveWorldSprite} from './sprites.js';
+import {resolveFacing} from './character-visual-state.js';
 import {createOcclusionResolver} from './occlusion.js';
 export class Scene {
  constructor(canvas,{spriteLibrary=new SpriteLibrary()}={}){
   this.canvas=canvas;this.ctx=canvas.getContext('2d');this.camera=new Camera();
-  this.sprites=spriteLibrary;this.sprites.preload();this.world=null;this.motion=new Map();this.selected=null;this.hover=null;this.hoverRoute=null;this.pointer=null;this.brush=null;
+  this.sprites=spriteLibrary;this.sprites.preload();this.world=null;this.motion=new Map();this.visualMotion=new Map();this.selected=null;this.hover=null;this.hoverRoute=null;this.pointer=null;this.brush=null;
   this.resize();this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(canvas);
  }
  resize(){
@@ -17,12 +18,14 @@ export class Scene {
   this.paused=paused;
   if(!this.world)this.camera.centerOnWorld(world);
   if(reset||paused)this.motion.clear();
+  if(!this.world||this.world.id!==world.id)this.visualMotion.clear();
   const oldById=new Map(this.world?.entities.map(e=>[e.id,e])??[]);
   const now=performance.now();
   const duration=Math.max(100,Math.min(750,now-(this.lastSample??now-250)));
   this.lastSample=now;
   const ids=new Set(world.entities.map(e=>e.id));
   for(const id of this.motion.keys())if(!ids.has(id))this.motion.delete(id);
+  for(const id of this.visualMotion.keys())if(!ids.has(id))this.visualMotion.delete(id);
   for(const entity of world.entities){
    if(entity.kind!=='character'||reset||paused)continue;
    const previous=oldById.get(entity.id);
@@ -122,8 +125,17 @@ export class Scene {
    const p=k.worldToScreen((pos.x+(e.kind==='construction'?e.footprint.width/2:.5))*t,
      (pos.y+(e.kind==='construction'?e.footprint.height/2:.5))*t),s=t*k.zoom;
    if(!this.entityPlanner&&(p.x<-s||p.y<-s||p.x>w+s||p.y>h+s))continue;
-   const movingVisually=!this.paused&&Math.abs(pos.x-e.position.x)+Math.abs(pos.y-e.position.y)>.001;
-   const visual=resolveWorldSprite(e,{movingVisually});
+   let movingVisually=false,direction;
+   if(e.kind==='character'){
+    const prior=this.visualMotion.get(e.id),seg=e.movementSegment;
+    const fallback=prior?.direction??(seg?resolveFacing(seg.to.x-seg.from.x,seg.to.y-seg.from.y):'south');
+    const dx=prior?pos.x-prior.x:0,dy=prior?pos.y-prior.y:0;
+    const adjacent=Math.abs(dx)+Math.abs(dy)<=1.001;
+    movingVisually=!this.paused&&adjacent&&Math.abs(dx)+Math.abs(dy)>.001;
+    direction=movingVisually?resolveFacing(dx,dy,fallback):fallback;
+    this.visualMotion.set(e.id,{x:pos.x,y:pos.y,direction});
+   }
+   const visual=resolveWorldSprite(e,{movingVisually,direction});
    c.save();c.globalAlpha*=opacityFor(e);
    const drawn=visual&&this.sprites.draw(c,visual.id,p.x,p.y,e.kind==='construction'?s*e.footprint.width:s*visual.scale,visual.state,e.kind==='construction'?{height:s*e.footprint.height,level:visual.level}:{direction:visual.direction,now,animate:!this.paused&&(movingVisually||visual.state==='working')});
    if(!drawn){
