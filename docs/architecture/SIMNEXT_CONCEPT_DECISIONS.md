@@ -129,3 +129,22 @@ Esquiva pertence à resolução de combate/interações ofensivas contra a integ
 Preservar seis primários, físicos e cognitivos separados. Cada ação/equipamento pode declarar atributos relevantes, requisitos e modificadores de acordo com sua natureza. Distinguir PA físico natural (derivado de Força), PA-base da ação/equipamento, PA efetivo e dano efetivo após resolução. Destreza é relevante para operação e precisão de armas a distância; não pressupor que aumenta potência física do equipamento/projétil. Ações corporais podem depender de Força; equipamentos podem fornecer PA próprio. A dependência específica de arco, besta, armas de fogo, equipamentos e munição é exemplo a revisar em D4, não regra final.
 Separar precisão do atacante, esquiva do defensor, chance efetiva de acerto, chance de crítico condicional ao acerto, multiplicador crítico, DEF, VA, alcance e dano. Preferência preliminar: teste de acerto único que incorpora esquiva e condições, evitando dupla penalização, seguido de resolução de crítico apenas em caso de acerto, com RNG determinístico. Nenhuma fórmula de probabilidade, dano ou crítico foi homologada. Arma limita frequência de ataque; destreza/agilidade e efeitos influenciam frequência efetiva conforme regras. D4 deverá definir ataque corporal/a distância, ataque desarmado, alcance/linha de visão/cobertura, munição, recarga, consumo, defesa, armaduras, tipos de dano, ferimentos, interrupções, esquiva ativa/passiva e consequências. Avaliar abstração de projéteis como eventos em vez de física de trajetória; compatibilizar frequência com resolução temporal D1.3. Não tratar parâmetros do ataque como secundários permanentes sem consumidor distinto.
 O usuário pediu explicitamente adiar o detalhamento do combate. Retomar D2 com consolidação dos demais secundários físicos (ainda pendentes de aprovação inequívoca), escalas e modificadores, sem insistir em regras de combate nesta etapa. Nenhum código funcional alterado.
+
+### D2.3 — Consolidação do catálogo de atributos
+**Estado: aprovado pelo usuário.** Seis primários e doze secundários iniciais, preservando a separação física/cognitiva. Esta consolidação substitui as listas candidatas e pendências de confirmação anteriores de D2.3a/b; não homologa fórmulas, escalas ou balanceamento.
+| Categoria | Primário | Secundário | Responsabilidade |
+|---|---|---|---|
+| Física | Força | Capacidade de carga | Limite de massa transportável |
+| Física | Força | Poder de Ação (PA) | Potência física natural aplicada a ações compatíveis; não equivale necessariamente a dano final |
+| Física | Destreza | Velocidade de movimento | Taxa de deslocamento |
+| Física | Destreza | Precisão motora | Execução de operações manuais que exigem precisão |
+| Física | Vigor | Pontos de Vida Máximos (PVM) | Limite de PV do organismo |
+| Física | Vigor | Energia máxima | Limite da reserva de energia |
+| Física | Vigor | Resistência ao esforço | Modulação do custo energético do esforço |
+| Física | Vigor | Taxa de recuperação de PV | Recuperação de integridade biológica sob condições válidas |
+| Cognitiva | Inteligência | Taxa de aprendizado | Aquisição de pontos de conhecimento por unidade de tempo |
+| Cognitiva | Memória | Capacidade de memória | Quantidade de registros de memória admitidos |
+| Cognitiva | Memória | Retenção de informações | Persistência de lembranças |
+| Cognitiva | Comunicação | Eficiência de transmissão | Transferência de informação por unidade de tempo em interação válida |
+Derivação primária indicada é referência inicial, não exclusividade; composição de múltiplos primários e modificadores específicos continuam permitidos conforme D2.2. Não confundir PV/energia atuais (estado) com máximos (derivados). PA de ação/equipamento pode ter origem distinta do PA físico natural. Não tornar todas as características obrigatórias a todo organismo; espécie/capacidades determinam aplicabilidade. D3 retoma resistência biológica, saúde, doenças e ferimentos; D4 combate (DEF, esquiva, precisão/chance de acerto, crítico, velocidade de ataque, armas); D6 ensino; D8 percepção e concentração como mecanismos/resultados; D10 persuasão e influência. Nenhuma fórmula de combate homologada.
+Próxima decisão: D2.4 — escalas, unidades, composição e limites de modificadores, incluindo consistência de valores efetivos e tratamento de alterações nos máximos. Após D2.4: D2.5 biologia e espécies, D2.6 hereditariedade, D2.7 desenvolvimento e treinamento, D2.8 capacidades inatas e adquiridas. Nenhum código funcional alterado.
