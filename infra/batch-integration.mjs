@@ -67,10 +67,10 @@ function stage(){
   try{git('merge','--no-ff','--no-edit',p.sha);}catch(e){try{git('merge','--abort');}catch{}throw Error('Merge conflict in PR #'+p.number+'; main unchanged');}
  }
  const candidate=git('rev-parse','HEAD');
- const previous=git('ls-remote','origin','refs/heads/integration').split(/\s+/)[0];
+ const previous=git('ls-remote','origin','refs/heads/integration/batch').split(/\s+/)[0];
  if(previous&&!SHA.test(previous))throw Error('Invalid integration SHA');
  // Only the disposable integration branch is rewritten, and only with an exact lease.
- git('push','--force-with-lease=refs/heads/integration:'+previous,'origin',candidate+':refs/heads/integration');
+ git('push','--force-with-lease=refs/heads/integration/batch:'+previous,'origin',candidate+':refs/heads/integration/batch');
  git('checkout','--detach',base); // Restore trusted script before any subsequent privileged step.
  output('candidate',candidate);console.log('Staged '+plan.map(p=>'#'+p.number).join(', ')+' at '+candidate);
 }
@@ -78,7 +78,7 @@ function check(){
  const base=process.env.BATCH_BASE,candidate=process.env.BATCH_CANDIDATE;
  if(!SHA.test(base??'')||!SHA.test(candidate??''))throw Error('Invalid batch refs');
  const plan=JSON.parse(process.env.BATCH_PLAN);
- const unchanged=baseHead()===base&&api('repos/'+repo()+'/branches/integration').commit.sha===candidate&&samePlan(plan,fetchPlan());
+ const unchanged=baseHead()===base&&api('repos/'+repo()+'/branches/integration/batch').commit.sha===candidate&&samePlan(plan,fetchPlan());
  output('unchanged',String(unchanged));
  if(!unchanged)console.log('Batch changed: defer without touching main.');
  return unchanged;
@@ -86,7 +86,7 @@ function check(){
 function promote(){
  if(!check())return;
  const candidate=process.env.BATCH_CANDIDATE,base=process.env.BATCH_BASE;
- git('fetch','origin','main','integration');
+ git('fetch','origin','main','integration/batch');
  git('merge-base','--is-ancestor',base,candidate);
  // No force on main; a concurrent change will reject this push.
  git('push','origin',candidate+':refs/heads/main');

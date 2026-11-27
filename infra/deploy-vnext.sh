@@ -10,7 +10,7 @@ fail(){ echo "::error::$*" >&2; exit 1; }
 [[ "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]] || fail "Invalid release SHA"
 [[ "$DEPLOY_IMAGE_TAG" == "vnext-sha-$DEPLOY_SHA" ]] || fail "Tag/commit mismatch"
 [[ "$(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)" == "$DEPLOY_SHA" ]] || fail "Checkout differs from validated commit"
-app_dir="/home/uillan/homelab2/apps/vila-viva"
+app_dir="${OTURO_APP_DIR:-/home/uillan/homelab2/apps/vila-viva}"
 [[ -d "$app_dir" ]] || fail "Host application directory missing: $app_dir"
 compose_file="$app_dir/.deploy/compose.yml"
 mkdir -p "$app_dir/.deploy"

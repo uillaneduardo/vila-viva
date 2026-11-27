@@ -3,7 +3,7 @@ on:
   push:
     branches: [main, migration/vnext-root-legacy-archive, architecture/gameplay-first]
   pull_request:
-    branches: [main, integration]
+    branches: [main, integration/batch]
   workflow_dispatch:
     inputs:
       expected_sha:

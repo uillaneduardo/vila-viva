@@ -22,6 +22,7 @@ jobs:
       contents: write
       pull-requests: read
       actions: read
+      issues: write
     outputs:
       base: ${{ steps.stage.outputs.base }}
       candidate: ${{ steps.stage.outputs.candidate }}
@@ -35,6 +36,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22.18.0'
+      - name: Ensure opt-in queue label exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! gh label list --search 'batch:ready' --json name --jq 'any(.[]; .name=="batch:ready")' | grep -Fx true >/dev/null; then
+            gh label create 'batch:ready' --color '0e8a16' --description 'Autorizada para integração automática após CI'
+          fi
       - name: Stage approved PRs (do not execute candidate code)
         id: stage
         env:

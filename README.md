@@ -37,7 +37,7 @@ Toda a implementação antiga está em [`.old/`](.old/). A cópia preserva inclu
 
 ## Política de deploy
 - O deploy original permanece arquivado em `.old/.github/workflows/deploy.yml`, e a nova raiz possui fluxo de CI, imagem vNext e deploy isolado para homologação no homelab2.
-- O fluxo de integração em lote usa a branch `integration`, CI individual e coletivo e janela de estabilidade de 5 minutos. Consulte [CI/CD em lote](docs/infra/BATCHED_CI_CD.md). O workflow valida domínio, renderer e imagem Docker; em release da `main`, publica imagem imutável `vnext-sha-<SHA>` no GHCR e aciona o runner `vila-viva-svr2`. O servidor é um protótipo **sem autenticação**: evite dados reais e não considere o link secreto como proteção.
+- O fluxo de integração em lote usa a branch `integration/batch`, CI individual e coletivo e janela de estabilidade de 5 minutos. Consulte [CI/CD em lote](docs/infra/BATCHED_CI_CD.md). O workflow valida domínio, renderer e imagem Docker; em release da `main`, publica imagem imutável `vnext-sha-<SHA>` no GHCR e aciona o runner `vila-viva-svr2`. O servidor é um protótipo **sem autenticação**: evite dados reais e não considere o link secreto como proteção.
 - A atualização do serviço HTTP substitui somente o container `web` da mesma stack na porta loopback 8481. O serviço `api` legado e seus volumes permanecem no Docker e não são apagados; rollback de Compose é preparado pelo script de deploy.
 - A homologação pública do Modo Deus sem autenticação é uma exceção temporária solicitada pelo proprietário. Qualquer pessoa com acesso à URL poderá enviar comandos, pois não há verificação de identidade. Recomenda-se Cloudflare Access antes de qualquer uso fora do teste.
 - Não mover ou apagar os volumes persistentes da simulação antiga.
