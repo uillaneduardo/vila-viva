@@ -34,3 +34,36 @@ Próxima decisão D1.5 — matéria, materiais, recursos e sua representação a
 Representar matéria por materiais definidos em catálogo, propriedades reutilizáveis, quantidades e transformações; não simular átomos/moléculas. Distinguir material, fonte de recurso, recurso coletado, material processado, objeto e construção; uma árvore ou animal é entidade viva e não mero estoque. Objetos podem ser constituídos por um ou mais materiais. Propriedades candidatas: massa, volume, resistência, dureza, combustibilidade, isolamento, valor nutricional, perecibilidade, toxicidade e flexibilidade. Adicionar propriedade somente quando houver consumidor, consequência e teste; lista e unidades ainda abertas.
 Fontes podem ser finitas, renováveis sob condições, biológicas ou ambientais; reciclagem é possibilidade de transformação, não necessariamente tipo exclusivo de fonte. Categorias podem se sobrepor. Cadeias de extração, produção, consumo e transformação usam requisitos materiais, tempo e conhecimento quando aplicável. Manter contabilidade coerente por entradas, saídas, fontes, regeneração e perdas, sem geração arbitrária nem obrigação de conservação molecular exata. Exemplos: árvore → tronco → tábua → móvel; ovelha → lã → tecido → roupa; jazida → minério → metal → ferramenta. Produção biológica depende de condições do organismo; detalhes de domesticação e produtos em D2/D3/D4/D9. Catálogo, unidades, taxas, receitas, balanços e implementação permanecem abertos.
 Próxima decisão: D1.6 — ambiente, terreno e propriedades ambientais.
+
+## D1.6 — Ambiente e terreno (modelo simplificado)
+**Estado: aprovado pelo usuário.** Substitui a proposta anterior de simulação detalhada de umidade, nutrientes, permeabilidade e evolução ambiental por célula. Adotar abstrações de terreno inspiradas em colony sims como RimWorld, sem reproduzir suas regras ou números como obrigação.
+
+### Terreno e catálogo
+Cada célula tem um tipo de terreno, referenciado por ID estável no catálogo; propriedades comuns são consultadas na definição, não duplicadas em todas as células. O terreno não é entidade autônoma. Propriedades fundamentais aprovadas:
+- Fertilidade: fator de crescimento vegetal, 100% como referência; abaixo reduz, acima favorece.
+- Cultivável: permissão explícita de cultivo, independente do multiplicador de fertilidade.
+- Sustentação: capacidade categórica nenhuma, leve, média ou pesada; requisitos específicos de construção consultam essa capacidade.
+- Deslocamento: fator de velocidade/custo e possibilidade de passagem segundo o tipo de agente e suas capacidades; bloqueios de terreno e de entidades são distintos.
+
+Catálogo de referência discutido (valores e tipos exatos ilustrativos; não balanceados):
+| Terreno | Fertilidade | Sustentação | Velocidade terrestre | Cultivável |
+|---|---:|---|---:|---|
+| Solo rico | 140% | pesada | 100% | sim |
+| Solo comum | 100% | pesada | 100% | sim |
+| Solo pedregoso | 70% | pesada | 85% | sim |
+| Areia | 30% | leve | 75% | sim |
+| Solo pantanoso | 100% | leve | 50% | sim |
+| Rocha sólida exposta | 0% | pesada | 100% | não |
+| Água rasa | 0% | nenhuma | 40% | não |
+| Água profunda | 0% | nenhuma | bloqueado | não |
+As classes de sustentação e exemplos de terreno são conceituais; calibrar valores e regras por espécie, agente, ferramenta e blueprint depois. Não aplicar custo infinito quando existe capacidade explícita de travessia aquática.
+
+### Agricultura, construção e mineração
+Cultivo exige terreno permitido e condições da espécie. Fertilidade afeta taxa de crescimento (não confundir com quantidade de colheita); a sensibilidade por espécie pode modular seu efeito. Fórmula candidata demonstrada: fator = 1 + (fertilidade/100 - 1) × sensibilidade, sensibilidade entre 0 e 1; tratar fator zero como crescimento interrompido, verificar proibição antes do cálculo e não dividir por zero. A fórmula não foi homologada como balanceamento definitivo.
+Construções declaram requisito de sustentação e compatibilidade; verificar toda a área ocupada pelo projeto. Ex.: cerca/tenda leve, casa de madeira média, pedra/fornalha pesada, ponte com compatibilidade aquática. Requisitos específicos são exemplos a revisar. Ações futuras de preparação do terreno, aterro, fundação ou ponte podem ampliar possibilidades mediante conhecimento e recursos.
+Montanhas são conjuntos de blocos rochosos extraíveis que ocupam células, separados do terreno de base. Bloco possui material predominante, resistência, recurso finito e bloqueio de passagem; extração exige conhecimento/ferramenta quando aplicável. Esgotamento remove o bloqueio e libera a célula, deixando rocha exposta, preservando contabilidade material D1.5. Sem geologia 3D. Túneis, cobertura de montanha, risco estrutural e construções internas exigem regras futuras; não presumir suporte atual.
+
+### Camadas e evolução
+Distinguir terreno, entidades fixas (árvore, rocha, construção), entidades móveis (humanos, animais) e condições ambientais. Podem coexistir se regras de ocupação forem compatíveis; entidades fixas não são necessariamente bloqueantes. Terrenos são essencialmente estáticos, alteráveis por ações ou acontecimentos definidos; não fazer atualização contínua de todas as propriedades de cada célula. Clima como perfil regional e ciclos sazonais; temperatura regional e modificadores locais somente quando houver consumidor. Água como terreno e fonte de recurso, nutrientes agregados à fertilidade. Adiar erosão, hidrodinâmica, simulação meteorológica detalhada, geologia tridimensional e ciclos de umidade/nutrientes por célula. Geração determinística por seed e parâmetros de cenário; distribuição e algoritmos ainda abertos.
+Consequências observáveis futuras: mapa e inspetor mostram tipo, fertilidade, sustentação, permissão de cultivo, movimento e blocos minerais; ações inválidas explicam restrições. Observer não infere regras de sprites. Dependências: D1.1 espaço, D1.4 calendário, D1.5 materiais, D1.7 entidades, D3 necessidades, D4 interação, D5 conhecimento, D9 produção e D11 geração/observação. Sem implementação ou homologação técnica.
+Próxima decisão: D1.7 — entidades, distinção entre o que existe no mundo, tipos e instâncias, propriedades e capacidades compartilhadas (incluindo animais).
