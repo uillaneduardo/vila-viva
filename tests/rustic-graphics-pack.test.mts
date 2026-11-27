@@ -70,13 +70,15 @@ test('walk cycles use four frames; paused or non-moving graphics are static',()=
  }
  const d=pack['entities/human/south'];assert.notEqual(frameForState(d,'working',0,true),frameForState(d,'working',300,true));
 });
-test('job icons are projections of current state and not persistent roles',()=>{
- const npc={kind:'character',health:100,ai:{activity:'Plantando'}};
+test('profession markers are stable across activities',()=>{
+ const npc={kind:'character',health:100,profession:'farm',ai:{activity:'Plantando'}};
  assert.equal(resolveWorldSprite(npc).role,'farm');
- assert.equal(resolveWorldSprite({...npc,ai:{activity:'Construindo'}}).role,'builder');
+ assert.equal(resolveWorldSprite({...npc,ai:{activity:'Construindo'}}).role,'farm');
  assert.equal(resolveWorldSprite({...npc,communityRole:'leader'}).role,'leader');
- assert.equal(resolveWorldSprite({...npc,ai:{activity:'unknown'}}).role,null);
+ assert.equal(resolveWorldSprite({...npc,ai:{activity:'unknown'}}).role,'farm');
  assert.equal(resolveWorldSprite({...npc,health:0}).role,null);
+ assert.equal(resolveWorldSprite({...npc,profession:undefined}).role,null);
+ assert.equal(resolveWorldSprite(npc,{direction:'west'}).direction,'west');
  const reg=new UiAssetRegistry();registerRusticUi(reg);reg.setTheme('rustic-dark');
  for(const id of Object.keys(reg.manifest.visuals))if(id!=='ui.unavailable')assert.ok(reg.resolve(id).sprite,id);
 });
