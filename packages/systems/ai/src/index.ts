@@ -468,6 +468,7 @@ function record(npc:Character,world:World,activity:string|null,reason:string,tar
   ai.history.push({tick:world.tick,activity:activity??"Aguardando",reason,...(targetId?{targetId}:{})});
   if(ai.history.length>8)ai.history.splice(0,ai.history.length-8);
  }
+ delete ai.workAction;delete ai.workMaterial;
  ai.activity=activity;ai.reason=reason;ai.targetId=targetId;ai.route=route;ai.lastDecisionTick=world.tick;
 }
 
@@ -663,6 +664,7 @@ function executeTask(world:World,npc:Character,task:Task,execute:ActionHandler):
  }
  record(npc,world,result.ok?task.activity:"Bloqueado",
   result.ok?task.reason:"Ação rejeitada ("+result.error+"); nova decisão no próximo ciclo",task.targetId??task.target.id);
+ if(result.ok&&npc.ai){npc.ai.workAction=task.action; npc.ai.workMaterial=task.target.kind==="resource"?task.target.resourceType:task.target.kind==="construction"?task.target.blueprintId:undefined;}
 }
 export function advanceNpcDecisions(world:World,execute:ActionHandler):void {
  if(world.tick%NPC_ACTION_INTERVAL!==0)return;
