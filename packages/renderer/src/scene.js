@@ -1,7 +1,8 @@
 import {soilColor,canCultivateCell} from "../../content/src/soil.js";
 import {Camera,hitTest,brushCells} from './camera.js';
 import {SpriteLibrary,resolveWorldSprite} from './sprites.js';
-import {resolveFacing} from './character-visual-state.js';
+import {drawCharacterWork,drawProfessionClothing} from './character-animation.js';
+import {resolveFacing,resolveWorkAnimation} from './character-visual-state.js';
 import {createOcclusionResolver} from './occlusion.js';
 export class Scene {
  constructor(canvas,{spriteLibrary=new SpriteLibrary()}={}){
@@ -262,6 +263,11 @@ export class Scene {
     }
     if(e.kind==='resource'&&e.quantity===0){c.fillStyle='rgba(30,45,33,.58)';c.fillRect(-s*.3,-s*.3,s*.6,s*.6);}
     c.restore();
+   }
+   if(drawn&&e.kind==='character'&&e.health>0&&this.sprites.pack?.['entities/human/north']){
+    if(visual.role&&visual.state!=='resting')drawProfessionClothing(c,p.x,p.y,s,visual.role,visual.direction);
+    const clip=visual.state==='working'&&resolveWorkAnimation(e);
+    if(clip)drawCharacterWork(c,p.x,p.y,s,visual.direction,clip,this.paused?0:now+(String(e.id).length%7)*73);
    }
    if(drawn&&e.kind==='character'&&visual.role&&this.sprites.pack?.['accessories/'+visual.role]&&s>=20){
     // Small secondary icon, always inside the tile and independent of hit testing.
