@@ -180,11 +180,13 @@ export function planAgriculture(world:World,leader:Character){
  }
  return undefined;
 }
+import {assignProfessions} from "./professions.ts";
 import {removalSafe} from "../../construction/src/removal.ts";
 export function advanceLeaderDecisions(world:World,execute:(cmd:Command)=>Result):void {
  if(world.tick%LEADER_DECISION_INTERVAL!==0)return;
  const leader=living(world).find(npc=>npc.communityRole==="leader");
  if(!leader)return;
+ assignProfessions(world,leader);
  leader.leadership??={lastPlanTick:-1,lastReason:"Avaliando comunidade"};
  // Ruins are already unavailable; a leader may order clearance, never dismantle a live building automatically.
  const ruin=world.entities.find(e=>e.kind==="construction"&&e.status==="destroyed"&&!e.removalOrder&&removalSafe(world,e));
