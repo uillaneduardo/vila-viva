@@ -35,3 +35,6 @@ Conduzir uma decisão de cada vez, em linguagem clara. Para cada etapa: explicar
 | D11 | Cenários, experimentos, métricas e observação | Direção aprovada; parâmetros abertos |
 | D12 | Escala, abstrações futuras e desempenho | Aberta |
 D1 iniciar com distinção mundo = estado autoritativo contendo tempo lógico, espaço, entidades e regras configuráveis; universo não precisa simular tudo, representação espacial inicial grid 2D reutilizando Oturo, localizações abstratas para futuro (não implementar multiescala agora); matéria por tipos/quantidades e propriedades úteis, sem partículas; tick lógico independente de frame/tempo de parede. Proposta inicial a discutir, não aprovada. Primeira pergunta: concorda com mundo inicial 2D em células, com espaço/tempo lógico e possibilidade de regiões abstratas no futuro, sem física contínua? Depois definir separadamente tempo, unidades, regras e recursos. Não confundir tile com unidade real universal, não fixar duração do dia sem análise. Ao fechar D1, entregar ficha e dependências para D2.
+
+## 7. Registro de decisões
+[SIMNEXT_CONCEPT_DECISIONS.md](SIMNEXT_CONCEPT_DECISIONS.md) registra D1.1 aprovada (mapa 2D em células e regiões abstratas no futuro) e o requisito de animais, domesticação e produtos animais para retomar nas etapas pertinentes. D1 está em andamento; próxima decisão D1.2 — tempo lógico.
