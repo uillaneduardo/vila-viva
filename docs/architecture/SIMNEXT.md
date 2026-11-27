@@ -78,3 +78,6 @@ Taxas de estudo/prática/leitura/ensino, necessidade de local ou insumo por téc
 
 ## 13. Cenários e experimentação
 O SimNext é uma plataforma de experimentação parametrizável, não um motor restrito a assentamentos. A especificação complementar [SIMNEXT_SCENARIOS.md](SIMNEXT_SCENARIOS.md) define cenário, experimento, execução, observação, comparação de seeds, evolução tecnológica de longo prazo e interação entre sociedades distintas. O objetivo do observador não força o objetivo dos agentes. As regras de cenário devem ser declarativas e compartilhadas pelo mesmo motor.
+
+## 14. Referências de simuladores e critérios de design
+[SIMNEXT_REFERENCES.md](SIMNEXT_REFERENCES.md) consolida as lições de RimWorld, Dwarf Fortress, WorldBox, Oxygen Not Included, Songs of Syx, Factorio e NetLogo, com fontes públicas, limites da comparação e aplicação ao roadmap. A direção é modelagem baseada em agentes, abstração intencional, composição de sistemas simples e experimentação parametrizável. Oturo é a primeira aplicação visual; narrador de eventos é opcional e desligado por padrão em experimentos controlados.
