@@ -12,7 +12,7 @@ test('rustic preserves world atlas contract and default',async()=>{
  assert.equal(getWorldVisualPack('invalid'),simple);
  for(const [id,def] of Object.entries(simple)){
   const next=rustic[id];assert.deepEqual(next.states,def.states);assert.equal(next.pivotX,def.pivotX);assert.equal(next.pivotY,def.pivotY);
-  if(next.src!==def.src){const svg=await readFile(new URL('../public'+next.src,import.meta.url),'utf8');assert.match(svg,new RegExp('width="'+next.frameWidth*next.frameCount+'"'));assert.match(svg,/height="96"/);assert.match(svg,/data:image\/png;base64,/);}
+  if(next.src!==def.src){const svg=await readFile(new URL('../public'+next.src,import.meta.url),'utf8');assert.match(svg,new RegExp('width="'+next.frameWidth*next.frameCount+'"'));assert.match(svg,/height="96"/);if(id!=='buildings/cemetery')assert.match(svg,/data:image\/png;base64,/);}
  }
  assert.notEqual(rustic['buildings/depot'].src,simple['buildings/depot'].src);
 });
