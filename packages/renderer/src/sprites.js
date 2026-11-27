@@ -7,6 +7,8 @@ export const SPRITES=Object.freeze({
  'character.human':{id:'entities/human',states:['idle','moving','working','resting']},
  'resource.wood':{id:'resources/tree',states:['available','exhausted']},
  'resource.food':{id:'vegetation/apple_tree',states:['leafless','foliage','fruit_sparse','fruit_ripe']},
+ 'resource.iron_ore':{id:'resources/iron_ore',states:['available','exhausted']},
+ 'resource.copper_ore':{id:'resources/copper_ore',states:['available','exhausted']},
  'resource.stone':{id:'resources/stone',states:['available','exhausted']},
  'building.community_house':{id:'buildings/community_house',states:['site','foundation','structure','roof','completed']},
  'building.depot':{id:'buildings/depot',states:['site','foundation','structure','completed']}
@@ -17,7 +19,11 @@ export const WORLD_ATLASES=getWorldVisualPack();
 
 /** Map authoritative entity state to an appearance without changing the entity. */
 export function resolveWorldSprite(entity,context){
- if(entity?.kind==='character')return {id:'entities/human',state:resolveCharacterState(entity,context),scale:1.45};
+ if(entity?.kind==='character'){
+ const segment=entity.movementSegment,dx=segment?segment.to.x-segment.from.x:0,dy=segment?segment.to.y-segment.from.y:0;
+ const direction=dx>0?'east':dx<0?'west':dy<0?'north':'south';
+ return {id:'entities/human',state:resolveCharacterState(entity,context),direction,scale:1.45};
+ }
  if(entity?.kind==='construction')return resolveBuildingVisual(entity);
  if(entity?.kind!=='resource')return null;
  if(entity.sourceId==='carrot'||entity.sourceId==='potato'||entity.sourceId==='medicinal_herb')
@@ -52,10 +58,11 @@ export class SpriteLibrary {
    image.onerror=()=>{const entry=this.atlases.get(id);if(entry?.image===image)entry.ready=false;};
    image.src=definition.src;
  }
- draw(ctx,id,x,y,size,state='idle',{height=size,level=1}={}){
+ draw(ctx,id,x,y,size,state='idle',{height=size,level=1,direction,now=0}={}){
   const legacyStates={site:'stage:0',foundation:'stage:1',structure:'stage:2',roof:'stage:3'};
   const key=legacyStates[state]??state;
-  const assetId=Object.hasOwn(this.pack,id)?id:PLANNED_BUILDING_ALIASES[id]??id;
+  const directional=direction&&id+'/'+direction;
+  const assetId=directional&&Object.hasOwn(this.pack,directional)?directional:Object.hasOwn(this.pack,id)?id:PLANNED_BUILDING_ALIASES[id]??id;
   for(const candidate of [assetId,assetId+'@'+level])if(Object.hasOwn(this.pack,candidate))this.loadAtlas(candidate,this.pack[candidate]);
   const variant=this.atlases.get(assetId+'@'+level);
   const atlas=variant?.ready&&(variant.definition.states.includes(key)||variant.definition.states.includes(state))?variant:this.atlases.get(assetId);
@@ -65,7 +72,7 @@ export class SpriteLibrary {
    const d=atlas.definition;
    ctx.save();ctx.imageSmoothingEnabled=false;
    ctx.drawImage(atlas.image,frame*d.frameWidth,0,d.frameWidth,d.frameHeight,
-    x-size*d.pivotX/d.frameWidth,y-height*d.pivotY/d.frameHeight,size,height);
+    x-size*d.pivotX/d.frameWidth,y-height*d.pivotY/d.frameHeight-(directional&&assetId===directional&&state==='moving'?Math.round(Math.abs(Math.sin(now/95))*height*.035):0),size,height);
    ctx.restore();return true;
   }
   const sprite=this.images.get(id+':'+state)||this.images.get(id);
