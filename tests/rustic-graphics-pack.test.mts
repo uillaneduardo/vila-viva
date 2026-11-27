@@ -80,3 +80,34 @@ test('job icons are projections of current state and not persistent roles',()=>{
  const reg=new UiAssetRegistry();registerRusticUi(reg);reg.setTheme('rustic-dark');
  for(const id of Object.keys(reg.manifest.visuals))if(id!=='ui.unavailable')assert.ok(reg.resolve(id).sprite,id);
 });
+
+function pngCrc(bytes:Uint8Array){
+ let crc=0xffffffff;
+ for(const byte of bytes){crc^=byte;for(let bit=0;bit<8;bit++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);}
+ return (crc^0xffffffff)>>>0;
+}
+test('embedded rustic bitmaps have valid PNG chunks and proportional artwork bounds',async()=>{
+ const paths=new Set(Object.values(getWorldVisualPack('rustic')).filter(d=>d.src.includes('/rustic/')).map(d=>d.src));
+ const reg=new UiAssetRegistry();registerRusticUi(reg);reg.setTheme('rustic-dark');
+ for(const id of Object.keys(reg.manifest.visuals)){const src=reg.resolve(id).sprite;if(src)paths.add(src);}
+ for(const src of paths){
+  const svg=await readFile(new URL('../public'+src,import.meta.url),'utf8');
+  for(const match of svg.matchAll(/<image\b[^>]+>/g)){
+   const tag=match[0],encoded=tag.match(/data:image\/png;base64,([^"]+)/)?.[1];if(!encoded)continue;
+   const png=Buffer.from(encoded,'base64');
+   assert.equal(png.subarray(0,8).toString('hex'),'89504e470d0a1a0a',src);
+   const w=png.readUInt32BE(16),h=png.readUInt32BE(20);let offset=8,ended=false;
+   while(offset+12<=png.length){
+    const length=png.readUInt32BE(offset),end=offset+12+length;
+    assert.ok(end<=png.length,src);
+    assert.equal(pngCrc(png.subarray(offset+4,offset+8+length)),png.readUInt32BE(offset+8+length),src);
+    const kind=png.subarray(offset+4,offset+8).toString();
+    offset=end;if(kind==='IEND'){ended=true;break;}
+   }
+   assert.ok(ended,src);
+   assert.doesNotMatch(tag,/preserveAspectRatio="none"/,src);
+   const width=Number(tag.match(/\bwidth="([^"]+)"/)?.[1]),height=Number(tag.match(/\bheight="([^"]+)"/)?.[1]);
+   assert.ok(Math.abs(width/height-w/h)<.001,src+' image aspect ratio');
+  }
+ }
+});
